@@ -1,21 +1,24 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** DIGITAL
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.c
+    digital.c
 
   @Summary
-    Brief description of the file.
+    Digital & PWM processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
 /* ************************************************************************** */
 
 #include "digital.h"
+
+/* ================================ C codes ================================ */
+/* ============================= mruby/c codes ============================= */
 
 static void c_pin_mode(mrb_vm *vm, mrb_value *v, int argc) {
     int pin = GET_INT_ARG(1);
@@ -166,15 +169,13 @@ static void c_pwm_stop(mrb_vm *vm, mrb_value *v, int argc) {
     }
 }
 
-void mrbc_init_class_digital(struct VM *vm)
-{
+void mrbc_init_class_digital(struct VM *vm){
     mrbc_define_method(0, mrbc_class_object, "pinMode", c_pin_mode);
     mrbc_define_method(0, mrbc_class_object, "digitalWrite", c_pin_write);
     mrbc_define_method(0, mrbc_class_object, "digitalRead", c_pin_read);
 }
 
-void mrbc_init_class_pwm(struct VM *vm)
-{
+void mrbc_init_class_pwm(struct VM *vm){
     mrb_class *pwm;
     pwm = mrbc_define_class(0, "PWM",	mrbc_class_object);
     mrbc_define_method(0, pwm, "new", c_pwm_init);

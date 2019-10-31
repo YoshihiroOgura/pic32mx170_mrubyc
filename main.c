@@ -112,7 +112,9 @@ void add_code(){
     txt_addr = txt;
     // [crlf] read waite
     txt_len = u_read(txt_addr);
-    if(!txt_len){return 0;}
+    if(!txt_len){
+        return;
+    }
     u_puts("+OK mruby/c\r\n",0);
     memset(txt, 0, sizeof(txt));
     txt_len = u_read(txt_addr);
@@ -182,10 +184,12 @@ void __ISR(_TIMER_2_VECTOR, IPL2AUTO) _T2Interrupt (  )
 
 int main(void)
 {
+    /* module init */
     i2c_init();
     adc_init();
     uart_init();
     timer_init();
+    
     /*Enable the interrupt*/
     IEC0bits.T1IE = 1;
     IEC0bits.T2IE = 1;
@@ -196,11 +200,16 @@ int main(void)
     IPC2bits.T2IP = 2;
     IPC2bits.T2IS = 0;
     INTCONbits.MVEC = 1;
-    TRISB = TRISB | 0x80;
-    CNPUB = CNPUB | 0x80;
-    AD1CHS = 0x4<<16;
+    
+    /* btn on */
+    TRISB |= 0x80;
+    CNPUB |= 0x80;
+    
+    /* IDE code */
     add_code();
     uint8_t *addr = loadFlush();
+    
+    /* mruby/c */
     mrbc_init(memory_pool, MEMORY_SIZE);
     mrbc_init_class_adc(0);
     mrbc_init_class_i2c(0);

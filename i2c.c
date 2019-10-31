@@ -1,21 +1,23 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** I2C
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
     i2c.c
 
   @Summary
-    Brief description of the file.
+    I2C processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
 /* ************************************************************************** */
 
 #include "i2c.h"
+
+/* ================================ C codes ================================ */
 
 void i2c_init() {
     ANSELB &= 0xf3;
@@ -25,6 +27,8 @@ void i2c_init() {
     I2C2CON = 0x8000;
     I2C2STAT = 0x0;
 }
+
+/* ============================= mruby/c codes ============================= */
 
 void i2c_start() {
     I2C2CONbits.SEN = 1;

@@ -1,20 +1,23 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** UART
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.c
+    uart.c
 
   @Summary
-    Brief description of the file.
+    UART processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
+/* ************************************************************************** */
 
 #include "uart.h"
+
+/* ================================ C codes ================================ */
 
 void uart_init(void){
    ANSELA = 0x0000;
@@ -24,14 +27,12 @@ void uart_init(void){
    U1RXRbits.U1RXR = 0x0002;   //RA4->UART1:U1RX;
    RPB4Rbits.RPB4R = 0x0001;   //RB4->UART1:U1TX;
    U1MODE = 0x8008;
-   // UTXISEL TX_ONE_CHAR; UTXINV disabled; ADDR 0; URXEN disabled; OERR disabled; ADM_EN disabled; URXISEL RX_ONE_CHAR; UTXBRK disabled; UTXEN disabled; ADDEN disabled; 
    U1STA = 0x0;
-   // U1TXREG 0; 
    U1TXREG = 0x0;
    // BaudRate = 19200; Frequency = 40kHz; BRG 129; 
    U1BRG = 129;
-   U1STAbits.UTXEN = 1;        //10_TX_enable
-   U1STAbits.URXEN = 1;        //12_RX_enable
+   U1STAbits.UTXEN = 1;        //TX_enable
+   U1STAbits.URXEN = 1;        //RX_enable
 
    //Enabling UART
    U1MODEbits.ON = 1;
@@ -69,6 +70,8 @@ int u_read(char *addr){
     return i;
 }
 
+/* ============================= mruby/c codes ============================= */
+
 static void c_uart_puts(mrb_vm *vm, mrb_value *v, int argc) {
     char *mo = mrbc_string_cstr(&v[1]);
     int size = mrbc_string_size(&v[1]);
@@ -99,8 +102,7 @@ static void c_uart_gets(mrb_vm *vm, mrb_value *v, int argc) {
     SET_RETURN(text);
 }
 
-void mrbc_init_class_uart(struct VM *vm)
-{
+void mrbc_init_class_uart(struct VM *vm){
     mrb_class *uart;
     uart = mrbc_define_class(0, "UART",	mrbc_class_object);
     mrbc_define_method(0, uart, "gets", c_uart_gets);

@@ -1,22 +1,22 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** UART
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.h
+    uart.c
 
   @Summary
-    Brief description of the file.
+    UART processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
 /* ************************************************************************** */
 
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _UART_H
+#define _UART_H
 
 #include "mrubyc.h"
 
@@ -25,14 +25,17 @@
 extern "C" {
 #endif
 
+/* C codes */
 void uart_init(void);
-void mrbc_init_class_uart(struct VM *vm);
 void u_puts(char *mo, int size);
 int u_read(char *addr);
+
+/* mruby/c codes */
+void mrbc_init_class_uart(struct VM *vm);
 
     /* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EXAMPLE_FILE_NAME_H */
+#endif /* _UART_H */

@@ -1,11 +1,23 @@
-/*
- * File:   timer.c
- * Author: 164
- *
- * Created on 2019/10/30, 10:13
+/* ************************************************************************** */
+/** timer
+
+  @Company
+    ShimaneJohoshoriCenter.inc
+
+  @File Name
+    timer.c
+
+  @Summary
+    timer processing
+
+  @Description
+    mruby/c function army
  */
+/* ************************************************************************** */
 
 #include "timer.h"
+
+/* ================================ C codes ================================ */
 
 void timer_init() {
     TMR1 = 0x0;
@@ -18,6 +30,8 @@ void timer_init() {
     PR3 = 10;
     T3CON = 0x8000;
 }
+
+/* ============================= mruby/c codes ============================= */
 
 static void timer_start(mrb_vm *vm, mrb_value *v, int argc) {
     T2CONbits.ON = 1;
@@ -40,8 +54,7 @@ static void timer_count_get(mrb_vm *vm, mrb_value *v, int argc) {
     SET_INT_RETURN(t_count);
 }
 
-void mrbc_init_class_timer(struct VM *vm)
-{
+void mrbc_init_class_timer(struct VM *vm){
     mrb_class *timer;
     timer = mrbc_define_class(0, "Timer",	mrbc_class_object);
     mrbc_define_method(0, timer, "start", timer_start);

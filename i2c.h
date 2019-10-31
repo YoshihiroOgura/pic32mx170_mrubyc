@@ -1,22 +1,22 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** I2C
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.h
+    i2c.h
 
   @Summary
-    Brief description of the file.
+    I2C processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
 /* ************************************************************************** */
 
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _I2C_H
+#define _I2C_H
 
 #include "mrubyc.h"
 
@@ -25,12 +25,15 @@
 extern "C" {
 #endif
     
-void mrbc_init_class_i2c(struct VM *vm);
+/* C codes */
 void i2c_init(void);
+
+/* mruby/c codes */
+void mrbc_init_class_i2c(struct VM *vm);
 
     /* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EXAMPLE_FILE_NAME_H */
+#endif /* _I2C_H */

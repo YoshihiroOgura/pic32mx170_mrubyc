@@ -1,22 +1,22 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** timer
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.h
+    timer.c
 
   @Summary
-    Brief description of the file.
+    timer processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
 /* ************************************************************************** */
 
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _TIMER_H
+#define _TIMER_H
 
 #include "mrubyc.h"
 
@@ -25,9 +25,11 @@
 extern "C" {
 #endif
 
+/* C codes */
 extern uint8_t t_count;
-    
 void timer_init(void);
+
+/* mruby/c codes */
 void mrbc_init_class_timer(struct VM *vm);
 
     /* Provide C++ Compatibility */
@@ -35,5 +37,5 @@ void mrbc_init_class_timer(struct VM *vm);
 }
 #endif
 
-#endif /* _EXAMPLE_FILE_NAME_H */
+#endif /* _TIMER_H */
 

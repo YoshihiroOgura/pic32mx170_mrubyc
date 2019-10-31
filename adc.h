@@ -1,22 +1,22 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** ADC
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.h
+    adc.h
 
   @Summary
-    Brief description of the file.
+    ADC processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
 /* ************************************************************************** */
 
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _ADC_H
+#define _ADC_H
 
 #include "mrubyc.h"
 
@@ -25,12 +25,15 @@
 extern "C" {
 #endif
     
-void mrbc_init_class_adc(struct VM *vm);
+/* C codes */
 void adc_init(void);
+
+/* mruby/c codes */
+void mrbc_init_class_adc(struct VM *vm);
 
     /* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EXAMPLE_FILE_NAME_H */
+#endif /* _ADC_H */

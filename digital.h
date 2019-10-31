@@ -1,22 +1,22 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** DIGITAL
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.h
+    digital.h
 
   @Summary
-    Brief description of the file.
+    Digital & PWM processing
 
   @Description
-    Describe the purpose of this file.
+    mruby/c function army
  */
 /* ************************************************************************** */
 
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _DIGITAL_H
+#define _DIGITAL_H
 
 #include "mrubyc.h"
 
@@ -24,7 +24,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
+/* C codes */
+
+/* mruby/c codes */
 void mrbc_init_class_digital(struct VM *vm);
 void mrbc_init_class_pwm(struct VM *vm);
 
@@ -33,4 +36,4 @@ void mrbc_init_class_pwm(struct VM *vm);
 }
 #endif
 
-#endif /* _EXAMPLE_FILE_NAME_H */
+#endif /* _DIGITAL_H */
