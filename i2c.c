@@ -84,8 +84,7 @@ static void c_i2c_read(mrb_vm *vm, mrb_value *v, int argc) {
     SET_RETURN(hako);
 }
 
-void mrbc_init_class_i2c(struct VM *vm)
-{
+void mrbc_init_class_i2c(struct VM *vm){
     mrb_class *i2c;
     i2c = mrbc_define_class(0, "I2C",	mrbc_class_object);
     mrbc_define_method(0, i2c, "write",c_i2c_write);

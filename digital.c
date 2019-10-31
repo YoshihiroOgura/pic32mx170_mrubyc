@@ -68,21 +68,9 @@ static void c_pin_read(mrb_vm *vm, mrb_value *v, int argc) {
 static void c_pwm_init(mrb_vm *vm, mrb_value *v, int argc) {
     PR3 = GET_INT_ARG(1);
     T3CONbits.TCKPS = GET_INT_ARG(2);
-    OC1CON = 0x800F;
-    OC1R = PR3;
-    OC1RS = PR3/2;
-    OC2CON = 0x800F;
-    OC2R = PR3;
-    OC2RS = PR3/2;
-    OC3CON = 0x800F;
-    OC3R = PR3;
-    OC3RS = PR3/2;
-    OC4CON = 0x800F;
-    OC4R = PR3;
-    OC4RS = PR3/2;
-    OC5CON = 0x800F;
-    OC5R = PR3;
-    OC5RS = PR3/2;
+    OC1CON = OC2CON = OC3CON = OC4CON = OC5CON = 0x800F;
+    OC1R = OC2R = OC3R = OC4R = OC5R = PR3;
+    OC1RS = OC2RS = OC3RS = OC4RS = OC5RS = PR3/2;
 }
 
 static void c_pwm_duty(mrb_vm *vm, mrb_value *v, int argc) {

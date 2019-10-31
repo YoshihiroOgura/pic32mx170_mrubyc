@@ -56,7 +56,6 @@ uint8_t t_count = 0;
 
 uint8_t *loadFlush() {
     memset(flashBuffer, 0, sizeof(flashBuffer));
-    //NVM_WriteRow((void *)flashBuffer, (void *)FLASH_SAVE_ADDR);
     memcpy((void* )flashBuffer, (void *)FLASH_SAVE_ADDR, sizeof(flashBuffer));
     return &flashBuffer[0];
 }
@@ -125,10 +124,10 @@ void add_code(){
     txt_len = u_read(txt_addr);
     u_puts("+OK Write bytecode\r\n",0);
     int size = 0;
-    txt_len = txt_len-2;
+    txt_len -= 2;
     int j = 0;
     while(txt_len>5){
-        size = (txt[txt_len] - 0x30) * pow(10,j) + size;
+        size += (txt[txt_len] - 0x30) * pow(10,j);
         j++;
         txt_len--;
     }
@@ -170,20 +169,17 @@ int hal_flush(int fd) {
 
 /* mruby/c writer */
 
-void __ISR(_TIMER_1_VECTOR, IPL1AUTO) _T1Interrupt (  )
-{
+void __ISR(_TIMER_1_VECTOR, IPL1AUTO) _T1Interrupt (  ){
     mrbc_tick();
     IFS0CLR= 1 << _IFS0_T1IF_POSITION;
 }
 
-void __ISR(_TIMER_2_VECTOR, IPL2AUTO) _T2Interrupt (  )
-{
+void __ISR(_TIMER_2_VECTOR, IPL2AUTO) _T2Interrupt (  ){
     t_count++;
     IFS0CLR = 1 << _IFS0_T2IF_POSITION;
 }
 
-int main(void)
-{
+int main(void){
     /* module init */
     i2c_init();
     adc_init();

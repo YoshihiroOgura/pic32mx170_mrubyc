@@ -80,7 +80,7 @@ static void c_uart_puts(mrb_vm *vm, mrb_value *v, int argc) {
     while(i<size){
         if(mo[i]==0){break;}
         while (U2STAbits.TRMT == 0);
-        U2TXREG= mo[i];
+        U2TXREG = mo[i];
         i++;
     }
 }
