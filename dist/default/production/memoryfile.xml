@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?> 
 <project>                                  
-  <executable name="dist/default/production/pic32_rbduino.X.production.elf">                 
+  <executable name="dist/default/production/pic32_register_mrubyc.production.elf">                 
     <memory name="program">                 
       <units>bytes</units>                 
       <length>263312</length>                 
-      <used>173292</used>                     
-      <free>90020</free>                     
+      <used>174012</used>                     
+      <free>89300</free>                     
     </memory>                              
     <memory name="data">              
       <units>bytes</units>                 

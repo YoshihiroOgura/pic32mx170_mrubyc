@@ -198,6 +198,9 @@ int main(void){
     INTCONbits.MVEC = 1;
     
     /* btn on */
+    TRISB = 0;
+    ANSELA = 0;
+    ANSELB = 0;
     TRISB |= 0x80;
     CNPUB |= 0x80;
     
@@ -212,7 +215,8 @@ int main(void){
     mrbc_init_class_uart(0);
     mrbc_init_class_digital(0);
     mrbc_init_class_timer(0);
-    mrbc_init_class_pwm();
+    mrbc_init_class_pwm(0);
+    mrbc_init_class_onboard(0);
     mrbc_create_task(addr, 0);
     T1CONbits.ON = 1;
     mrbc_run();

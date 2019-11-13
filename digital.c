@@ -20,16 +20,32 @@
 /* ================================ C codes ================================ */
 /* ============================= mruby/c codes ============================= */
 
+static void c_leds(mrb_vm *vm, mrb_value *v, int argc) {
+    int led = GET_INT_ARG(1);
+    PORTAbits.RA0 = led & 0x01;
+    PORTAbits.RA1 = (led & 0x02)>>1;
+    PORTBbits.RB0 = (led & 0x04)>>2;
+    PORTBbits.RB1 = (led & 0x08)>>3;
+}
+
+static void c_sw(mrb_vm *vm, mrb_value *v, int argc) {
+    int led = GET_INT_ARG(1);
+    TRISA |= (led & 0x03);
+    TRISB |= (led & 0x0d);
+}
+
 static void c_pin_mode(mrb_vm *vm, mrb_value *v, int argc) {
     int pin = GET_INT_ARG(1);
     int mode = GET_INT_ARG(2);
     if(pin < 5){
+        ANSELA &= ~(1<<pin);
         if(mode == 0){
             TRISA &= ~(1<<pin);
         }else{
             TRISA |= (1<<pin);
         }
     }else{
+        ANSELB &= ~(1<<pin);
         if(mode == 0){
             TRISB &= ~(1<<(pin-5));
         }else{
@@ -155,6 +171,11 @@ static void c_pwm_stop(mrb_vm *vm, mrb_value *v, int argc) {
             OC4CONbits.ON = 0;
             break;
     }
+}
+
+void mrbc_init_class_onboard(struct VM *vm){
+    mrbc_define_method(0, mrbc_class_object, "leds_write", c_leds);
+    mrbc_define_method(0, mrbc_class_object, "sw", c_sw);
 }
 
 void mrbc_init_class_digital(struct VM *vm){

@@ -28,6 +28,7 @@ extern "C" {
 /* C codes */
 
 /* mruby/c codes */
+void mrbc_init_class_onboard(struct VM *vm);
 void mrbc_init_class_digital(struct VM *vm);
 void mrbc_init_class_pwm(struct VM *vm);
 

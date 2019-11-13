@@ -28,8 +28,6 @@ void i2c_init() {
     I2C2STAT = 0x0;
 }
 
-/* ============================= mruby/c codes ============================= */
-
 void i2c_start() {
     I2C2CONbits.SEN = 1;
     while (I2C2CONbits.SEN) {}
@@ -43,6 +41,14 @@ void i2c_restart() {
 void i2c_stop() {
     I2C2CONbits.PEN = 1;
     while (I2C2CONbits.PEN) {}
+}
+
+/* ============================= mruby/c codes ============================= */
+
+static void c_i2c_new(mrb_vm *vm, mrb_value *v, int argc) {
+    ANSELB &= 0xf3;
+    TRISB |= 0xc;
+    CNPUB |= 0xc;
 }
 
 void i2c_write(unsigned char data) {
@@ -87,6 +93,7 @@ static void c_i2c_read(mrb_vm *vm, mrb_value *v, int argc) {
 void mrbc_init_class_i2c(struct VM *vm){
     mrb_class *i2c;
     i2c = mrbc_define_class(0, "I2C",	mrbc_class_object);
+    mrbc_define_method(0, i2c, "new",c_i2c_new);
     mrbc_define_method(0, i2c, "write",c_i2c_write);
     mrbc_define_method(0, i2c, "read", c_i2c_read);
 }
