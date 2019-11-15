@@ -90,10 +90,15 @@ static void c_i2c_read(mrb_vm *vm, mrb_value *v, int argc) {
     SET_RETURN(hako);
 }
 
+static void c_i2c_status(mrb_vm *vm, mrb_value *v, int argc) {
+    SET_INT_RETURN(I2C2STAT);
+}
+
 void mrbc_init_class_i2c(struct VM *vm){
     mrb_class *i2c;
     i2c = mrbc_define_class(0, "I2C",	mrbc_class_object);
     mrbc_define_method(0, i2c, "new",c_i2c_new);
+    mrbc_define_method(0, i2c, "status",c_i2c_status);
     mrbc_define_method(0, i2c, "write",c_i2c_write);
     mrbc_define_method(0, i2c, "read", c_i2c_read);
 }
