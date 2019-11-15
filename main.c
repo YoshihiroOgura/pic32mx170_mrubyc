@@ -167,6 +167,22 @@ int hal_flush(int fd) {
     return 0;
 }
 
+void pin_init(void){
+    PORTA = 0;
+    PORTB = 0;
+    TRISA = 0;
+    TRISB = 0;
+    ANSELA = 0;
+    ANSELB = 0;
+    TRISAbits.TRISA4 = 1;
+    TRISB |= 0x8c;
+    CNPUB |= 0x8c;
+}
+
+static void c_pin_init(mrb_vm *vm, mrb_value *v, int argc) {
+    pin_init();
+}
+
 /* mruby/c writer */
 
 void __ISR(_TIMER_1_VECTOR, IPL1AUTO) _T1Interrupt (  ){
@@ -185,6 +201,7 @@ int main(void){
     adc_init();
     uart_init();
     timer_init();
+    pin_init();
     
     /*Enable the interrupt*/
     IEC0bits.T1IE = 1;
@@ -197,19 +214,13 @@ int main(void){
     IPC2bits.T2IS = 0;
     INTCONbits.MVEC = 1;
     
-    /* btn on */
-    TRISB = 0;
-    ANSELA = 0;
-    ANSELB = 0;
-    TRISB |= 0x80;
-    CNPUB |= 0x80;
-    
     /* IDE code */
     add_code();
     uint8_t *addr = loadFlush();
     
     /* mruby/c */
     mrbc_init(memory_pool, MEMORY_SIZE);
+    mrbc_define_method(0, mrbc_class_object, "pinInit", c_pin_init);
     mrbc_init_class_adc(0);
     mrbc_init_class_i2c(0);
     mrbc_init_class_uart(0);
