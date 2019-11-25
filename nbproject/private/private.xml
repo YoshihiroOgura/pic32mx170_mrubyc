@@ -5,15 +5,10 @@
         <group>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/digital.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/i2c.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/src/hal/hal.h</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/timer.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/mrbc_firm.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/digital.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/src/c_math.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/adc.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/src/value.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/src/c_math.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/delay.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/main.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_register_mrubyc/uart.c</file>
         </group>
     </open-files>
 </project-private>

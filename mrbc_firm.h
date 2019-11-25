@@ -1,30 +1,34 @@
 /* ************************************************************************** */
-/** Descriptive File Name
+/** mrbc firm
 
   @Company
-    Company Name
+    ShimaneJohoshoriCenter.inc
 
   @File Name
-    filename.h
+    mrbc_firm.h
 
   @Summary
-    Brief description of the file.
+    mruby/c IDE support
 
   @Description
-    Describe the purpose of this file.
+    mruby/c IDE support & Flash writing
  */
 /* ************************************************************************** */
 
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _MRBC_FIRM_H    /* Guard against multiple inclusion */
+#define _MRBC_FIRM_H
 
+#include <xc.h>
+#include <math.h>
+#include<string.h>
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 extern "C" {
 #endif
     
-
+uint8_t *loadFlush();
+void add_code();
 
 //void add_code(void);
 
@@ -33,4 +37,4 @@ extern "C" {
 }
 #endif
 
-#endif /* _EXAMPLE_FILE_NAME_H */
+#endif /* _MRBC_FIRM_H */
