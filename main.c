@@ -10,14 +10,10 @@
 // USERID = No Setting
 #pragma config PMDL1WAY = ON            // Peripheral Module Disable Configuration (Allow only one reconfiguration)
 #pragma config IOL1WAY = ON             // Peripheral Pin Select Configuration (Allow only one reconfiguration)
-#pragma config FUSBIDIO = OFF           // USB USID Selection (Controlled by Port Function)
-#pragma config FVBUSONIO = OFF          // USB VBUS ON Selection (Controlled by Port Function)
 
 // DEVCFG2
 #pragma config FPLLIDIV = DIV_2         // PLL Input Divider (2x Divider)
 #pragma config FPLLMUL = MUL_20         // PLL Multiplier (20x Multiplier)
-#pragma config UPLLIDIV = DIV_2         // USB PLL Input Divider (2x Divider)
-#pragma config UPLLEN = OFF             // USB PLL Enable (Disabled and Bypassed)
 #pragma config FPLLODIV = DIV_4         // System PLL Output Clock Divider (PLL Divide by 2)
 
 // DEVCFG1
@@ -34,8 +30,8 @@
 #pragma config FWDTWINSZ = WINSZ_25     // Watchdog Timer Window Size (Window Size is 25%)
 
 // DEVCFG0
-#pragma config JTAGEN = ON              // JTAG Enable (JTAG Port Enabled)
-#pragma config ICESEL = ICS_PGx3        // ICE/ICD Comm Channel Select (Communicate on PGEC3/PGED3)
+#pragma config JTAGEN = OFF              // JTAG Enable (JTAG Port Enabled)
+#pragma config ICESEL = ICS_PGx1        // ICE/ICD Comm Channel Select (Communicate on PGEC3/PGED3)
 #pragma config PWP = OFF                // Program Flash Write Protect (Disable)
 #pragma config BWP = OFF                // Boot Flash Write Protect bit (Protection Disabled)
 #pragma config CP = OFF                 // Code Protect (Protection Disabled)
@@ -63,6 +59,10 @@ int hal_flush(int fd) {
 }
 
 void pin_init(void){
+    ANSELA = 0;
+    ANSELB = 0;
+    PORTA = 0;
+    PORTB = 0;
     TRISAbits.TRISA4 = 1;
     TRISB |= 0x8c;
     CNPUB |= 0x8c;

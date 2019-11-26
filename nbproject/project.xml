@@ -3,7 +3,7 @@
     <type>com.microchip.mplab.nbide.embedded.makeproject</type>
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/make-project/1">
-            <name>pic32_rbduino</name>
+            <name>pic32_170</name>
             <creation-uuid>46b8d7de-567a-4b39-b622-bcd1f1d005bb</creation-uuid>
             <make-project-type>0</make-project-type>
             <c-extensions>c</c-extensions>
