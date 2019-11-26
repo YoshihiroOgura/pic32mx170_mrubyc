@@ -64,6 +64,8 @@ void pin_init(void){
     PORTA = 0;
     PORTB = 0;
     TRISAbits.TRISA4 = 1;
+    TRISA &= 0xFC;
+    TRISB &= 0xFC;
     TRISB |= 0x8c;
     CNPUB |= 0x8c;
 }

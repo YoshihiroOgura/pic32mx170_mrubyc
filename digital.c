@@ -29,9 +29,7 @@ static void c_leds(mrb_vm *vm, mrb_value *v, int argc) {
 }
 
 static void c_sw(mrb_vm *vm, mrb_value *v, int argc) {
-    int led = GET_INT_ARG(1);
-    TRISA |= (led & 0x03);
-    TRISB |= (led & 0x0d);
+    SET_INT_RETURN(PORTBbits.RB7);
 }
 
 static void c_pin_mode(mrb_vm *vm, mrb_value *v, int argc) {
