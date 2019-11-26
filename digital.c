@@ -82,6 +82,9 @@ static void c_pin_read(mrb_vm *vm, mrb_value *v, int argc) {
 }
 
 static void c_pwm_init(mrb_vm *vm, mrb_value *v, int argc) {
+}
+
+static void c_pwm_cycle(mrb_vm *vm, mrb_value *v, int argc) {
     PR3 = GET_INT_ARG(1);
     T3CONbits.TCKPS = GET_INT_ARG(2);
     OC1CON = OC2CON = OC3CON = OC4CON = OC5CON = 0x800F;
@@ -89,7 +92,7 @@ static void c_pwm_init(mrb_vm *vm, mrb_value *v, int argc) {
     OC1RS = OC2RS = OC3RS = OC4RS = OC5RS = PR3/2;
 }
 
-static void c_pwm_duty(mrb_vm *vm, mrb_value *v, int argc) {
+static void c_pwm_rate(mrb_vm *vm, mrb_value *v, int argc) {
     float percent = 100.0 / GET_INT_ARG(1);
     switch(GET_INT_ARG(2)){
         case 1:
@@ -188,7 +191,8 @@ void mrbc_init_class_pwm(struct VM *vm){
     mrb_class *pwm;
     pwm = mrbc_define_class(0, "PWM",	mrbc_class_object);
     mrbc_define_method(0, pwm, "new", c_pwm_init);
-    mrbc_define_method(0, pwm, "duty", c_pwm_duty);
+    mrbc_define_method(0, pwm, "cycle", c_pwm_cycle);
+    mrbc_define_method(0, pwm, "rate", c_pwm_rate);
     mrbc_define_method(0, pwm, "start", c_pwm_start);
     mrbc_define_method(0, pwm, "stop", c_pwm_stop);
     mrbc_define_method(0, pwm, "pin", c_pwm_pin);
