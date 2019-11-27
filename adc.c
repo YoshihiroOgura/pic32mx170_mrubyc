@@ -47,6 +47,10 @@ void ADC1_Stop(mrb_vm *vm, mrb_value *v, int argc){
 }
 
 void ADC1_ConversionResultGet(mrb_vm *vm, mrb_value *v, int argc){
+    SET_FLOAT_RETURN(ADC1BUF0);
+}
+
+void ADC1_ConversionResultGet_v(mrb_vm *vm, mrb_value *v, int argc){
     SET_FLOAT_RETURN(3.3 * ADC1BUF0 / 1023);
 }
 
@@ -64,6 +68,7 @@ void mrbc_init_class_adc(struct VM *vm){
     adc = mrbc_define_class(0, "ADC",	mrbc_class_object);
     mrbc_define_method(0, adc, "start", ADC1_Start);
     mrbc_define_method(0, adc, "read", ADC1_ConversionResultGet);
+    mrbc_define_method(0, adc, "read_v", ADC1_ConversionResultGet_v);
     mrbc_define_method(0, adc, "stop", ADC1_Stop);
     mrbc_define_method(0, adc, "ch", ADC1_ChannelSelect);
 }
