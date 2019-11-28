@@ -87,38 +87,42 @@ void add_code(){
     }
     u_puts("+OK mruby/c\r\n",0);
     memset(txt, 0, sizeof(txt));
-    txt_len = u_read(txt_addr);
-    u_puts("+OK mruby/c PSoC_5LP v1.00 (2018/09/04)\r\n",0);
-    memset(txt, 0, sizeof(txt));
-    
-    // bytecode length receive
-    txt_len = u_read(txt_addr);
-    u_puts("+OK Write bytecode\r\n",0);
-    int size = 0;
-    txt_len -= 2;
-    int j = 0;
-    while(txt_len>5){
-        size += (txt[txt_len] - 0x30) * pow(10,j);
-        j++;
-        txt_len--;
-    }
+    while(1){
+        txt_len = u_read(txt_addr);
+        if(strncmp(txt_addr,"version",7)==0){
+            u_puts("+OK mruby/c PSoC_5LP v1.00 (2018/09/04)\r\n",0);
+            memset(txt, 0, sizeof(txt));
+        }else if(strncmp(txt_addr,"execute",7)==0){
+            u_puts("+OK Execute mruby/c.\r\n",0);
+            memset(txt, 0, sizeof(txt));
+            return;
+        }else if(strncmp(txt_addr,"write",5)==0){
+            // bytecode length receive
+            u_puts("+OK Write bytecode\r\n",0);
+            int size = 0;
+            txt_len -= 2;
+            int j = 0;
+            while(txt_len>5){
+                size += (txt[txt_len] - 0x30) * pow(10,j);
+                j++;
+                txt_len--;
+            }
 
-    unsigned int return_size = size;
-    uint8_t data[size];
-    
-    // mruby/c code write
-    int i = 0;
-    while (size > 0) {
-        IFS1bits.U1RXIF = 0;
-        while(!U1STAbits.URXDA);
-        data[i] = U1RXREG;
-        size--;
-        i++;
+            unsigned int return_size = size;
+            uint8_t data[size];
+
+            // mruby/c code write
+            int i = 0;
+            while (size > 0) {
+                IFS1bits.U1RXIF = 0;
+                while(!U1STAbits.URXDA);
+                data[i] = U1RXREG;
+                size--;
+                i++;
+            }
+            saveFlush(data, sizeof(data));
+            u_puts("+DONE\r\n",0);
+            memset(txt, 0, sizeof(txt));
+        }
     }
-    saveFlush(data, sizeof(data));
-    // write success => execut
-    u_puts("+DONE\r\n",0);
-    memset(txt, 0, sizeof(txt));
-    txt_len = u_read(txt_addr);
-    u_puts("+OK Execute mruby/c.\r\n",0);
 }
