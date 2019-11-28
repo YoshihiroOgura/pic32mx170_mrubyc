@@ -133,16 +133,16 @@ static void c_pwm_start(mrb_vm *vm, mrb_value *v, int argc) {
 
 static void c_pwm_pin(mrb_vm *vm, mrb_value *v, int argc) {
     switch(GET_INT_ARG(1)){
-        case 18:
+        case 2:
             RPA2Rbits.RPA2R = 0x0006;
             break;
-        case 13:
+        case 18:
             RPB13Rbits.RPB13R = 0x0005;
             break;
-        case 11:
+        case 16:
             RPB11Rbits.RPB11R = 0x0005;
             break;
-        case 7:
+        case 12:
             RPB7Rbits.RPB7R = 0x0005;
             break;
         case 0:
