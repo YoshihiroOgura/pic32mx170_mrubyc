@@ -18,10 +18,10 @@
 #include "mrbc_firm.h"
 
 
-#define FLASH_SAVE_ADDR (0xBD003000)
-#define PAGE_SIZE (1028)
+#define FLASH_SAVE_ADDR (0xBD030000)
+#define PAGE_SIZE (1024)
 #define ROW_SIZE (PAGE_SIZE / sizeof(uint8_t) / 8)
-#define MAX_SIZE (1028 * 2)
+#define MAX_SIZE (1024 * 20)
 static uint8_t flashBuffer[MAX_SIZE];
 uint8_t t_count = 0;
 
