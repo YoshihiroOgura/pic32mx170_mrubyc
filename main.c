@@ -120,11 +120,11 @@ int main(void){
     mrbc_init_class_pwm(0);
     mrbc_init_class_onboard(0);
     mrbc_create_task(FLASH_SAVE_ADDR0, 0);
-    if(*((char *)FLASH_SAVE_ADDR1) == 82){
+    if(*((char *)FLASH_SAVE_ADDR1) == 'R'){
         mrbc_create_task(FLASH_SAVE_ADDR1, 0);
     }
-    if(*((char *)FLASH_SAVE_ADDR2) == 82){
-        mrbc_create_task(FLASH_SAVE_ADDR1, 0);
+    if(*((char *)FLASH_SAVE_ADDR2) == 'R'){
+        mrbc_create_task(FLASH_SAVE_ADDR2, 0);
     }
     T1CONbits.ON = 1;
     mrbc_run();

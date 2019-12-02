@@ -94,14 +94,14 @@ void add_code(){
     char txt[50];
     char *txt_addr;
     int txt_len;
-    flash_del((void *)(FLASH_SAVE_ADDR1));
-    flash_del((void *)(FLASH_SAVE_ADDR2));
     txt_addr = txt;
     // [crlf] read waite
     txt_len = u_read(txt_addr);
     if(!txt_len){
         return;
     }
+    flash_del((void *)(FLASH_SAVE_ADDR1));
+    flash_del((void *)(FLASH_SAVE_ADDR2));
     u_puts("+OK mruby/c\r\n",0);
     memset(txt, 0, sizeof(txt));
     while(1){
