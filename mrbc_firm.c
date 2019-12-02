@@ -18,18 +18,11 @@
 #include "mrbc_firm.h"
 
 
-#define FLASH_SAVE_ADDR (0xBD030000)
 #define PAGE_SIZE (1024)
 #define ROW_SIZE (PAGE_SIZE / sizeof(uint8_t) / 8)
 #define MAX_SIZE (1024 * 20)
 static uint8_t flashBuffer[MAX_SIZE];
 uint8_t t_count = 0;
-
-uint8_t *loadFlush() {
-    memset(flashBuffer, 0, sizeof(flashBuffer));
-    memcpy((void* )flashBuffer, (void *)FLASH_SAVE_ADDR, sizeof(flashBuffer));
-    return &flashBuffer[0];
-}
 
 void flash_del(void* address){
     NVMADDR = ((unsigned int) address & 0x1FFFFFFF);
@@ -55,6 +48,7 @@ void flash_write(void* address, void* data){
 }
 
 static int saveFlush(const uint8_t* writeData, uint16_t size) {
+    static int save_count = 0;
     if(size > sizeof(flashBuffer)) {
         return -1;
     }
@@ -65,20 +59,43 @@ static int saveFlush(const uint8_t* writeData, uint16_t size) {
    int pageCount = (size % PAGE_SIZE == 0) ? size / PAGE_SIZE : size / PAGE_SIZE + 1;
 
    int i = 0;
-    for(i = 0;i < pageCount;i++) {
-        flash_del((void *)(FLASH_SAVE_ADDR + i * PAGE_SIZE));
-    }
+   if(save_count == 0){
+        for(i = 0;i < pageCount;i++) {
+            flash_del((void *)(FLASH_SAVE_ADDR0 + i * PAGE_SIZE));
+        }
 
-   int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
-   for(i = 0;i < rowCount; i++) {
-        flash_write((void *)(FLASH_SAVE_ADDR + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
+       int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+       for(i = 0;i < rowCount; i++) {
+            flash_write((void *)(FLASH_SAVE_ADDR0 + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
+       }
+   }else if(save_count == 1){
+       for(i = 0;i < pageCount;i++) {
+            flash_del((void *)(FLASH_SAVE_ADDR1 + i * PAGE_SIZE));
+        }
+
+       int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+       for(i = 0;i < rowCount; i++) {
+            flash_write((void *)(FLASH_SAVE_ADDR1 + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
+       }
+   }else if(save_count == 2){
+       for(i = 0;i < pageCount;i++) {
+            flash_del((void *)(FLASH_SAVE_ADDR2 + i * PAGE_SIZE));
+        }
+
+       int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+       for(i = 0;i < rowCount; i++) {
+            flash_write((void *)(FLASH_SAVE_ADDR2 + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
+       }
    }
+   save_count++;
 }
 
 void add_code(){
     char txt[50];
     char *txt_addr;
     int txt_len;
+    flash_del((void *)(FLASH_SAVE_ADDR1));
+    flash_del((void *)(FLASH_SAVE_ADDR2));
     txt_addr = txt;
     // [crlf] read waite
     txt_len = u_read(txt_addr);

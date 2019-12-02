@@ -5,10 +5,12 @@
         <group>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_170/adc.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_170/mrbc_firm.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/nbproject/Makefile-default.mk</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_170/digital.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_170/timer.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_170/main.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32_170/uart.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/nbproject/Makefile-impl.mk</file>
         </group>
     </open-files>
 </project-private>

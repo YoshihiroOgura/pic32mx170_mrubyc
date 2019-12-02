@@ -6,6 +6,7 @@
 #include <sys/attribs.h>
 #include <math.h>
 #include "timer.h"
+#include "mrbc_firm.h"
 // DEVCFG3
 // USERID = No Setting
 #pragma config PMDL1WAY = ON            // Peripheral Module Disable Configuration (Allow only one reconfiguration)
@@ -107,7 +108,6 @@ int main(void){
     
     /* IDE code */
     add_code();
-    uint8_t *addr = loadFlush();
     
     /* mruby/c */
     mrbc_init(memory_pool, MEMORY_SIZE);
@@ -119,7 +119,13 @@ int main(void){
     mrbc_init_class_timer(0);
     mrbc_init_class_pwm(0);
     mrbc_init_class_onboard(0);
-    mrbc_create_task(addr, 0);
+    mrbc_create_task(FLASH_SAVE_ADDR0, 0);
+    if(*((char *)FLASH_SAVE_ADDR1) == 82){
+        mrbc_create_task(FLASH_SAVE_ADDR1, 0);
+    }
+    if(*((char *)FLASH_SAVE_ADDR2) == 82){
+        mrbc_create_task(FLASH_SAVE_ADDR1, 0);
+    }
     T1CONbits.ON = 1;
     mrbc_run();
     return 1;
