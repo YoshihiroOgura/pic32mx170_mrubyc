@@ -75,6 +75,22 @@ static void c_pin_init(mrb_vm *vm, mrb_value *v, int argc) {
     pin_init();
 }
 
+int check_timeout(void)
+{
+    int i;
+    for( i = 0; i < 50; i++ ) {
+        PORTAbits.RA0 = 1;
+        delay( 100 );
+        PORTAbits.RA0 = 0;
+        delay( 100 );
+        if(U1STAbits.URXDA){
+            U1RXREG = 0;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* mruby/c writer */
 
 void __ISR(_TIMER_1_VECTOR, IPL1AUTO) _T1Interrupt (  ){
@@ -106,8 +122,10 @@ int main(void){
     IPC2bits.T2IS = 0;
     INTCONbits.MVEC = 1;
     
-    /* IDE code */
-    add_code();
+    if (check_timeout()){
+        /* IDE code */
+        add_code();
+    };
     
     /* mruby/c */
     mrbc_init(memory_pool, MEMORY_SIZE);

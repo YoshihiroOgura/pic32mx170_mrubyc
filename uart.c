@@ -56,9 +56,6 @@ int u_read(char *addr){
     int i = 0;
     while(1){
       IFS1bits.U1RXIF = 0;
-      if(PORTBbits.RB7 == 0){
-          break;
-      }
       if(U1STAbits.URXDA){
           addr[i] = U1RXREG;
           if(addr[i] == 0x0a){
