@@ -59,33 +59,21 @@ static int saveFlush(const uint8_t* writeData, uint16_t size) {
    int pageCount = (size % PAGE_SIZE == 0) ? size / PAGE_SIZE : size / PAGE_SIZE + 1;
 
    int i = 0;
+   int fl_addr;
    if(save_count == 0){
-        for(i = 0;i < pageCount;i++) {
-            flash_del((void *)(FLASH_SAVE_ADDR0 + i * PAGE_SIZE));
-        }
-
-       int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
-       for(i = 0;i < rowCount; i++) {
-            flash_write((void *)(FLASH_SAVE_ADDR0 + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
-       }
+       fl_addr = FLASH_SAVE_ADDR0;
    }else if(save_count == 1){
-       for(i = 0;i < pageCount;i++) {
-            flash_del((void *)(FLASH_SAVE_ADDR1 + i * PAGE_SIZE));
-        }
-
-       int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
-       for(i = 0;i < rowCount; i++) {
-            flash_write((void *)(FLASH_SAVE_ADDR1 + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
-       }
+       fl_addr = FLASH_SAVE_ADDR1;
    }else if(save_count == 2){
-       for(i = 0;i < pageCount;i++) {
-            flash_del((void *)(FLASH_SAVE_ADDR2 + i * PAGE_SIZE));
-        }
+       fl_addr = FLASH_SAVE_ADDR2;
+   }
+   for(i = 0;i < pageCount;i++) {
+        flash_del((void *)(fl_addr + i * PAGE_SIZE));
+    }
 
-       int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
-       for(i = 0;i < rowCount; i++) {
-            flash_write((void *)(FLASH_SAVE_ADDR2 + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
-       }
+   int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+   for(i = 0;i < rowCount; i++) {
+        flash_write((void *)(fl_addr + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
    }
    save_count++;
 }
