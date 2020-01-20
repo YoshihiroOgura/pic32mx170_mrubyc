@@ -17,10 +17,6 @@
 
 #include "mrbc_firm.h"
 
-
-#define PAGE_SIZE (1024)
-#define ROW_SIZE (PAGE_SIZE / sizeof(uint8_t) / 8)
-#define MAX_SIZE (1024 * 20)
 static uint8_t flashBuffer[MAX_SIZE];
 uint8_t t_count = 0;
 
@@ -47,8 +43,8 @@ void flash_write(void* address, void* data){
     NVMCONCLR = 0x4000;
 }
 
-static int saveFlush(const uint8_t* writeData, uint16_t size) {
-    static int save_count = 0;
+static void saveFlush(const uint8_t* writeData, uint16_t size) {
+    static int fl_addr = FLASH_SAVE_ADDR;
     if(size > sizeof(flashBuffer)) {
         return -1;
     }
@@ -56,26 +52,12 @@ static int saveFlush(const uint8_t* writeData, uint16_t size) {
     memset(flashBuffer, 0, sizeof(flashBuffer));
     memcpy(flashBuffer, writeData, size);
 
-   int pageCount = (size % PAGE_SIZE == 0) ? size / PAGE_SIZE : size / PAGE_SIZE + 1;
-
-   int i = 0;
-   int fl_addr;
-   if(save_count == 0){
-       fl_addr = FLASH_SAVE_ADDR0;
-   }else if(save_count == 1){
-       fl_addr = FLASH_SAVE_ADDR1;
-   }else if(save_count == 2){
-       fl_addr = FLASH_SAVE_ADDR2;
-   }
-   for(i = 0;i < pageCount;i++) {
-        flash_del((void *)(fl_addr + i * PAGE_SIZE));
-    }
-
    int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+   int i = 0;
    for(i = 0;i < rowCount; i++) {
         flash_write((void *)(fl_addr + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
    }
-   save_count++;
+   fl_addr = fl_addr + ROW_SIZE*rowCount;
 }
 
 void add_code(){
@@ -83,13 +65,15 @@ void add_code(){
     char *txt_addr;
     int txt_len;
     txt_addr = txt;
+    int i = 0;
+    for(i = 0;i < 60;i++) {
+        flash_del((void *)(FLASH_SAVE_ADDR + i * PAGE_SIZE));
+    }
     // [crlf] read waite
     txt_len = u_read(txt_addr);
     if(!txt_len){
         return;
     }
-    flash_del((void *)(FLASH_SAVE_ADDR1));
-    flash_del((void *)(FLASH_SAVE_ADDR2));
     u_puts("+OK mruby/c\r\n",0);
     memset(txt, 0, sizeof(txt));
     while(1){

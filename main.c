@@ -137,12 +137,21 @@ int main(void){
     mrbc_init_class_timer(0);
     mrbc_init_class_pwm(0);
     mrbc_init_class_onboard(0);
-    mrbc_create_task((void *)FLASH_SAVE_ADDR0, 0);
-    if(*((char *)FLASH_SAVE_ADDR1) == 'R'){
-        mrbc_create_task((void *)FLASH_SAVE_ADDR1, 0);
-    }
-    if(*((char *)FLASH_SAVE_ADDR2) == 'R'){
-        mrbc_create_task((void *)FLASH_SAVE_ADDR2, 0);
+    int fl_addr = FLASH_SAVE_ADDR;
+    uint8_t code_size_box[4];
+    while(1){
+        if(*((char *)fl_addr) != 'R'){
+            break;
+        }
+        mrbc_create_task((void *)fl_addr, 0);
+        memcpy(code_size_box, fl_addr + 10, 4);
+        int i = 0;
+        int size = 0;
+        for(i = 0;i < 4;i++){
+            size += (code_size_box[i] << ((3-i)*8));
+        }
+        int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+        fl_addr = fl_addr + ROW_SIZE*rowCount;
     }
     T1CONbits.ON = 1;
     mrbc_run();
