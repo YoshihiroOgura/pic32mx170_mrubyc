@@ -6,5 +6,7 @@ src/vm.h  \
 src/class.h  \
 src/keyvalue.h  \
 src/load.h  \
-src/errorcode.h  \
- src/alloc.h 
+src/alloc.h  \
+ src/console.h  \
+src/hal/hal.h  \
+src/../delay.h 

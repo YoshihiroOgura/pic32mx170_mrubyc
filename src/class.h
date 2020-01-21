@@ -81,17 +81,19 @@ void mrbc_instance_delete(mrbc_value *v);
 void mrbc_instance_setiv(mrbc_object *obj, mrbc_sym sym_id, mrbc_value *v);
 mrbc_value mrbc_instance_getiv(mrbc_object *obj, mrbc_sym sym_id);
 mrbc_class *find_class_by_object(struct VM *vm, const mrbc_object *obj);
+mrbc_proc *find_method_by_class(struct VM *vm, const mrbc_class *cls, mrbc_sym sym_id);
 mrbc_proc *find_method(struct VM *vm, const mrbc_object *recv, mrbc_sym sym_id);
 mrbc_class *mrbc_define_class(struct VM *vm, const char *name, mrbc_class *super);
 mrbc_class *mrbc_get_class_by_name(const char *name);
 void mrbc_define_method(struct VM *vm, mrbc_class *cls, const char *name, mrbc_func_t cfunc);
 void mrbc_funcall(struct VM *vm, const char *name, mrbc_value *v, int argc);
 mrbc_value mrbc_send(struct VM *vm, mrbc_value *v, int reg_ofs, mrbc_value *recv, const char *method, int argc, ...);
-int mrbc_p_sub(mrbc_value *v);
-int mrbc_print_sub(mrbc_value *v);
-int mrbc_puts_sub(mrbc_value *v);
+int mrbc_p_sub(const mrbc_value *v);
+int mrbc_print_sub(const mrbc_value *v);
+int mrbc_puts_sub(const mrbc_value *v);
 void c_proc_call(struct VM *vm, mrbc_value v[], int argc);
 void c_ineffect(struct VM *vm, mrbc_value v[], int argc);
+void mrbc_run_mrblib(const uint8_t bytecode[]);
 void mrbc_init_class(void);
 
 

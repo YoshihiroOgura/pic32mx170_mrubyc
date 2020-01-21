@@ -16,6 +16,7 @@
 #define MRBC_SRC_VALUE_H_
 
 #include <stdint.h>
+#include "vm_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,6 +97,9 @@ typedef enum {
   E_NOTIMP_ERROR,
   E_FLOATDOMAIN_ERROR,
   E_KEY_ERROR,
+
+  // Internal Error
+  E_BYTECODE_ERROR,
 } mrbc_error_code;
 
 

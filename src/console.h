@@ -27,21 +27,21 @@ extern "C" {
 //================================================================
 /*! printf tiny (mruby/c) version data container.
 */
+struct RPrintfFormat {
+  char type;			//!< format char. (e.g. 'd','f','x'...)
+  unsigned int flag_plus : 1;
+  unsigned int flag_minus : 1;
+  unsigned int flag_space : 1;
+  unsigned int flag_zero : 1;
+  int16_t width;		//!< display width. (e.g. %10d as 10)
+  int16_t precision;		//!< precision (e.g. %5.2f as 2)
+};
 typedef struct RPrintf {
-  char *buf;		//!< output buffer.
-  const char *buf_end;	//!< output buffer end point.
-  char *p;		//!< output buffer write point.
-  const char *fstr;	//!< format string. (e.g. "%d %03x")
-
-  struct RPrintfFormat {
-    char type;				//!< format char. (e.g. 'd','f','x'...)
-    unsigned int flag_plus : 1;
-    unsigned int flag_minus : 1;
-    unsigned int flag_space : 1;
-    unsigned int flag_zero : 1;
-    int width;				//!< display width. (e.g. %10d as 10)
-    int precision;			//!< precision (e.g. %5.2f as 2)
-  } fmt;
+  char *buf;			//!< output buffer.
+  const char *buf_end;		//!< output buffer end point.
+  char *p;			//!< output buffer write point.
+  const char *fstr;		//!< format string. (e.g. "%d %03x")
+  struct RPrintfFormat fmt;
 } mrbc_printf;
 
 
@@ -50,6 +50,7 @@ int mrbc_printf_main(mrbc_printf *pf);
 int mrbc_printf_char(mrbc_printf *pf, int ch);
 int mrbc_printf_bstr(mrbc_printf *pf, const char *str, int len, int pad);
 int mrbc_printf_int(mrbc_printf *pf, mrbc_int value, int base);
+int mrbc_printf_bit(mrbc_printf *pf, mrbc_int value, int bit);
 int mrbc_printf_float(mrbc_printf *pf, double value);
 void mrbc_printf_replace_buffer(mrbc_printf *pf, char *buf, int size);
 

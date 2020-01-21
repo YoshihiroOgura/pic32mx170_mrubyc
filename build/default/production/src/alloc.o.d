@@ -6,6 +6,5 @@ src/value.h  \
 src/class.h  \
 src/keyvalue.h  \
 src/alloc.h  \
- src/console.h  \
-src/hal/hal.h  \
+ src/hal/hal.h  \
 src/../delay.h 

@@ -197,7 +197,7 @@ int mrbc_array_set(mrbc_value *ary, int idx, mrbc_value *set_val)
   @param  idx		index
   @return		mrbc_value data at index position or Nil.
 */
-mrbc_value mrbc_array_get(mrbc_value *ary, int idx)
+mrbc_value mrbc_array_get(const mrbc_value *ary, int idx)
 {
   mrbc_array *h = ary->array;
 
@@ -581,7 +581,9 @@ static void c_array_set(struct VM *vm, mrbc_value v[], int argc)
   */
   if( argc == 2 && v[1].tt == MRBC_TT_FIXNUM ) {
     mrbc_array_set(v, v[1].i, &v[2]);	// raise? IndexError or ENOMEM
-    v[2].tt = MRBC_TT_EMPTY;
+    SET_RETURN( v[2] );
+
+    mrbc_release( &v[2] );
     return;
   }
 
