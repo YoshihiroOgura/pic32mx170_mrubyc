@@ -24,7 +24,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 
 
 # Project Name
-PROJECTNAME=pic32_170
+PROJECTNAME=pic32mx170_mrubyc
 
 # Active Configuration
 DEFAULTCONF=default

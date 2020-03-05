@@ -3,15 +3,8 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/digital.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/mrbc_firm.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/src/mrubyc.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/src/rrt0.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/mrbc_firm.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/digital.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/main.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/delay.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32_170/uart.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc/main.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc/timer.c</file>
         </group>
     </open-files>
 </project-private>

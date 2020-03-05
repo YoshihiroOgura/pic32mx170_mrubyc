@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?> 
 <project>                                  
-  <executable name="dist/default/production/pic32mx170_mrubyc.production.elf">                 
+  <executable name="dist/default/debug/pic32mx170_mrubyc.debug.elf">                 
     <memory name="program">                 
       <units>bytes</units>                 
       <length>263312</length>                 
-      <used>180632</used>                     
-      <free>82680</free>                     
+      <used>180052</used>                     
+      <free>83260</free>                     
     </memory>                              
     <memory name="data">              
       <units>bytes</units>                 
-      <length>65536</length>                 
-      <used>46744</used>                     
-      <free>18792</free>                     
+      <length>66048</length>                 
+      <used>47768</used>                     
+      <free>18280</free>                     
     </memory>                              
   </executable>                            
 </project>                                 

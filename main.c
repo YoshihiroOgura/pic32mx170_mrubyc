@@ -11,7 +11,7 @@
 // USERID = No Setting
 #pragma config PMDL1WAY = ON            // Peripheral Module Disable Configuration (Allow only one reconfiguration)
 #pragma config IOL1WAY = ON             // Peripheral Pin Select Configuration (Allow only one reconfiguration)
-
+                                                                                                                
 // DEVCFG2
 #pragma config FPLLIDIV = DIV_2         // PLL Input Divider (2x Divider)
 #pragma config FPLLMUL = MUL_20         // PLL Multiplier (20x Multiplier)
@@ -24,11 +24,10 @@
 #pragma config POSCMOD = OFF            // Primary Oscillator Configuration (Primary osc disabled)
 #pragma config OSCIOFNC = OFF           // CLKO Output Signal Active on the OSCO Pin (Disabled)
 #pragma config FPBDIV = DIV_2           // Peripheral Clock Divisor (Pb_Clk is Sys_Clk/2)
-#pragma config FCKSM = CSDCMD           // Clock Switching and Monitor Selection (Clock Switch Disable, FSCM Disabled)
-#pragma config WDTPS = PS1048576        // Watchdog Timer Postscaler (1:1048576)
+#pragma config FCKSM = CSECME           // Clock Switching and Monitor Selection (Clock Switch Enable, FSCM Enabled)
+#pragma config WDTPS = PS32              // Watchdog Timer Postscaler (1:1)
 #pragma config WINDIS = OFF             // Watchdog Timer Window Enable (Watchdog Timer is in Non-Window Mode)
-#pragma config FWDTEN = OFF             // Watchdog Timer Enable (WDT Disabled (SWDTEN Bit Controls))
-#pragma config FWDTWINSZ = WINSZ_25     // Watchdog Timer Window Size (Window Size is 25%)
+#pragma config FWDTEN = OFF              // Watchdog Timer Disable (WDT Disable)
 
 // DEVCFG0
 #pragma config JTAGEN = OFF              // JTAG Enable (JTAG Port Enabled)
@@ -69,6 +68,38 @@ void pin_init(void){
     TRISB &= 0xFC;
     TRISB |= 0x8c;
     CNPUB |= 0x8c;
+}
+
+static void c_low_power(mrb_vm *vm, mrb_value *v, int argc) {
+    PR1 = 250;
+    SYSKEY = 0x0;
+    SYSKEY = 0xAA996655;
+    SYSKEY = 0x556699AA;
+    OSCCONbits.NOSC = 0b111;
+    OSCCONbits.FRCDIV = 0b100;
+    OSCCONSET = 0x00000001;
+    SYSKEY = 0x0;
+}
+
+static void c_low_power2(mrb_vm *vm, mrb_value *v, int argc) {
+    PR1 = 16000;
+    SYSKEY = 0x0;
+    SYSKEY = 0xAA996655;
+    SYSKEY = 0x556699AA;
+    OSCCONbits.NOSC = 0b111;
+    OSCCONbits.FRCDIV = 0b111;
+    OSCCONSET = 0x00000001;
+    SYSKEY = 0x0;
+}
+
+static void c_hi_power(mrb_vm *vm, mrb_value *v, int argc) {
+    PR1 = 10000;
+    SYSKEY = 0x0;
+    SYSKEY = 0xAA996655;
+    SYSKEY = 0x556699AA;
+    OSCCONbits.NOSC = 0b001;
+    OSCCONSET = 0x00000001;
+    SYSKEY = 0x0;
 }
 
 static void c_pin_init(mrb_vm *vm, mrb_value *v, int argc) {
@@ -129,6 +160,9 @@ int main(void){
     
     /* mruby/c */
     mrbc_init(memory_pool, MEMORY_SIZE);
+    mrbc_define_method(0, mrbc_class_object, "low_power", c_low_power);
+    mrbc_define_method(0, mrbc_class_object, "iot_power", c_low_power);
+    mrbc_define_method(0, mrbc_class_object, "hi_power", c_hi_power);
     mrbc_define_method(0, mrbc_class_object, "pinInit", c_pin_init);
     mrbc_init_class_adc(0);
     mrbc_init_class_i2c(0);
