@@ -45,6 +45,8 @@ void flash_write(void* address, void* data){
 
 static void saveFlush(const uint8_t* writeData, uint16_t size) {
     static int fl_addr = FLASH_SAVE_ADDR;
+    static int sum_pageCount = 0;
+    static int remaining_page_size = 0;
     if(size > sizeof(flashBuffer)) {
         return -1;
     }
@@ -53,7 +55,16 @@ static void saveFlush(const uint8_t* writeData, uint16_t size) {
     memcpy(flashBuffer, writeData, size);
 
    int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+   int pageCount = (rowCount+remaining_page_size)/8;
+   if(rowCount%8){
+       remaining_page_size = rowCount%8;
+       pageCount++;
+   }
    int i = 0;
+   for(i = sum_pageCount;i < pageCount;i++) {
+        flash_del((void *)(FLASH_SAVE_ADDR + i * PAGE_SIZE));
+   }
+   sum_pageCount += pageCount;
    for(i = 0;i < rowCount; i++) {
         flash_write((void *)(fl_addr + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
    }
@@ -65,10 +76,6 @@ void add_code(){
     char *txt_addr;
     int txt_len;
     txt_addr = txt;
-    int i = 0;
-    for(i = 0;i < 60;i++) {
-        flash_del((void *)(FLASH_SAVE_ADDR + i * PAGE_SIZE));
-    }
     // [crlf] read waite
     txt_len = u_read(txt_addr);
     if(!txt_len){
