@@ -17,9 +17,6 @@
 
 #include "mrbc_firm.h"
 
-static uint8_t flashBuffer[MAX_SIZE];
-uint8_t t_count = 0;
-
 void flash_del(void* address){
     NVMADDR = ((unsigned int) address & 0x1FFFFFFF);
     NVMCONCLR = 0xF;
@@ -47,30 +44,31 @@ static void saveFlush(const uint8_t* writeData, uint16_t size) {
     static int fl_addr = FLASH_SAVE_ADDR;
     static int sum_pageCount = 0;
     static int remaining_page_size = 0;
-    if(size > sizeof(flashBuffer)) {
-        return -1;
+    
+    int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+    int pageCount = (rowCount+remaining_page_size)/8;
+    if(rowCount%8){
+        remaining_page_size = rowCount%8;
+        pageCount++;
     }
-
-    memset(flashBuffer, 0, sizeof(flashBuffer));
-    memcpy(flashBuffer, writeData, size);
-
-   int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
-   int pageCount = (rowCount+remaining_page_size)/8;
-   if(rowCount%8){
-       remaining_page_size = rowCount%8;
-       pageCount++;
-   }
-   int i = 0;
-   for(i = sum_pageCount;i < pageCount;i++) {
+    
+    // Initialize the required amount of ROM
+    int i = 0;
+    for(i = sum_pageCount;i < pageCount;i++) {
         flash_del((void *)(FLASH_SAVE_ADDR + i * PAGE_SIZE));
-   }
-   sum_pageCount += pageCount;
-   for(i = 0;i < rowCount; i++) {
-        flash_write((void *)(fl_addr + i * ROW_SIZE), (void *)&flashBuffer[i * ROW_SIZE]);
-   }
-   fl_addr = fl_addr + ROW_SIZE*rowCount;
+    }
+    
+    // Write data to ROM
+    sum_pageCount += pageCount;
+    for(i = 0;i < rowCount; i++) {
+        flash_write((void *)(fl_addr + i * ROW_SIZE), (void *)&writeData[i * ROW_SIZE]);
+    }
+    fl_addr = fl_addr + ROW_SIZE*rowCount;
 }
 
+/*
+  mruby / cIDE program creation process
+*/
 void add_code(){
     char txt[50];
     char *txt_addr;

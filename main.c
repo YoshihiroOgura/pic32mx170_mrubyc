@@ -43,6 +43,7 @@
 
 #define MEMORY_SIZE (1024*20)
 static uint8_t memory_pool[MEMORY_SIZE];
+uint8_t t_count = 0;
 
 int hal_write(int fd, const void *buf, int nbytes) {
     int i;
