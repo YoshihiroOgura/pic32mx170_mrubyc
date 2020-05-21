@@ -16,8 +16,24 @@
 /* ************************************************************************** */
 
 #include "uart.h"
+#include <sys/attribs.h>
 
 /* ================================ C codes ================================ */
+
+char str[51];
+int sp = 0;
+
+void __ISR(_UART_2_VECTOR, IPL4AUTO) OnUartReceiving(void) 
+{
+    IFS1bits.U2RXIF = 0; // UART1??????????
+
+    if(U2STAbits.URXDA == 0) return; // ????????????????
+    str[sp] = (char)U2RXREG; // ????????????????
+    sp++;
+    if(sp ==52){
+        sp = 0;
+    }
+}
 
 void uart_init(void){
    ANSELA = 0x0000;
@@ -102,21 +118,11 @@ static void c_uart_puts(mrb_vm *vm, mrb_value *v, int argc) {
 }
 
 static void c_uart_gets(mrb_vm *vm, mrb_value *v, int argc) {
-    char *addr = (char *)malloc(256);
-    int i = 0;
     mrb_value text;
-    while(1){
-        IFS1bits.U2RXIF = 0;
-        while(!U2STAbits.URXDA);
-        addr[i] = U2RXREG;
-        if(addr[i] == 0x0a){
-            break;
-        }
-        i++;
-    }
-    text = mrbc_string_new_cstr(vm, addr);
-    free(addr);
+    int i = 0;
+    text = mrbc_string_new_alloc(vm, &str, sp);
     SET_RETURN(text);
+    sp = 0;
 }
 
 void mrbc_init_class_uart(struct VM *vm){

@@ -43,17 +43,17 @@ void i2c_stop() {
     while (I2C2CONbits.PEN) {}
 }
 
+void i2c_write(unsigned char data) {
+    I2C2TRN = data;
+    while (I2C2STATbits.TRSTAT) {}
+}
+
 /* ============================= mruby/c codes ============================= */
 
 static void c_i2c_new(mrb_vm *vm, mrb_value *v, int argc) {
     ANSELB &= 0xf3;
     TRISB |= 0xc;
     CNPUB |= 0xc;
-}
-
-void i2c_write(unsigned char data) {
-    I2C2TRN = data;
-    while (I2C2STATbits.TRSTAT) {}
 }
 
 static void c_i2c_write(mrb_vm *vm, mrb_value *v, int argc) {

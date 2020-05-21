@@ -175,6 +175,12 @@ int main(void){
     pin_init();
     
     /*Enable the interrupt*/
+    IPC9bits.U2IP = 4;
+    IPC9bits.U2IS = 3;
+    IFS1bits.U2RXIF = 0;
+    IFS1bits.U2TXIF = 0;
+    IEC1bits.U2RXIE = 1;
+    IEC1bits.U2TXIE = 0;
     IEC0bits.T1IE = 1;
     IEC0bits.T2IE = 1;
     IPC6bits.FCEIP = 1;
