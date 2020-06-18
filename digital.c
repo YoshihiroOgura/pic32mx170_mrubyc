@@ -79,6 +79,30 @@ static void c_pin_read(mrb_vm *vm, mrb_value *v, int argc) {
     }
 }
 
+static void c_pin_pull(mrb_vm *vm, mrb_value *v, int argc) {
+    int pin = GET_INT_ARG(1);
+    int mode = GET_INT_ARG(2);
+    if(pin < 5){
+        if(mode == 0){
+            CNPUA &= ~(1<<pin);
+            CNPDA &= ~(1<<pin);
+        }else if(mode < 0){
+            CNPDA |= (1<<pin);
+        }else{
+            CNPUA |= (1<<pin);
+        }
+    }else{
+        if(mode == 0){
+            CNPUB &= ~(1<<(pin-5));
+            CNPDB &= ~(1<<(pin-5));
+        }else if(mode < 0){
+            CNPDB |= (1<<(pin-5));
+        }else{
+            CNPUB |= (1<<(pin-5));
+        }
+    }
+}
+
 static void c_pwm_init(mrb_vm *vm, mrb_value *v, int argc) {
 }
 
@@ -181,6 +205,7 @@ void mrbc_init_class_onboard(struct VM *vm){
 
 void mrbc_init_class_digital(struct VM *vm){
     mrbc_define_method(0, mrbc_class_object, "pinMode", c_pin_mode);
+    mrbc_define_method(0, mrbc_class_object, "pinPull", c_pin_pull);
     mrbc_define_method(0, mrbc_class_object, "digitalWrite", c_pin_write);
     mrbc_define_method(0, mrbc_class_object, "digitalRead", c_pin_read);
 }
