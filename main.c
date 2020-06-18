@@ -71,69 +71,6 @@ void pin_init(void){
     CNPUB |= 0x8c;
 }
 
-static void c_low_power(mrb_vm *vm, mrb_value *v, int argc) {
-    PR1 = 250;
-    SYSKEY = 0x0;
-    SYSKEY = 0xAA996655;
-    SYSKEY = 0x556699AA;
-    OSCCONbits.NOSC = 0b111;
-    OSCCONbits.FRCDIV = 0b100;
-    OSCCONSET = 0x00000001;
-    SYSKEY = 0x0;
-}
-
-static void c_iot_power(mrb_vm *vm, mrb_value *v, int argc) {
-    PR1 = 16000;
-    SYSKEY = 0x0;
-    SYSKEY = 0xAA996655;
-    SYSKEY = 0x556699AA;
-    OSCCONbits.NOSC = 0b111;
-    OSCCONbits.FRCDIV = 0b111;
-    OSCCONSET = 0x00000001;
-    SYSKEY = 0x0;
-}
-static void c_deep_sleep(mrb_vm *vm, mrb_value *v, int argc) {
-    IEC0bits.T1IE = 0;
-    PR1 = 16000;
-    SYSKEY = 0x0;
-    SYSKEY = 0xAA996655;
-    SYSKEY = 0x556699AA;
-    OSCCONbits.NOSC = 0b101;
-    OSCCONbits.SLPEN = 1;
-    OSCCONSET = 0x00000001;
-    SYSKEY = 0x0;
-    asm volatile ("wait");
-    TMR1 = 0;
-    int time_c = GET_INT_ARG(1) * 2;
-    while(1){
-        if(TMR1 >= 8000){
-            time_c--;
-            TMR1 = 0;
-            if(time_c == 0){
-                break;
-            }
-        }
-    }
-    PR1 = 10000;
-    SYSKEY = 0x0;
-    SYSKEY = 0xAA996655;
-    SYSKEY = 0x556699AA;
-    OSCCONbits.NOSC = 0b001;
-    OSCCONSET = 0x00000001;
-    SYSKEY = 0x0;
-    IEC0bits.T1IE = 1;
-}
-
-static void c_hi_power(mrb_vm *vm, mrb_value *v, int argc) {
-    PR1 = 10000;
-    SYSKEY = 0x0;
-    SYSKEY = 0xAA996655;
-    SYSKEY = 0x556699AA;
-    OSCCONbits.NOSC = 0b001;
-    OSCCONSET = 0x00000001;
-    SYSKEY = 0x0;
-}
-
 static void c_pin_init(mrb_vm *vm, mrb_value *v, int argc) {
     pin_init();
 }
@@ -198,10 +135,6 @@ int main(void){
     
     /* mruby/c */
     mrbc_init(memory_pool, MEMORY_SIZE);
-    mrbc_define_method(0, mrbc_class_object, "low_power", c_low_power);
-    mrbc_define_method(0, mrbc_class_object, "iot_power", c_iot_power);
-    mrbc_define_method(0, mrbc_class_object, "deep_sleep", c_deep_sleep);
-    mrbc_define_method(0, mrbc_class_object, "hi_power", c_hi_power);
     mrbc_define_method(0, mrbc_class_object, "pinInit", c_pin_init);
     mrbc_init_class_adc(0);
     mrbc_init_class_i2c(0);
@@ -217,7 +150,7 @@ int main(void){
             break;
         }
         mrbc_create_task((void *)fl_addr, 0);
-        memcpy(code_size_box, fl_addr + 10, 4);
+        memcpy(code_size_box, (void *)(fl_addr + 10), 4);
         int i = 0;
         int size = 0;
         for(i = 0;i < 4;i++){
