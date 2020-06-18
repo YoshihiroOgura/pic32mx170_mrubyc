@@ -86,22 +86,23 @@ int u_read(char *addr){
 /* ============================= mruby/c codes ============================= */
 
 void c_uart_init(mrb_vm *vm, mrb_value *v, int argc) {
-   IPC9bits.U2IP = 1;
-   IPC9bits.U2IS = 0;
-   TRISBbits.TRISB8 = 1;
-   U2RXRbits.U2RXR = 0x0004;   //RB8->UART2:U2RX;
-   RPB9Rbits.RPB9R = 0x0002;   //RB9->UART2:U2TX;
-   U2MODE = 0x8008;
-   U2STA = 0x0;
-   U2TXREG = 0x0;
-   // BaudRate = 19200; Frequency = 40MHz; BRG 129;
-   U2BRG = 40000000 / 16 / GET_INT_ARG(1) - 1;
-   //U2BRG = 129;
-   U2STAbits.UTXEN = 1;        //TX_enable
-   U2STAbits.URXEN = 1;        //RX_enable
+    memset(str, 0, sizeof(str));
+    IPC9bits.U2IP = 1;
+    IPC9bits.U2IS = 0;
+    TRISBbits.TRISB8 = 1;
+    U2RXRbits.U2RXR = 0x0004;   //RB8->UART2:U2RX;
+    RPB9Rbits.RPB9R = 0x0002;   //RB9->UART2:U2TX;
+    U2MODE = 0x8008;
+    U2STA = 0x0;
+    U2TXREG = 0x0;
+    // BaudRate = 19200; Frequency = 40MHz; BRG 129;
+    U2BRG = 40000000 / 16 / GET_INT_ARG(1) - 1;
+    //U2BRG = 129;
+    U2STAbits.UTXEN = 1;        //TX_enable
+    U2STAbits.URXEN = 1;        //RX_enable
 
-   //Enabling UART
-   U2MODEbits.ON = 1;
+    //Enabling UART
+    U2MODEbits.ON = 1;
 }
 
 static void c_uart_puts(mrb_vm *vm, mrb_value *v, int argc) {
@@ -119,10 +120,14 @@ static void c_uart_puts(mrb_vm *vm, mrb_value *v, int argc) {
 
 static void c_uart_gets(mrb_vm *vm, mrb_value *v, int argc) {
     mrb_value text;
-    int i = 0;
-    text = mrbc_string_new_alloc(vm, &str, sp);
-    SET_RETURN(text);
+    text = mrbc_string_new_cstr(vm, str);
     sp = 0;
+    memset(str, 0, sizeof(str));
+    SET_RETURN(text);
+}
+
+static void c_uart_clear_buffer(mrb_vm *vm, mrb_value *v, int argc) {
+    memset(str, 0, sizeof(str));
 }
 
 void mrbc_init_class_uart(struct VM *vm){
@@ -131,4 +136,5 @@ void mrbc_init_class_uart(struct VM *vm){
     mrbc_define_method(0, uart, "new", c_uart_init);
     mrbc_define_method(0, uart, "gets", c_uart_gets);
     mrbc_define_method(0, uart, "puts", c_uart_puts);
+    mrbc_define_method(0, uart, "clear_buffer", c_uart_clear_buffer);
 }
