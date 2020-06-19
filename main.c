@@ -68,6 +68,9 @@ void pin_init(void){
     TRISA &= 0xFC;
     TRISB &= 0xFC;
     TRISB |= 0x8c;
+    CNPDA = 0x0;
+    CNPUA = 0x0;
+    CNPDB = 0x0;
     CNPUB |= 0x8c;
 }
 
