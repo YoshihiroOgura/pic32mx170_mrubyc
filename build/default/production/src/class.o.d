@@ -14,9 +14,10 @@ src/hal/hal.h  \
 src/../delay.h  \
  src/opcode.h  \
 src/load.h  \
+src/error.h  \
 src/c_array.h  \
 src/c_hash.h  \
-src/c_numeric.h  \
- src/c_math.h  \
+ src/c_numeric.h  \
+src/c_math.h  \
 src/c_string.h  \
 src/c_range.h 

@@ -27,9 +27,18 @@
 
 // maximum number of symbols
 #if !defined(MAX_SYMBOLS_COUNT)
-#define MAX_SYMBOLS_COUNT 300
+#define MAX_SYMBOLS_COUNT 255
 #endif
 
+// maximum number of exception depth
+#if !defined(MAX_EXCEPTION_COUNT)
+#define MAX_EXCEPTION_COUNT 16
+#endif
+
+
+// memory management
+//  MRBC_ALLOC_16BIT or MRBC_ALLOC_24BIT
+#define MRBC_ALLOC_24BIT
 
 /* Configure environment
    0: NOT USE
@@ -42,7 +51,7 @@
 
 // Use math. Support Math class.
 #if !defined(MRBC_USE_MATH)
-#define MRBC_USE_MATH 0
+#define MRBC_USE_MATH 1
 #endif
 /* (NOTE)
    maybe you need
@@ -75,9 +84,10 @@
 #define MRBC_REQUIRE_32BIT_ALIGNMENT
 
 // Debug code.
-#if !defined(MRBC_DEBUG)
+#if !defined(NDEBUG)
 #define MRBC_DEBUG
 #endif
 
+// #define MRBC_NO_TIMER
 
 #endif

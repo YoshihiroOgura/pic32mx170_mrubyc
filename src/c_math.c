@@ -118,18 +118,21 @@ static void c_math_cosh(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! (method) erf
 */
+/*
 static void c_math_erf(struct VM *vm, mrbc_value v[], int argc)
 {
   v[0] = mrbc_float_value( erf( to_double(&v[1]) ));
 }
-
+*/
 //================================================================
 /*! (method) erfc
 */
+/*
 static void c_math_erfc(struct VM *vm, mrbc_value v[], int argc)
 {
   v[0] = mrbc_float_value( erfc( to_double(&v[1]) ));
 }
+*/
 
 //================================================================
 /*! (method) exp
@@ -173,18 +176,22 @@ static void c_math_log(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! (method) log10
 */
+/*
 static void c_math_log10(struct VM *vm, mrbc_value v[], int argc)
 {
   v[0] = mrbc_float_value( log10( to_double(&v[1]) ));
 }
+*/
 
 //================================================================
 /*! (method) log2
 */
+/*
 static void c_math_log2(struct VM *vm, mrbc_value v[], int argc)
 {
   v[0] = mrbc_float_value( log2( to_double(&v[1]) ));
 }
+*/
 
 //================================================================
 /*! (method) sin
@@ -244,14 +251,14 @@ void mrbc_init_class_math(struct VM *vm)
   mrbc_define_method(vm, mrbc_class_math, "cbrt",	c_math_cbrt);
   mrbc_define_method(vm, mrbc_class_math, "cos",	c_math_cos);
   mrbc_define_method(vm, mrbc_class_math, "cosh",	c_math_cosh);
-  mrbc_define_method(vm, mrbc_class_math, "erf",	c_math_erf);
-  mrbc_define_method(vm, mrbc_class_math, "erfc",	c_math_erfc);
+  //mrbc_define_method(vm, mrbc_class_math, "erf",	c_math_erf);
+  //mrbc_define_method(vm, mrbc_class_math, "erfc",	c_math_erfc);
   mrbc_define_method(vm, mrbc_class_math, "exp",	c_math_exp);
   mrbc_define_method(vm, mrbc_class_math, "hypot",	c_math_hypot);
   mrbc_define_method(vm, mrbc_class_math, "ldexp",	c_math_ldexp);
   mrbc_define_method(vm, mrbc_class_math, "log",	c_math_log);
-  mrbc_define_method(vm, mrbc_class_math, "log10",	c_math_log10);
-  mrbc_define_method(vm, mrbc_class_math, "log2",	c_math_log2);
+  //mrbc_define_method(vm, mrbc_class_math, "log10",	c_math_log10);
+  //mrbc_define_method(vm, mrbc_class_math, "log2",	c_math_log2);
   mrbc_define_method(vm, mrbc_class_math, "sin",	c_math_sin);
   mrbc_define_method(vm, mrbc_class_math, "sinh",	c_math_sinh);
   mrbc_define_method(vm, mrbc_class_math, "sqrt",	c_math_sqrt);

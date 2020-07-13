@@ -10,9 +10,9 @@ CND_CONF=default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-OUTPUT_BASENAME=pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-PACKAGE_TOP_DIR=pic32mx170mrubyc/
+OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+OUTPUT_BASENAME=pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+PACKAGE_TOP_DIR=pic32mx170mrubyc21/
 
 # Functions
 function checkReturnCode
@@ -57,15 +57,15 @@ mkdir -p ${TMPDIR}
 
 # Copy files and create directories and links
 cd "${TOP}"
-makeDirectory ${TMPDIR}/pic32mx170mrubyc/bin
+makeDirectory ${TMPDIR}/pic32mx170mrubyc21/bin
 copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}bin/${OUTPUT_BASENAME}" 0755
 
 
 # Generate tar file
 cd "${TOP}"
-rm -f ${CND_DISTDIR}/${CND_CONF}/package/pic32mx170mrubyc.tar
+rm -f ${CND_DISTDIR}/${CND_CONF}/package/pic32mx170mrubyc21.tar
 cd ${TMPDIR}
-tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/pic32mx170mrubyc.tar *
+tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/pic32mx170mrubyc21.tar *
 checkReturnCode
 
 # Cleanup

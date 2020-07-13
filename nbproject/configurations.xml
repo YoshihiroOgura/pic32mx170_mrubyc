@@ -17,7 +17,6 @@
         <itemPath>src/c_numeric.h</itemPath>
         <itemPath>src/c_range.h</itemPath>
         <itemPath>src/c_string.h</itemPath>
-        <itemPath>src/errorcode.h</itemPath>
         <itemPath>src/global.h</itemPath>
         <itemPath>src/keyvalue.h</itemPath>
         <itemPath>src/load.h</itemPath>
@@ -29,6 +28,7 @@
         <itemPath>src/value.h</itemPath>
         <itemPath>src/vm.h</itemPath>
         <itemPath>src/vm_config.h</itemPath>
+        <itemPath>src/error.h</itemPath>
       </logicalFolder>
       <itemPath>delay.h</itemPath>
       <itemPath>i2c.h</itemPath>
@@ -66,6 +66,7 @@
         <itemPath>src/symbol.c</itemPath>
         <itemPath>src/value.c</itemPath>
         <itemPath>src/vm.c</itemPath>
+        <itemPath>src/error.c</itemPath>
       </logicalFolder>
       <itemPath>delay.c</itemPath>
       <itemPath>main.c</itemPath>
@@ -295,7 +296,6 @@
         <property key="UART2" value="true"/>
         <property key="USB" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
-        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="true"/>

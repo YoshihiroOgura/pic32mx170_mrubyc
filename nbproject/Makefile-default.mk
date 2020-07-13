@@ -30,12 +30,12 @@ ifeq ($(TYPE_IMAGE), DEBUG_RUN)
 IMAGE_TYPE=debug
 OUTPUT_SUFFIX=elf
 DEBUGGABLE_SUFFIX=elf
-FINAL_IMAGE=dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+FINAL_IMAGE=dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
 else
 IMAGE_TYPE=production
 OUTPUT_SUFFIX=hex
 DEBUGGABLE_SUFFIX=elf
-FINAL_IMAGE=dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+FINAL_IMAGE=dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
 endif
 
 ifeq ($(COMPARE_BUILD), true)
@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c timer.c
+SOURCEFILES_QUOTED_IF_SPACED=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c src/error.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c timer.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o ${OBJECTDIR}/timer.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/src/alloc.o.d ${OBJECTDIR}/src/class.o.d ${OBJECTDIR}/src/console.o.d ${OBJECTDIR}/src/c_array.o.d ${OBJECTDIR}/src/c_hash.o.d ${OBJECTDIR}/src/c_math.o.d ${OBJECTDIR}/src/c_numeric.o.d ${OBJECTDIR}/src/c_range.o.d ${OBJECTDIR}/src/c_string.o.d ${OBJECTDIR}/src/global.o.d ${OBJECTDIR}/src/keyvalue.o.d ${OBJECTDIR}/src/load.o.d ${OBJECTDIR}/src/mrblib.o.d ${OBJECTDIR}/src/rrt0.o.d ${OBJECTDIR}/src/static.o.d ${OBJECTDIR}/src/symbol.o.d ${OBJECTDIR}/src/value.o.d ${OBJECTDIR}/src/vm.o.d ${OBJECTDIR}/delay.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/i2c.o.d ${OBJECTDIR}/uart.o.d ${OBJECTDIR}/mrbc_firm.o.d ${OBJECTDIR}/adc.o.d ${OBJECTDIR}/digital.o.d ${OBJECTDIR}/timer.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/src/error.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o ${OBJECTDIR}/timer.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/src/alloc.o.d ${OBJECTDIR}/src/class.o.d ${OBJECTDIR}/src/console.o.d ${OBJECTDIR}/src/c_array.o.d ${OBJECTDIR}/src/c_hash.o.d ${OBJECTDIR}/src/c_math.o.d ${OBJECTDIR}/src/c_numeric.o.d ${OBJECTDIR}/src/c_range.o.d ${OBJECTDIR}/src/c_string.o.d ${OBJECTDIR}/src/global.o.d ${OBJECTDIR}/src/keyvalue.o.d ${OBJECTDIR}/src/load.o.d ${OBJECTDIR}/src/mrblib.o.d ${OBJECTDIR}/src/rrt0.o.d ${OBJECTDIR}/src/static.o.d ${OBJECTDIR}/src/symbol.o.d ${OBJECTDIR}/src/value.o.d ${OBJECTDIR}/src/vm.o.d ${OBJECTDIR}/src/error.o.d ${OBJECTDIR}/delay.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/i2c.o.d ${OBJECTDIR}/uart.o.d ${OBJECTDIR}/mrbc_firm.o.d ${OBJECTDIR}/adc.o.d ${OBJECTDIR}/digital.o.d ${OBJECTDIR}/timer.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o ${OBJECTDIR}/timer.o
+OBJECTFILES=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/src/error.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o ${OBJECTDIR}/timer.o
 
 # Source Files
-SOURCEFILES=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c timer.c
+SOURCEFILES=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c src/error.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c timer.c
 
 
 
@@ -88,7 +88,7 @@ FIXDEPS=fixDeps
 ifneq ($(INFORMATION_MESSAGE), )
 	@echo $(INFORMATION_MESSAGE)
 endif
-	${MAKE}  -f nbproject/Makefile-default.mk dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+	${MAKE}  -f nbproject/Makefile-default.mk dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
 
 MP_PROCESSOR_OPTION=32MX170F256B
 MP_LINKER_FILE_OPTION=
@@ -214,6 +214,12 @@ ${OBJECTDIR}/src/vm.o: src/vm.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/src/vm.o.d 
 	@${RM} ${OBJECTDIR}/src/vm.o 
 	@${FIXDEPS} "${OBJECTDIR}/src/vm.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/src/vm.o.d" -o ${OBJECTDIR}/src/vm.o src/vm.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
+	
+${OBJECTDIR}/src/error.o: src/error.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/src" 
+	@${RM} ${OBJECTDIR}/src/error.o.d 
+	@${RM} ${OBJECTDIR}/src/error.o 
+	@${FIXDEPS} "${OBJECTDIR}/src/error.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/src/error.o.d" -o ${OBJECTDIR}/src/error.o src/error.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
 	
 ${OBJECTDIR}/delay.o: delay.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
@@ -372,6 +378,12 @@ ${OBJECTDIR}/src/vm.o: src/vm.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/src/vm.o 
 	@${FIXDEPS} "${OBJECTDIR}/src/vm.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/src/vm.o.d" -o ${OBJECTDIR}/src/vm.o src/vm.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
 	
+${OBJECTDIR}/src/error.o: src/error.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/src" 
+	@${RM} ${OBJECTDIR}/src/error.o.d 
+	@${RM} ${OBJECTDIR}/src/error.o 
+	@${FIXDEPS} "${OBJECTDIR}/src/error.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/src/error.o.d" -o ${OBJECTDIR}/src/error.o src/error.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
+	
 ${OBJECTDIR}/delay.o: delay.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/delay.o.d 
@@ -431,15 +443,15 @@ endif
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: link
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
-dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX}: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk    
+dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX}: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk    
 	@${MKDIR} dist/${CND_CONF}/${IMAGE_TYPE} 
-	${MP_CC} $(MP_EXTRA_LD_PRE) -g -mdebugger -D__MPLAB_DEBUGGER_PK3=1 -mprocessor=$(MP_PROCESSOR_OPTION)  -o dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX} ${OBJECTFILES_QUOTED_IF_SPACED}          -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)   -mreserve=data@0x0:0x1FC -mreserve=boot@0x1FC00490:0x1FC00BEF  -Wl,--defsym=__MPLAB_BUILD=1$(MP_EXTRA_LD_POST)$(MP_LINKER_FILE_OPTION),--defsym=__MPLAB_DEBUG=1,--defsym=__DEBUG=1,-D=__DEBUG_D,--defsym=__MPLAB_DEBUGGER_PK3=1,--defsym=_min_heap_size=1023,--defsym=_min_stack_size=1023,--no-code-in-dinit,--no-dinit-in-serial-mem,-Map="${DISTDIR}/${PROJECTNAME}.${IMAGE_TYPE}.map",--memorysummary,dist/${CND_CONF}/${IMAGE_TYPE}/memoryfile.xml -mdfp=${DFP_DIR}
+	${MP_CC} $(MP_EXTRA_LD_PRE) -g -mdebugger -D__MPLAB_DEBUGGER_PK3=1 -mprocessor=$(MP_PROCESSOR_OPTION)  -o dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX} ${OBJECTFILES_QUOTED_IF_SPACED}          -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)   -mreserve=data@0x0:0x1FC -mreserve=boot@0x1FC00490:0x1FC00BEF  -Wl,--defsym=__MPLAB_BUILD=1$(MP_EXTRA_LD_POST)$(MP_LINKER_FILE_OPTION),--defsym=__MPLAB_DEBUG=1,--defsym=__DEBUG=1,-D=__DEBUG_D,--defsym=__MPLAB_DEBUGGER_PK3=1,--defsym=_min_heap_size=1023,--defsym=_min_stack_size=1023,--no-code-in-dinit,--no-dinit-in-serial-mem,-Map="${DISTDIR}/${PROJECTNAME}.${IMAGE_TYPE}.map",--memorysummary,dist/${CND_CONF}/${IMAGE_TYPE}/memoryfile.xml -mdfp=${DFP_DIR}
 	
 else
-dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${OUTPUT_SUFFIX}: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk   
+dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${OUTPUT_SUFFIX}: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk   
 	@${MKDIR} dist/${CND_CONF}/${IMAGE_TYPE} 
-	${MP_CC} $(MP_EXTRA_LD_PRE)  -mprocessor=$(MP_PROCESSOR_OPTION)  -o dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${DEBUGGABLE_SUFFIX} ${OBJECTFILES_QUOTED_IF_SPACED}          -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -Wl,--defsym=__MPLAB_BUILD=1$(MP_EXTRA_LD_POST)$(MP_LINKER_FILE_OPTION),--defsym=_min_heap_size=1023,--defsym=_min_stack_size=1023,--no-code-in-dinit,--no-dinit-in-serial-mem,-Map="${DISTDIR}/${PROJECTNAME}.${IMAGE_TYPE}.map",--memorysummary,dist/${CND_CONF}/${IMAGE_TYPE}/memoryfile.xml -mdfp=${DFP_DIR}
-	${MP_CC_DIR}\\xc32-bin2hex dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc.${IMAGE_TYPE}.${DEBUGGABLE_SUFFIX} 
+	${MP_CC} $(MP_EXTRA_LD_PRE)  -mprocessor=$(MP_PROCESSOR_OPTION)  -o dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${DEBUGGABLE_SUFFIX} ${OBJECTFILES_QUOTED_IF_SPACED}          -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -Wl,--defsym=__MPLAB_BUILD=1$(MP_EXTRA_LD_POST)$(MP_LINKER_FILE_OPTION),--defsym=_min_heap_size=1023,--defsym=_min_stack_size=1023,--no-code-in-dinit,--no-dinit-in-serial-mem,-Map="${DISTDIR}/${PROJECTNAME}.${IMAGE_TYPE}.map",--memorysummary,dist/${CND_CONF}/${IMAGE_TYPE}/memoryfile.xml -mdfp=${DFP_DIR}
+	${MP_CC_DIR}\\xc32-bin2hex dist/${CND_CONF}/${IMAGE_TYPE}/pic32mx170_mrubyc_21.${IMAGE_TYPE}.${DEBUGGABLE_SUFFIX} 
 endif
 
 

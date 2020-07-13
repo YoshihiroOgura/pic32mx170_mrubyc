@@ -22,9 +22,9 @@
 #include <math.h>
 #include<string.h>
 
-#define FLASH_SAVE_ADDR (0xBD030000)
+#define FLASH_SAVE_ADDR (0xBD036000)
 #define PAGE_SIZE (1024)
-#define MAX_SIZE (1024 * 20)
+#define MAX_SIZE (1024 * 40)
 #define ROW_SIZE (PAGE_SIZE / sizeof(uint8_t) / 8)
 
 /* Provide C++ Compatibility */
