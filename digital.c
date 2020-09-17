@@ -18,6 +18,9 @@
 #include "digital.h"
 
 /* ================================ C codes ================================ */
+
+GPIO_HANDLE gpioh[16];
+
 /* ============================= mruby/c codes ============================= */
 
 static void c_leds(mrb_vm *vm, mrb_value *v, int argc) {
@@ -32,8 +35,35 @@ static void c_sw(mrb_vm *vm, mrb_value *v, int argc) {
     SET_INT_RETURN(PORTBbits.RB7);
 }
 
-static void c_pin_mode(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
+static void c_gpio_new(mrb_vm *vm, mrb_value *v, int argc) {
+    *v = mrbc_instance_new(vm, v->cls, sizeof(GPIO_HANDLE *));
+    *((GPIO_HANDLE **)v->instance->data) = &gpioh[GET_INT_ARG(1)];
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    handle->pin_num = GET_INT_ARG(1);
+}
+
+static void c_gpio_write(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
+    int mode = GET_INT_ARG(1);
+    if(pin < 5){
+        if(mode == 0){
+            PORTA &= ~(1<<pin);
+        }else{
+            PORTA |= (1<<pin);
+        }
+    }else{
+        if(mode == 0){
+            PORTB &= ~(1<<(pin-5));
+        }else{
+            PORTB |= (1<<(pin-5));
+        }
+    } 
+}
+
+static void c_gpio_setmode(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
     int mode = GET_INT_ARG(2);
     if(pin < 5){
         ANSELA &= ~(1<<pin);
@@ -52,26 +82,9 @@ static void c_pin_mode(mrb_vm *vm, mrb_value *v, int argc) {
     }
 }
 
-static void c_pin_write(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
-    int mode = GET_INT_ARG(2);
-    if(pin < 5){
-        if(mode == 0){
-            PORTA &= ~(1<<pin);
-        }else{
-            PORTA |= (1<<pin);
-        }
-    }else{
-        if(mode == 0){
-            PORTB &= ~(1<<(pin-5));
-        }else{
-            PORTB |= (1<<(pin-5));
-        }
-    }
-}
-
-static void c_pin_read(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
+static void c_gpio_read(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
     if(pin < 5){
         SET_INT_RETURN((PORTA>>pin)&1);
     }else{
@@ -79,8 +92,9 @@ static void c_pin_read(mrb_vm *vm, mrb_value *v, int argc) {
     }
 }
 
-static void c_pin_pull(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
+static void c_gpio_pull(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
     int mode = GET_INT_ARG(2);
     if(pin < 5){
         if(mode == 0){
@@ -204,10 +218,13 @@ void mrbc_init_class_onboard(struct VM *vm){
 }
 
 void mrbc_init_class_digital(struct VM *vm){
-    mrbc_define_method(0, mrbc_class_object, "pinMode", c_pin_mode);
-    mrbc_define_method(0, mrbc_class_object, "pinPull", c_pin_pull);
-    mrbc_define_method(0, mrbc_class_object, "digitalWrite", c_pin_write);
-    mrbc_define_method(0, mrbc_class_object, "digitalRead", c_pin_read);
+    mrb_class *gpio;
+    gpio = mrbc_define_class(0, "GPIO",	mrbc_class_object);
+    mrbc_define_method(0, gpio, "new", c_gpio_new);
+    mrbc_define_method(0, gpio, "write", c_gpio_write);
+    mrbc_define_method(0, gpio, "setmode", c_gpio_setmode);
+    mrbc_define_method(0, gpio, "read", c_gpio_read);
+    mrbc_define_method(0, gpio, "pull", c_gpio_pull);
 }
 
 void mrbc_init_class_pwm(struct VM *vm){

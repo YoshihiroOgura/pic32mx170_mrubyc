@@ -26,6 +26,9 @@ extern "C" {
 #endif
 
 /* C codes */
+typedef struct GPIO_HANDLE {
+  int pin_num;
+} GPIO_HANDLE;
 
 /* mruby/c codes */
 void mrbc_init_class_onboard(struct VM *vm);
