@@ -28,6 +28,10 @@ extern "C" {
 /* C codes */
 void adc_init(void);
 
+typedef struct ADC_HANDLE {
+  int pin_num;
+} ADC_HANDLE;
+
 /* mruby/c codes */
 void mrbc_init_class_adc(struct VM *vm);
 
