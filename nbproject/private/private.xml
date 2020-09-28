@@ -3,18 +3,13 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/mrbc_firm.h</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/nbproject/Makefile-default.mk</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/nbproject/Makefile-impl.mk</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/src/hal/hal.h</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/digital.c</file>
             <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/main.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/src/c_math.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/src/alloc.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/mrbc_firm.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/delay.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/src/rrt0.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/src/class.c</file>
-            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/src/vm_config.h</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/uart.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/src/value.h</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/adc.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/i2c.c</file>
+            <file>file:/C:/Users/164/MPLABXProjects/pic32mx170_mrubyc_21/adc.h</file>
         </group>
     </open-files>
 </project-private>

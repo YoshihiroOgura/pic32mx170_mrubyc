@@ -81,11 +81,15 @@ static void c_i2c_read(mrb_vm *vm, mrb_value *v, int argc) {
         I2C2CONbits.RCEN = 1;
         while (I2C2CONbits.RCEN) {}
         mrbc_value v = mrb_fixnum_value(I2C2RCV);
+        mrbc_array_set(&hako,i,&v);
+        if(i == (size-1)){break;};
         I2C2CONbits.ACKDT = 0;
         I2C2CONbits.ACKEN = 1;
         while(I2C2CONbits.ACKEN == 1);
-        mrbc_array_set(&hako,i,&v);
     }
+    I2C2CONbits.ACKDT = 1;
+    I2C2CONbits.ACKEN = 1;
+    while(I2C2CONbits.ACKEN == 1);
     i2c_stop();
     SET_RETURN(hako);
 }
