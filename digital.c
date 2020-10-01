@@ -171,6 +171,13 @@ static void c_pwm_duty(mrb_vm *vm, mrb_value *v, int argc) {
     set_compare(pin,PR3/percent);
 }
 
+static void c_pwm_duty_us(mrb_vm *vm, mrb_value *v, int argc) {
+    PWM_HANDLE *handle = *(PWM_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
+    uint32_t us = GET_INT_ARG(1);
+    set_compare(pin,us);
+}
+
 void mrbc_init_class_onboard(struct VM *vm){
     mrbc_define_method(0, mrbc_class_object, "leds_write", c_leds);
     mrbc_define_method(0, mrbc_class_object, "sw", c_sw);
@@ -193,4 +200,5 @@ void mrbc_init_class_pwm(struct VM *vm){
     mrbc_define_method(0, pwm, "frequency", c_pwm_frequency);
     mrbc_define_method(0, pwm, "period_us", c_pwm_period_us);
     mrbc_define_method(0, pwm, "duty", c_pwm_duty);
+    mrbc_define_method(0, pwm, "duty_us", c_pwm_duty_us);
 }
