@@ -167,7 +167,7 @@ static void c_pwm_period_us(mrb_vm *vm, mrb_value *v, int argc) {
 static void c_pwm_duty(mrb_vm *vm, mrb_value *v, int argc) {
     PWM_HANDLE *handle = *(PWM_HANDLE **)v->instance->data;
     int pin = handle->pin_num;
-    float percent = 1023 / GET_INT_ARG(1);
+    float percent = 1023.0 / GET_INT_ARG(1);
     set_compare(pin,PR3/percent);
 }
 
