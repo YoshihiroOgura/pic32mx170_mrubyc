@@ -20,17 +20,17 @@
 
 /* ================================ C codes ================================ */
 
-char str[51];
+char str[50];
 int sp = 0;
 
-void __ISR(_UART_2_VECTOR, IPL4AUTO) OnUartReceiving(void) 
+void __ISR(_UART_2_VECTOR, IPL4AUTO) OnUartReceiving(void)
 {
     IFS1bits.U2RXIF = 0; // UART1??????????
 
     if(U2STAbits.URXDA == 0) return; // ????????????????
     str[sp] = (char)U2RXREG; // ????????????????
     sp++;
-    if(sp ==52){
+    if(sp ==51){
         sp = 0;
     }
 }
@@ -105,7 +105,7 @@ void c_uart_init(mrb_vm *vm, mrb_value *v, int argc) {
     U2MODEbits.ON = 1;
 }
 
-static void c_uart_puts(mrb_vm *vm, mrb_value *v, int argc) {
+static void c_uart_write(mrb_vm *vm, mrb_value *v, int argc) {
     char *mo = mrbc_string_cstr(&v[1]);
     int size = mrbc_string_size(&v[1]);
     int i = 0;
@@ -118,11 +118,39 @@ static void c_uart_puts(mrb_vm *vm, mrb_value *v, int argc) {
     }
 }
 
+static void c_uart_read(mrb_vm *vm, mrb_value *v, int argc) {
+    int txt_size = GET_INT_ARG(1);
+    char txt_a[txt_size];
+    char txt_buff[50];
+    mrb_value text;
+    if(sp>=txt_size){
+        memcpy(txt_a,str,txt_size);
+        text = mrbc_string_new_cstr(vm, txt_a);
+        sp -= txt_size;
+        memcpy(txt_buff,&str[txt_size],sp);
+        memcpy(str,txt_buff,50);
+        SET_RETURN(text);
+    }else{
+        SET_NIL_RETURN();
+    }
+}
+
 static void c_uart_gets(mrb_vm *vm, mrb_value *v, int argc) {
     mrb_value text;
-    text = mrbc_string_new_cstr(vm, str);
-    sp = 0;
-    memset(str, 0, sizeof(str));
+    char txt_buff[50];
+    int i;
+    for(i=0;i<50;i++){
+        if(str[i]=='\n'){
+            i++;
+            char txt_a[i];
+            memcpy(txt_a,str,i);
+            text = mrbc_string_new_cstr(vm, txt_a);
+            sp -= i;
+            memcpy(txt_buff,&str[i],sp);
+            memcpy(str,txt_buff,50);
+            break;
+        }
+    }
     SET_RETURN(text);
 }
 
@@ -134,7 +162,8 @@ void mrbc_init_class_uart(struct VM *vm){
     mrb_class *uart;
     uart = mrbc_define_class(0, "UART",	mrbc_class_object);
     mrbc_define_method(0, uart, "new", c_uart_init);
+    mrbc_define_method(0, uart, "read", c_uart_read);
     mrbc_define_method(0, uart, "gets", c_uart_gets);
-    mrbc_define_method(0, uart, "puts", c_uart_puts);
+    mrbc_define_method(0, uart, "write", c_uart_write);
     mrbc_define_method(0, uart, "clear_buffer", c_uart_clear_buffer);
 }
