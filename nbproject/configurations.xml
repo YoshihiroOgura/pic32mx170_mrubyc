@@ -36,7 +36,6 @@
       <itemPath>mrbc_firm.h</itemPath>
       <itemPath>adc.h</itemPath>
       <itemPath>digital.h</itemPath>
-      <itemPath>timer.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -75,7 +74,6 @@
       <itemPath>mrbc_firm.c</itemPath>
       <itemPath>adc.c</itemPath>
       <itemPath>digital.c</itemPath>
-      <itemPath>timer.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

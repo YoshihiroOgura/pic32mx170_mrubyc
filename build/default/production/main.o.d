@@ -21,5 +21,4 @@ src/hal/hal.h  \
  src/../delay.h  \
 src/rrt0.h  \
 delay.h  \
-timer.h  \
 mrbc_firm.h 

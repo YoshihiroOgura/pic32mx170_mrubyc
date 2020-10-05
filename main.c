@@ -5,7 +5,6 @@
 #include "string.h"
 #include <sys/attribs.h>
 #include <math.h>
-#include "timer.h"
 #include "mrbc_firm.h"
 // DEVCFG3
 // USERID = No Setting
@@ -78,6 +77,13 @@ static void c_pin_init(mrb_vm *vm, mrb_value *v, int argc) {
     pin_init();
 }
 
+void timer_init() {
+    TMR1 = TMR2 = TMR3 = 0x0;
+    PR1 = PR2 = 10000;
+    PR3 = 10;
+    T1CON = T2CON = T3CON = 0x8000;
+}
+
 int check_timeout(void)
 {
     int i;
@@ -143,7 +149,6 @@ int main(void){
     mrbc_init_class_i2c(0);
     mrbc_init_class_uart(0);
     mrbc_init_class_digital(0);
-    mrbc_init_class_timer(0);
     mrbc_init_class_pwm(0);
     mrbc_init_class_onboard(0);
     int fl_addr = FLASH_SAVE_ADDR;
