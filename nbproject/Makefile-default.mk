@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c src/error.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c
+SOURCEFILES_QUOTED_IF_SPACED=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c src/error.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c spi.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/src/error.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/src/alloc.o.d ${OBJECTDIR}/src/class.o.d ${OBJECTDIR}/src/console.o.d ${OBJECTDIR}/src/c_array.o.d ${OBJECTDIR}/src/c_hash.o.d ${OBJECTDIR}/src/c_math.o.d ${OBJECTDIR}/src/c_numeric.o.d ${OBJECTDIR}/src/c_range.o.d ${OBJECTDIR}/src/c_string.o.d ${OBJECTDIR}/src/global.o.d ${OBJECTDIR}/src/keyvalue.o.d ${OBJECTDIR}/src/load.o.d ${OBJECTDIR}/src/mrblib.o.d ${OBJECTDIR}/src/rrt0.o.d ${OBJECTDIR}/src/static.o.d ${OBJECTDIR}/src/symbol.o.d ${OBJECTDIR}/src/value.o.d ${OBJECTDIR}/src/vm.o.d ${OBJECTDIR}/src/error.o.d ${OBJECTDIR}/delay.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/i2c.o.d ${OBJECTDIR}/uart.o.d ${OBJECTDIR}/mrbc_firm.o.d ${OBJECTDIR}/adc.o.d ${OBJECTDIR}/digital.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/src/error.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o ${OBJECTDIR}/spi.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/src/alloc.o.d ${OBJECTDIR}/src/class.o.d ${OBJECTDIR}/src/console.o.d ${OBJECTDIR}/src/c_array.o.d ${OBJECTDIR}/src/c_hash.o.d ${OBJECTDIR}/src/c_math.o.d ${OBJECTDIR}/src/c_numeric.o.d ${OBJECTDIR}/src/c_range.o.d ${OBJECTDIR}/src/c_string.o.d ${OBJECTDIR}/src/global.o.d ${OBJECTDIR}/src/keyvalue.o.d ${OBJECTDIR}/src/load.o.d ${OBJECTDIR}/src/mrblib.o.d ${OBJECTDIR}/src/rrt0.o.d ${OBJECTDIR}/src/static.o.d ${OBJECTDIR}/src/symbol.o.d ${OBJECTDIR}/src/value.o.d ${OBJECTDIR}/src/vm.o.d ${OBJECTDIR}/src/error.o.d ${OBJECTDIR}/delay.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/i2c.o.d ${OBJECTDIR}/uart.o.d ${OBJECTDIR}/mrbc_firm.o.d ${OBJECTDIR}/adc.o.d ${OBJECTDIR}/digital.o.d ${OBJECTDIR}/spi.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/src/error.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o
+OBJECTFILES=${OBJECTDIR}/src/alloc.o ${OBJECTDIR}/src/class.o ${OBJECTDIR}/src/console.o ${OBJECTDIR}/src/c_array.o ${OBJECTDIR}/src/c_hash.o ${OBJECTDIR}/src/c_math.o ${OBJECTDIR}/src/c_numeric.o ${OBJECTDIR}/src/c_range.o ${OBJECTDIR}/src/c_string.o ${OBJECTDIR}/src/global.o ${OBJECTDIR}/src/keyvalue.o ${OBJECTDIR}/src/load.o ${OBJECTDIR}/src/mrblib.o ${OBJECTDIR}/src/rrt0.o ${OBJECTDIR}/src/static.o ${OBJECTDIR}/src/symbol.o ${OBJECTDIR}/src/value.o ${OBJECTDIR}/src/vm.o ${OBJECTDIR}/src/error.o ${OBJECTDIR}/delay.o ${OBJECTDIR}/main.o ${OBJECTDIR}/i2c.o ${OBJECTDIR}/uart.o ${OBJECTDIR}/mrbc_firm.o ${OBJECTDIR}/adc.o ${OBJECTDIR}/digital.o ${OBJECTDIR}/spi.o
 
 # Source Files
-SOURCEFILES=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c src/error.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c
+SOURCEFILES=src/alloc.c src/class.c src/console.c src/c_array.c src/c_hash.c src/c_math.c src/c_numeric.c src/c_range.c src/c_string.c src/global.c src/keyvalue.c src/load.c src/mrblib.c src/rrt0.c src/static.c src/symbol.c src/value.c src/vm.c src/error.c delay.c main.c i2c.c uart.c mrbc_firm.c adc.c digital.c spi.c
 
 
 
@@ -263,6 +263,12 @@ ${OBJECTDIR}/digital.o: digital.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/digital.o 
 	@${FIXDEPS} "${OBJECTDIR}/digital.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/digital.o.d" -o ${OBJECTDIR}/digital.o digital.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
 	
+${OBJECTDIR}/spi.o: spi.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/spi.o.d 
+	@${RM} ${OBJECTDIR}/spi.o 
+	@${FIXDEPS} "${OBJECTDIR}/spi.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/spi.o.d" -o ${OBJECTDIR}/spi.o spi.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
+	
 else
 ${OBJECTDIR}/src/alloc.o: src/alloc.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}/src" 
@@ -419,6 +425,12 @@ ${OBJECTDIR}/digital.o: digital.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/digital.o.d 
 	@${RM} ${OBJECTDIR}/digital.o 
 	@${FIXDEPS} "${OBJECTDIR}/digital.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/digital.o.d" -o ${OBJECTDIR}/digital.o digital.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
+	
+${OBJECTDIR}/spi.o: spi.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/spi.o.d 
+	@${RM} ${OBJECTDIR}/spi.o 
+	@${FIXDEPS} "${OBJECTDIR}/spi.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION) -I"src" -I"src/hal" -MMD -MF "${OBJECTDIR}/spi.o.d" -o ${OBJECTDIR}/spi.o spi.c    -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -mdfp=${DFP_DIR}
 	
 endif
 

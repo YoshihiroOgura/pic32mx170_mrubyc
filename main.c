@@ -151,6 +151,7 @@ int main(void){
     mrbc_init_class_digital(0);
     mrbc_init_class_pwm(0);
     mrbc_init_class_onboard(0);
+    mrbc_init_class_spi(0);
     int fl_addr = FLASH_SAVE_ADDR;
     uint8_t code_size_box[4];
     while(1){
