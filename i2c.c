@@ -68,8 +68,8 @@ static void c_i2c_write(mrb_vm *vm, mrb_value *v, int argc) {
 
 static void c_i2c_read(mrb_vm *vm, mrb_value *v, int argc) {
     int addr = GET_INT_ARG(1);
-    int data_addr = GET_INT_ARG(2);
-    int size = GET_INT_ARG(3);
+    int data_addr = GET_INT_ARG(3);
+    int size = GET_INT_ARG(2);
     i2c_start();
     i2c_write((addr << 1) | 0);
     i2c_write(data_addr);
