@@ -10,7 +10,7 @@
 // USERID = No Setting
 #pragma config PMDL1WAY = ON            // Peripheral Module Disable Configuration (Allow only one reconfiguration)
 #pragma config IOL1WAY = ON             // Peripheral Pin Select Configuration (Allow only one reconfiguration)
-                                                                                                                
+
 // DEVCFG2
 #pragma config FPLLIDIV = DIV_2         // PLL Input Divider (2x Divider)
 #pragma config FPLLMUL = MUL_20         // PLL Multiplier (20x Multiplier)
@@ -89,9 +89,9 @@ int check_timeout(void)
     int i;
     for( i = 0; i < 50; i++ ) {
         PORTAbits.RA0 = 1;
-        delay( 100 );
+        __delay_ms( 30 );
         PORTAbits.RA0 = 0;
-        delay( 100 );
+        __delay_ms( 30 );
         if(U1STAbits.URXDA){
             U1RXREG = 0;
             return 1;
@@ -119,7 +119,7 @@ int main(void){
     uart_init();
     timer_init();
     pin_init();
-    
+
     /*Enable the interrupt*/
     IPC9bits.U2IP = 4;
     IPC9bits.U2IS = 3;
@@ -136,12 +136,12 @@ int main(void){
     IPC2bits.T2IP = 2;
     IPC2bits.T2IS = 0;
     INTCONbits.MVEC = 1;
-    
+
     if (check_timeout()){
         /* IDE code */
         add_code();
     };
-    
+
     /* mruby/c */
     mrbc_init(memory_pool, MEMORY_SIZE);
     mrbc_define_method(0, mrbc_class_object, "pinInit", c_pin_init);
