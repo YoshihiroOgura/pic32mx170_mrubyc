@@ -15,8 +15,8 @@
  */
 /* ************************************************************************** */
 
-#ifndef _EXAMPLE_FILE_NAME_H    /* Guard against multiple inclusion */
-#define _EXAMPLE_FILE_NAME_H
+#ifndef _DELAY_H    /* Guard against multiple inclusion */
+#define _DELAY_H
 
 
 /* ************************************************************************** */
@@ -29,19 +29,25 @@
  */
 /* TODO:  Include other files here if needed. */
 
+#include <stdint.h>
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void delay(int);
+void __delay_us( uint32_t us );
+void __delay_ms( uint32_t ms );
+
+static inline void delay( int n ) {
+  __delay_ms( n );
+}
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EXAMPLE_FILE_NAME_H */
+#endif /* _DELAY_H */
 
 /* *****************************************************************************
  End of File
