@@ -17,6 +17,7 @@
 
 #include <xc.h>
 #include "mrbc_firm.h"
+#include "uart.h"
 
 
 /*! NVM unlock and execute nvm operation.
@@ -81,7 +82,7 @@ static void saveFlush(const uint8_t* writeData, uint16_t size) {
     static int sum_pageCount = 0;
     static int remaining_page_size = 0;
 
-    int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
+    int rowCount = ROW_COUNT( size );
     int pageCount = (rowCount+remaining_page_size)/8;
     if(rowCount%8){
         remaining_page_size = rowCount%8;
@@ -122,35 +123,27 @@ void add_code(){
         if(strncmp(txt_addr,"version",7)==0){
             u_puts("+OK mruby/c PSoC_5LP v1.00 (2018/09/04)\r\n",0);
             memset(txt, 0, sizeof(txt));
+
         }else if(strncmp(txt_addr,"execute",7)==0){
             u_puts("+OK Execute mruby/c.\r\n",0);
             memset(txt, 0, sizeof(txt));
             return;
+
         }else if(strncmp(txt_addr,"write",5)==0){
             // bytecode length receive
-            u_puts("+OK Write bytecode\r\n",0);
-            int size = 0;
-            txt_len -= 2;
-            int j = 0;
-            while(txt_len>5){
-                size += (txt[txt_len] - 0x30) * pow(10,j);
-                j++;
-                txt_len--;
-            }
-
-            unsigned int return_size = size;
-            uint8_t data[size];
+	    int size = atoi( txt + 6 );
+	    int n = size;
+	    extern uint8_t memory_pool[];
+	    uint8_t *p = memory_pool;
 
             // mruby/c code write
-            int i = 0;
-            while (size > 0) {
-                IFS1bits.U1RXIF = 0;
-                while(!U1STAbits.URXDA);
-                data[i] = U1RXREG;
-                size--;
-                i++;
-            }
-            saveFlush(data, sizeof(data));
+            u_puts("+OK Write bytecode\r\n",0);
+            while (n > 0) {
+	        int readed_size = uart_read( &uart1_handle, p, size );
+		p += readed_size;
+		n -= readed_size;
+	    }
+            saveFlush(memory_pool, size);
             u_puts("+DONE\r\n",0);
             memset(txt, 0, sizeof(txt));
         }

@@ -1,3 +1,4 @@
+#include <xc.h>
 #include "mrubyc.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,8 @@
 #include <sys/attribs.h>
 #include <math.h>
 #include "mrbc_firm.h"
+#include "uart.h"
+
 // DEVCFG3
 // USERID = No Setting
 #pragma config PMDL1WAY = ON            // Peripheral Module Disable Configuration (Allow only one reconfiguration)
@@ -38,20 +41,13 @@
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
 
-#include <xc.h>
 
 #define MEMORY_SIZE (1024*20)
-static uint8_t memory_pool[MEMORY_SIZE];
+uint8_t memory_pool[MEMORY_SIZE];
 uint8_t t_count = 0;
 
 int hal_write(int fd, const void *buf, int nbytes) {
-    int i;
-    while (U1STAbits.TRMT == 0);
-    for (i = nbytes; i; --i) {
-        while (U1STAbits.TRMT == 0);
-        U1TXREG= *(char*) buf++;
-    }
-    return (nbytes);
+  return uart_write(&uart1_handle, buf, nbytes );
 }
 
 int hal_flush(int fd) {
@@ -92,10 +88,7 @@ int check_timeout(void)
         __delay_ms( 30 );
         LATAbits.LATA0 = 0;
         __delay_ms( 30 );
-        if(U1STAbits.URXDA){
-            U1RXREG = 0;
-            return 1;
-        }
+        if( uart_can_read_line( &uart1_handle ) ) return 1;
     }
     return 0;
 }
@@ -113,6 +106,8 @@ void __ISR(_TIMER_2_VECTOR, IPL2AUTO) _T2Interrupt (  ){
 }
 
 int main(void){
+    //__XC_UART = 1;
+
     /* module init */
     i2c_init();
     adc_init();
@@ -136,6 +131,9 @@ int main(void){
     IPC2bits.T2IP = 2;
     IPC2bits.T2IS = 0;
     INTCONbits.MVEC = 1;
+    __builtin_enable_interrupts();
+
+    //printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v2.1 start.\n");
 
     if (check_timeout()){
         /* IDE code */
@@ -165,8 +163,7 @@ int main(void){
         for(i = 0;i < 4;i++){
             size += (code_size_box[i] << ((3-i)*8));
         }
-        int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
-        fl_addr = fl_addr + ROW_SIZE*rowCount;
+	fl_addr = fl_addr + ROW_SIZE * ROW_COUNT( size );
     }
     T1CONbits.ON = 1;
     mrbc_run();

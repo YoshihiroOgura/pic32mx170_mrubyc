@@ -34,12 +34,9 @@
 extern "C" {
 #endif
 
-uint8_t *loadFlush();
-void add_code();
+void add_code(void);
 
-//void add_code(void);
-
-    /* Provide C++ Compatibility */
+/* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
