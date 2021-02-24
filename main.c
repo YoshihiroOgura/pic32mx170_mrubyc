@@ -88,9 +88,9 @@ int check_timeout(void)
 {
     int i;
     for( i = 0; i < 50; i++ ) {
-        PORTAbits.RA0 = 1;
+        LATAbits.LATA0 = 1;
         __delay_ms( 30 );
-        PORTAbits.RA0 = 0;
+        LATAbits.LATA0 = 0;
         __delay_ms( 30 );
         if(U1STAbits.URXDA){
             U1RXREG = 0;
