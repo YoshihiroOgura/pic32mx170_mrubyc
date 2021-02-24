@@ -22,10 +22,10 @@
 
 static void c_leds(mrb_vm *vm, mrb_value *v, int argc) {
     int led = GET_INT_ARG(1);
-    PORTAbits.RA0 = led & 0x01;
-    PORTAbits.RA1 = (led & 0x02)>>1;
-    PORTBbits.RB0 = (led & 0x04)>>2;
-    PORTBbits.RB1 = (led & 0x08)>>3;
+    LATAbits.LATA0 = led & 0x01;
+    LATAbits.LATA1 = (led & 0x02)>>1;
+    LATBbits.LATB0 = (led & 0x04)>>2;
+    LATBbits.LATB1 = (led & 0x08)>>3;
 }
 
 static void c_sw(mrb_vm *vm, mrb_value *v, int argc) {
@@ -57,15 +57,15 @@ static void c_pin_write(mrb_vm *vm, mrb_value *v, int argc) {
     int mode = GET_INT_ARG(2);
     if(pin < 5){
         if(mode == 0){
-            PORTA &= ~(1<<pin);
+            LATA &= ~(1<<pin);
         }else{
-            PORTA |= (1<<pin);
+            LATA |= (1<<pin);
         }
     }else{
         if(mode == 0){
-            PORTB &= ~(1<<(pin-5));
+            LATB &= ~(1<<(pin-5));
         }else{
-            PORTB |= (1<<(pin-5));
+            LATB |= (1<<(pin-5));
         }
     }
 }
