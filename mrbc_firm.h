@@ -27,11 +27,13 @@
 #define MAX_SIZE (1024 * 40)
 #define ROW_SIZE (PAGE_SIZE / sizeof(uint8_t) / 8)
 
+#define ROW_COUNT(byte_size) ((byte_size) / ROW_SIZE + (byte_size % ROW_SIZE != 0))
+
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 uint8_t *loadFlush();
 void add_code();
 

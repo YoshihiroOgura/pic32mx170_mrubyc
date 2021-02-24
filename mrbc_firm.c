@@ -15,49 +15,85 @@
  */
 /* ************************************************************************** */
 
+#include <xc.h>
 #include "mrbc_firm.h"
 
-void flash_del(void* address){
-    NVMADDR = ((unsigned int) address & 0x1FFFFFFF);
-    NVMCONCLR = 0xF;
-    NVMCON = 0x4004;
-    NVMKEY = 0xAA996655;
-    NVMKEY = 0x556699AA;
-    NVMCONSET = 0x8000;
-    while (NVMCON & 0x8000);
-    NVMCONCLR = 0x4000;
+
+/*! NVM unlock and execute nvm operation.
+
+  @param nvmop	NVM Operation bits. (see: DS60001121G, Sect 5.2.1)
+  @return	not zero if errors.
+*/
+unsigned int NVMUnlock(unsigned int nvmop)
+{
+  unsigned int status;
+
+  // Suspend or Disable all Interrupts
+  asm volatile ("di %0" : "=r" (status));
+
+  // clearing error bits before performing an NVM operation
+  NVMCONCLR = 0x0f;
+
+  // Enable Flash Write/Erase Operations and Select
+  // Flash operation to perform
+  NVMCON = (0x4000 | nvmop);
+
+  // Write Keys
+  NVMKEY = 0xAA996655;
+  NVMKEY = 0x556699AA;
+
+  // Start the operation using the Set Register
+  NVMCONSET = 0x8000;
+
+  // Wait for operation to complete
+  while (NVMCON & 0x8000);
+
+  // Restore Interrupts
+  if (status & 0x00000001) {
+    asm volatile ("ei");
+  } else {
+    asm volatile ("di");
+  }
+
+  // Disable NVM write enable
+  NVMCONCLR = 0x4000;
+
+  // Return WRERR and LVDERR Error Status Bits
+  return (NVMCON & 0x3000);
 }
 
-void flash_write(void* address, void* data){
-    NVMADDR = ((unsigned int) address & 0x1FFFFFFF);
-    NVMSRCADDR = ((unsigned int) data & 0x1FFFFFFF);
-    NVMCONCLR = 0xF;
-    NVMCON = 0x4003;
-    NVMKEY = 0xAA996655;
-    NVMKEY = 0x556699AA;
-    NVMCONSET = 0x8000;
-    while (NVMCON & 0x8000);
-    NVMCONCLR = 0x4000;
+
+void flash_del(void* address)
+{
+  NVMADDR = ((unsigned int) address & 0x1FFFFFFF);
+  NVMUnlock( 0x4 );	// 0x4 = Page Erase Operation
+}
+
+void flash_write(void* address, void* data)
+{
+  NVMADDR = ((unsigned int) address & 0x1FFFFFFF);
+  NVMSRCADDR = ((unsigned int) data & 0x1FFFFFFF);
+  NVMUnlock( 0x3 );	// 0x3 = Row Program Operation
 }
 
 static void saveFlush(const uint8_t* writeData, uint16_t size) {
     static int fl_addr = FLASH_SAVE_ADDR;
     static int sum_pageCount = 0;
     static int remaining_page_size = 0;
-    
+
     int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
     int pageCount = (rowCount+remaining_page_size)/8;
     if(rowCount%8){
         remaining_page_size = rowCount%8;
         pageCount++;
     }
-    
+
     // Initialize the required amount of ROM
     int i = 0;
     for(i = sum_pageCount;i < pageCount;i++) {
         flash_del((void *)(FLASH_SAVE_ADDR + i * PAGE_SIZE));
     }
-    
+
     // Write data to ROM
     sum_pageCount += pageCount;
     for(i = 0;i < rowCount; i++) {
