@@ -344,27 +344,7 @@ int uart_can_read_line( UART_HANDLE *uh )
 
 
 
-
-void u_puts(char *mo, int size){
-    if(size == 0){
-        size = strlen(mo);
-    }
-
-    uart1_write( mo, size );
-}
-
-int u_read(char *addr){
-  int n;
-
-  do {
-    n = uart_can_read_line( &uart1_handle );
-  } while( n == 0 );
-
-  return uart_read( &uart1_handle, addr, 50 );
-}
-
 /* ============================= mruby/c codes ============================= */
-
 
 //================================================================
 /*! UART constructor

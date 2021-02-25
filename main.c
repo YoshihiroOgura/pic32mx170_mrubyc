@@ -116,12 +116,14 @@ int main(void){
     pin_init();
 
     /*Enable the interrupt*/
+#if 0
     IPC9bits.U2IP = 4;
     IPC9bits.U2IS = 3;
     IFS1bits.U2RXIF = 0;
     IFS1bits.U2TXIF = 0;
     IEC1bits.U2RXIE = 1;
     IEC1bits.U2TXIE = 0;
+#endif
     IEC0bits.T1IE = 1;
     IEC0bits.T2IE = 1;
     IPC6bits.FCEIP = 1;
@@ -138,6 +140,7 @@ int main(void){
     if (check_timeout()){
         /* IDE code */
         add_code();
+	memset( memory_pool, 0, sizeof(memory_pool));
     };
 
     /* mruby/c */
@@ -150,21 +153,21 @@ int main(void){
     mrbc_init_class_pwm(0);
     mrbc_init_class_onboard(0);
     mrbc_init_class_spi(0);
-    int fl_addr = FLASH_SAVE_ADDR;
-    uint8_t code_size_box[4];
-    while(1){
-        if(*((char *)fl_addr) != 'R'){
-            break;
-        }
-        mrbc_create_task((void *)fl_addr, 0);
-        memcpy(code_size_box, (void *)(fl_addr + 10), 4);
-        int i = 0;
-        int size = 0;
-        for(i = 0;i < 4;i++){
-            size += (code_size_box[i] << ((3-i)*8));
-        }
-	fl_addr = fl_addr + ROW_SIZE * ROW_COUNT( size );
+
+    uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
+    static const char RITE[4] = "RITE";
+    while( strncmp( fl_addr, RITE, sizeof(RITE)) == 0 ) {
+      mrbc_create_task(fl_addr, 0);
+
+      // get a next irep.
+      int size = 0;
+      int i;
+      for( i = 0; i < 4; i++ ) {
+	size = (size << 8) | fl_addr[10 + i];
+      }
+      fl_addr += ALIGN_ROW_SIZE( size );
     }
+
     T1CONbits.ON = 1;
     mrbc_run();
     return 1;

@@ -133,9 +133,6 @@ static inline int uart_puts( UART_HANDLE *uh, const void *s )
 
 /* C codes */
 void uart_init(void);
-void u_puts(char *mo, int size);
-int u_read(char *addr);
-
 int uart_read(UART_HANDLE *uh, void *buffer, size_t size);
 int uart_bytes_available(UART_HANDLE *uh);
 int uart_can_read_line(UART_HANDLE *uh);
