@@ -1,3 +1,4 @@
+#include <xc.h>
 #include "mrubyc.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,8 @@
 #include <sys/attribs.h>
 #include <math.h>
 #include "mrbc_firm.h"
+#include "uart.h"
+
 // DEVCFG3
 // USERID = No Setting
 #pragma config PMDL1WAY = ON            // Peripheral Module Disable Configuration (Allow only one reconfiguration)
@@ -38,20 +41,13 @@
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
 
-#include <xc.h>
 
 #define MEMORY_SIZE (1024*20)
-static uint8_t memory_pool[MEMORY_SIZE];
+uint8_t memory_pool[MEMORY_SIZE];
 uint8_t t_count = 0;
 
 int hal_write(int fd, const void *buf, int nbytes) {
-    int i;
-    while (U1STAbits.TRMT == 0);
-    for (i = nbytes; i; --i) {
-        while (U1STAbits.TRMT == 0);
-        U1TXREG= *(char*) buf++;
-    }
-    return (nbytes);
+  return uart_write(&uart1_handle, buf, nbytes );
 }
 
 int hal_flush(int fd) {
@@ -92,10 +88,7 @@ int check_timeout(void)
         __delay_ms( 30 );
         LATAbits.LATA0 = 0;
         __delay_ms( 30 );
-        if(U1STAbits.URXDA){
-            U1RXREG = 0;
-            return 1;
-        }
+        if( uart_can_read_line( &uart1_handle ) ) return 1;
     }
     return 0;
 }
@@ -113,6 +106,8 @@ void __ISR(_TIMER_2_VECTOR, IPL2AUTO) _T2Interrupt (  ){
 }
 
 int main(void){
+    //__XC_UART = 1;
+
     /* module init */
     i2c_init();
     adc_init();
@@ -121,12 +116,14 @@ int main(void){
     pin_init();
 
     /*Enable the interrupt*/
+#if 0
     IPC9bits.U2IP = 4;
     IPC9bits.U2IS = 3;
     IFS1bits.U2RXIF = 0;
     IFS1bits.U2TXIF = 0;
     IEC1bits.U2RXIE = 1;
     IEC1bits.U2TXIE = 0;
+#endif
     IEC0bits.T1IE = 1;
     IEC0bits.T2IE = 1;
     IPC6bits.FCEIP = 1;
@@ -136,10 +133,14 @@ int main(void){
     IPC2bits.T2IP = 2;
     IPC2bits.T2IS = 0;
     INTCONbits.MVEC = 1;
+    __builtin_enable_interrupts();
+
+    //printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v2.1 start.\n");
 
     if (check_timeout()){
         /* IDE code */
         add_code();
+	memset( memory_pool, 0, sizeof(memory_pool));
     };
 
     /* mruby/c */
@@ -152,22 +153,21 @@ int main(void){
     mrbc_init_class_pwm(0);
     mrbc_init_class_onboard(0);
     mrbc_init_class_spi(0);
-    int fl_addr = FLASH_SAVE_ADDR;
-    uint8_t code_size_box[4];
-    while(1){
-        if(*((char *)fl_addr) != 'R'){
-            break;
-        }
-        mrbc_create_task((void *)fl_addr, 0);
-        memcpy(code_size_box, (void *)(fl_addr + 10), 4);
-        int i = 0;
-        int size = 0;
-        for(i = 0;i < 4;i++){
-            size += (code_size_box[i] << ((3-i)*8));
-        }
-        int rowCount = (size % ROW_SIZE == 0) ? size / ROW_SIZE : size / ROW_SIZE + 1;
-        fl_addr = fl_addr + ROW_SIZE*rowCount;
+
+    uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
+    static const char RITE[4] = "RITE";
+    while( strncmp( fl_addr, RITE, sizeof(RITE)) == 0 ) {
+      mrbc_create_task(fl_addr, 0);
+
+      // get a next irep.
+      int size = 0;
+      int i;
+      for( i = 0; i < 4; i++ ) {
+	size = (size << 8) | fl_addr[10 + i];
+      }
+      fl_addr += ALIGN_ROW_SIZE( size );
     }
+
     T1CONbits.ON = 1;
     mrbc_run();
     return 1;
