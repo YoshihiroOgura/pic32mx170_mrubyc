@@ -3,8 +3,8 @@
   mruby/c String object
 
   <pre>
-  Copyright (C) 2015-2018 Kyushu Institute of Technology.
-  Copyright (C) 2015-2018 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2020 Kyushu Institute of Technology.
+  Copyright (C) 2015-2020 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -14,14 +14,27 @@
 #ifndef MRBC_SRC_C_STRING_H_
 #define MRBC_SRC_C_STRING_H_
 
-#include <stdint.h>
-#include <string.h>
-#include "value.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/***** Feature test switches ************************************************/
+#include "vm_config.h"
+
+/***** System headers *******************************************************/
+#include <stdint.h>
+#include <string.h>
+
+/***** Local headers ********************************************************/
+#include "value.h"
+
+
+/***** Constant values ******************************************************/
+/***** Macros ***************************************************************/
+#define RSTRING_LEN(str)	mrbc_string_size(&str)
+#define RSTRING_PTR(str)	mrbc_string_cstr(&str)
+
+/***** Typedefs *************************************************************/
 //================================================================
 /*!@brief
   Define String handle.
@@ -35,10 +48,13 @@ typedef struct RString {
 } mrbc_string;
 
 
+/***** Global variables *****************************************************/
+/***** Function prototypes **************************************************/
 mrbc_value mrbc_string_new(struct VM *vm, const void *src, int len);
 mrbc_value mrbc_string_new_cstr(struct VM *vm, const char *src);
 mrbc_value mrbc_string_new_alloc(struct VM *vm, void *buf, int len);
 void mrbc_string_delete(mrbc_value *str);
+void mrbc_string_clear(mrbc_value *str);
 void mrbc_string_clear_vm_id(mrbc_value *str);
 mrbc_value mrbc_string_dup(struct VM *vm, mrbc_value *s1);
 mrbc_value mrbc_string_add(struct VM *vm, const mrbc_value *s1, const mrbc_value *s2);
@@ -47,8 +63,9 @@ int mrbc_string_append_cstr(mrbc_value *s1, const char *s2);
 int mrbc_string_index(const mrbc_value *src, const mrbc_value *pattern, int offset);
 int mrbc_string_strip(mrbc_value *src, int mode);
 int mrbc_string_chomp(mrbc_value *src);
-void mrbc_init_class_string(struct VM *vm);
 
+
+/***** Inline functions *****************************************************/
 
 //================================================================
 /*! compare

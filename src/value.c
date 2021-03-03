@@ -12,18 +12,50 @@
   </pre>
 */
 
+
+/***** Feature test switches ************************************************/
+/***** System headers *******************************************************/
 #include "vm_config.h"
 #include <string.h>
 #include <assert.h>
 
+/***** Local headers ********************************************************/
 #include "value.h"
-#include "vm.h"
-#include "alloc.h"
+#include "class.h"
 #include "c_string.h"
 #include "c_range.h"
 #include "c_array.h"
 #include "c_hash.h"
 
+
+/***** Constant values ******************************************************/
+/***** Macros ***************************************************************/
+/***** Typedefs *************************************************************/
+/***** Function prototypes **************************************************/
+/***** Local variables ******************************************************/
+/***** Global variables *****************************************************/
+//================================================================
+/*! function table for object delete.
+
+  (note) need same order as mrb_vtype.
+*/
+void (* const mrbc_delfunc[])(mrbc_value *) = {
+  mrbc_instance_delete,
+  mrbc_proc_delete,
+  mrbc_array_delete,
+#if MRBC_USE_STRING
+  mrbc_string_delete,
+#else
+  NULL,
+#endif
+  mrbc_range_delete,
+  mrbc_hash_delete,
+};
+
+
+/***** Signal catching functions ********************************************/
+/***** Local functions ******************************************************/
+/***** Global functions *****************************************************/
 
 //================================================================
 /*! compare two mrbc_values
@@ -36,18 +68,20 @@
 */
 int mrbc_compare(const mrbc_value *v1, const mrbc_value *v2)
 {
+#if MRBC_USE_FLOAT
   mrbc_float d1, d2;
+#endif
 
   // if TT_XXX is different
-  if( v1->tt != v2->tt ) {
+  if( mrbc_type(*v1) != mrbc_type(*v2) ) {
 #if MRBC_USE_FLOAT
     // but Numeric?
-    if( v1->tt == MRBC_TT_FIXNUM && v2->tt == MRBC_TT_FLOAT ) {
+    if( mrbc_type(*v1) == MRBC_TT_FIXNUM && mrbc_type(*v2) == MRBC_TT_FLOAT ) {
       d1 = v1->i;
       d2 = v2->d;
       goto CMP_FLOAT;
     }
-    if( v1->tt == MRBC_TT_FLOAT && v2->tt == MRBC_TT_FIXNUM ) {
+    if( mrbc_type(*v1) == MRBC_TT_FLOAT && mrbc_type(*v2) == MRBC_TT_FIXNUM ) {
       d1 = v1->d;
       d2 = v2->i;
       goto CMP_FLOAT;
@@ -55,15 +89,15 @@ int mrbc_compare(const mrbc_value *v1, const mrbc_value *v2)
 #endif
 
     // leak Empty?
-    if((v1->tt == MRBC_TT_EMPTY && v2->tt == MRBC_TT_NIL) ||
-       (v1->tt == MRBC_TT_NIL   && v2->tt == MRBC_TT_EMPTY)) return 0;
+    if((mrbc_type(*v1) == MRBC_TT_EMPTY && mrbc_type(*v2) == MRBC_TT_NIL) ||
+       (mrbc_type(*v1) == MRBC_TT_NIL   && mrbc_type(*v2) == MRBC_TT_EMPTY)) return 0;
 
     // other case
-    return v1->tt - v2->tt;
+    return mrbc_type(*v1) - mrbc_type(*v2);
   }
 
   // check value
-  switch( v1->tt ) {
+  switch( mrbc_type(*v1) ) {
   case MRBC_TT_NIL:
   case MRBC_TT_FALSE:
   case MRBC_TT_TRUE:
@@ -71,19 +105,19 @@ int mrbc_compare(const mrbc_value *v1, const mrbc_value *v2)
 
   case MRBC_TT_FIXNUM:
   case MRBC_TT_SYMBOL:
-    return v1->i - v2->i;
+    return mrbc_fixnum(*v1) - mrbc_fixnum(*v2);
 
 #if MRBC_USE_FLOAT
   case MRBC_TT_FLOAT:
-    d1 = v1->d;
-    d2 = v2->d;
+    d1 = mrbc_float(*v1);
+    d2 = mrbc_float(*v2);
     goto CMP_FLOAT;
 #endif
 
   case MRBC_TT_CLASS:
   case MRBC_TT_OBJECT:
   case MRBC_TT_PROC:
-    return -1 + (v1->handle == v2->handle) + (v1->handle > v2->handle)*2;
+    return -1 + (v1->proc == v2->proc) + (v1->proc > v2->proc)*2;
 
   case MRBC_TT_ARRAY:
     return mrbc_array_compare( v1, v2 );
@@ -110,90 +144,6 @@ int mrbc_compare(const mrbc_value *v1, const mrbc_value *v2)
 }
 
 
-
-
-//================================================================
-/*! Duplicate mrbc_value
-
-  @param   v     Pointer to mrbc_value
-*/
-void mrbc_dup(mrbc_value *v)
-{
-  switch( v->tt ){
-  case MRBC_TT_OBJECT:
-  case MRBC_TT_PROC:
-  case MRBC_TT_ARRAY:
-  case MRBC_TT_STRING:
-  case MRBC_TT_RANGE:
-  case MRBC_TT_HASH:
-    assert( v->instance->ref_count > 0 );
-    assert( v->instance->ref_count != 0xff );	// check max value.
-    v->instance->ref_count++;
-    break;
-
-  default:
-    // Nothing
-    break;
-  }
-}
-
-
-//================================================================
-/*! Release object related memory
-
-  @param   v     Pointer to target mrbc_value
-*/
-void mrbc_release(mrbc_value *v)
-{
-  mrbc_dec_ref_counter(v);
-  v->tt = MRBC_TT_EMPTY;
-}
-
-
-//================================================================
-/*! Decrement reference counter
-
-  @param   v     Pointer to target mrbc_value
-*/
-void mrbc_dec_ref_counter(mrbc_value *v)
-{
-  switch( v->tt ){
-  case MRBC_TT_OBJECT:
-  case MRBC_TT_PROC:
-  case MRBC_TT_ARRAY:
-  case MRBC_TT_STRING:
-  case MRBC_TT_RANGE:
-  case MRBC_TT_HASH:
-    assert( v->instance->ref_count != 0 );
-    assert( v->instance->ref_count != 0xffff );	// check broken data.
-    v->instance->ref_count--;
-    break;
-
-  default:
-    // Nothing
-    return;
-  }
-
-  // release memory?
-  if( v->instance->ref_count != 0 ) return;
-
-  switch( v->tt ) {
-  case MRBC_TT_OBJECT:	mrbc_instance_delete(v);	break;
-  case MRBC_TT_PROC:	mrbc_proc_delete(v);		break;
-  case MRBC_TT_ARRAY:	mrbc_array_delete(v);		break;
-#if MRBC_USE_STRING
-  case MRBC_TT_STRING:	mrbc_string_delete(v);		break;
-#endif
-  case MRBC_TT_RANGE:	mrbc_range_delete(v);		break;
-  case MRBC_TT_HASH:	mrbc_hash_delete(v);		break;
-
-  default:
-    // Nothing
-    break;
-  }
-}
-
-
 //================================================================
 /*! clear vm id
 
@@ -201,7 +151,7 @@ void mrbc_dec_ref_counter(mrbc_value *v)
 */
 void mrbc_clear_vm_id(mrbc_value *v)
 {
-  switch( v->tt ) {
+  switch( mrbc_type(*v) ) {
   case MRBC_TT_ARRAY:	mrbc_array_clear_vm_id(v);	break;
 #if MRBC_USE_STRING
   case MRBC_TT_STRING:	mrbc_string_clear_vm_id(v);	break;
