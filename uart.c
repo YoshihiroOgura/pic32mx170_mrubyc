@@ -349,21 +349,53 @@ int uart_can_read_line( UART_HANDLE *uh )
 //================================================================
 /*! UART constructor
 
-  $uart = UART.new( baud )	// TODO incomplete compatibility.
+  $uart = UART.new( ch, baud )	# ch = 1 or 2
 */
 static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-#if 0
-  if( argc == 1 && mrbc_type(v[1]) == MRBC_TT_FIXNUM ) {
-    uart2_set_baudrate( mrbc_fixnum(v[1]) );
-  }
-#else
-  uart2_set_baudrate( GET_INT_ARG(1) );
-#endif
+  int ch = -1;
+  int baud = -1;
 
-  *v = mrbc_instance_new(vm, v->cls, sizeof(UART_HANDLE *));
-  *((UART_HANDLE **)v->instance->data) = &uart2_handle;
+  // get parameter.
+  if( argc >= 1 ) {
+    if( mrbc_type(v[1]) != MRBC_TT_FIXNUM ) goto ERROR_PARAM;
+    ch = mrbc_fixnum(v[1]);
+  }
+  if( argc >= 2 ) {
+    if( mrbc_type(v[2]) != MRBC_TT_FIXNUM ) goto ERROR_PARAM;
+    baud = mrbc_fixnum(v[2]);
+  }
+
+  // in case of UART.new()
+  if( ch < 0 ) {
+    ch = 2;
+  }
+
+  // in case of UART.new(9600), for old version compatibility.
+  if( ch >= 300 && baud < 0 ) {
+    baud = ch;
+    ch = 2;
+  }
+
+  // make instance
+  mrbc_value val = mrbc_instance_new(vm, v->cls, sizeof(UART_HANDLE *));
+  switch( ch ) {
+    case 1: *((UART_HANDLE**)val.instance->data) = &uart1_handle; break;
+    case 2: *((UART_HANDLE**)val.instance->data) = &uart2_handle; break;
+  default: goto ERROR_PARAM;
+  }
+
+  // set baudrate.
+  if( baud > 0 ) {
+    UART_HANDLE *handle = *(UART_HANDLE **)val.instance->data;
+    (handle->set_baudrate)( baud );
+  }
+
+  SET_RETURN( val );
   return;
+
+ ERROR_PARAM:
+  console_print("UART parameter error.\n");
 }
 
 
