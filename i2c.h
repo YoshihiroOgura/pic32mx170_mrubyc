@@ -24,14 +24,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 /* C codes */
 void i2c_init(void);
 
 /* mruby/c codes */
 void mrbc_init_class_i2c(struct VM *vm);
 
-    /* Provide C++ Compatibility */
+/* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
