@@ -85,7 +85,7 @@ static void c_gpio_write(mrb_vm *vm, mrb_value *v, int argc) {
 static void c_gpio_setmode(mrb_vm *vm, mrb_value *v, int argc) {
     GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
     int pin = handle->pin_num;
-    int mode = GET_INT_ARG(2);
+    int mode = GET_INT_ARG(1);
     if(pin < 5){
         ANSELA &= ~(1<<pin);
         if(mode == 0){
@@ -116,7 +116,7 @@ static void c_gpio_read(mrb_vm *vm, mrb_value *v, int argc) {
 static void c_gpio_pull(mrb_vm *vm, mrb_value *v, int argc) {
     GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
     int pin = handle->pin_num;
-    int mode = GET_INT_ARG(2);
+    int mode = GET_INT_ARG(1);
     if(pin < 5){
         if(mode == 0){
             CNPUA &= ~(1<<pin);
