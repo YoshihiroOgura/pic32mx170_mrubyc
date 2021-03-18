@@ -109,11 +109,11 @@ int main(void){
     //__XC_UART = 1;
 
     /* module init */
+    pin_init();
     i2c_init();
     adc_init();
     uart_init();
     timer_init();
-    pin_init();
 
     /*Enable the interrupt*/
 #if 0
