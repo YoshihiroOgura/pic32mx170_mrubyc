@@ -16,6 +16,7 @@
 /* ************************************************************************** */
 
 #include "adc.h"
+#include "delay.h"
 
 /* ================================ C codes ================================ */
 ADC_HANDLE adch[21];
@@ -52,6 +53,7 @@ void c_adc_read(mrb_vm *vm, mrb_value *v, int argc){
     int status = adc_chs(pin);
     if(status==0){return 0;}
     AD1CON1bits.SAMP = 1;
+    __delay_us(10);
     int adc_p = ADC1BUF0;
     AD1CON1bits.SAMP = 0;
     SET_FLOAT_RETURN(adc_p);
@@ -63,6 +65,7 @@ void c_adc_read_v(mrb_vm *vm, mrb_value *v, int argc){
     int status = adc_chs(pin);
     if(status==0){return 0;}
     AD1CON1bits.SAMP = 1;
+    __delay_us(10);
     float adc_p = 3.3 * ADC1BUF0 / 1023;
     AD1CON1bits.SAMP = 0;
     SET_FLOAT_RETURN(adc_p);
