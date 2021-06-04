@@ -145,12 +145,12 @@ static void c_pwm_init(mrb_vm *vm, mrb_value *v, int argc) {
     PWM_HANDLE *handle = *(PWM_HANDLE **)v->instance->data;
     handle->pin_num = pin;
     T3CONbits.TCKPS = 0;
-    OC1CON = OC2CON = OC3CON = OC4CON = OC5CON = 0x800F;
+    OC1CON = OC2CON = OC3CON = OC4CON = OC5CON = 0x800E;
     OC1R = OC2R = OC3R = OC4R = OC5R = PR3;
     if(pin < 5){
-        pwm_a[pin] = 0x05;
+        *(pwm_a+pin) = 0x0005;
     }else{
-        pwm_b[pin-5] = 0x05;
+        *(pwm_b+(pin-5)) = 0x0005;
     }
 }
 
