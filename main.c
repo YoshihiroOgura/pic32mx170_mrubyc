@@ -42,7 +42,7 @@
 // Use project enums instead of #define for ON and OFF.
 
 
-#define MEMORY_SIZE (1024*20)
+#define MEMORY_SIZE (1024*40)
 uint8_t memory_pool[MEMORY_SIZE];
 uint8_t t_count = 0;
 
