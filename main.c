@@ -54,6 +54,12 @@ int hal_flush(int fd) {
     return 0;
 }
 
+void _mon_putc( char c )
+{
+  uart_write(&uart1_handle, &c, 1);
+}
+
+
 void pin_init(void){
     ANSELA = 0;
     ANSELB = 0;
@@ -105,9 +111,10 @@ void __ISR(_TIMER_2_VECTOR, IPL2AUTO) _T2Interrupt (  ){
     IFS0CLR = 1 << _IFS0_T2IF_POSITION;
 }
 
-int main(void){
-    //__XC_UART = 1;
 
+
+int main(void)
+{
     /* module init */
     pin_init();
     i2c_init();

@@ -96,30 +96,6 @@ static void uart_push_rxfifo( UART_HANDLE *uh, uint8_t ch )
 
 
 //================================================================
-/*! set baud-rate
-
-  @param  baudrate	baudrate.
-*/
-static void uart1_set_baudrate( int baudrate )
-{
-  /* データシート掲載計算式
-       UxBRG = PBCLK / (4 * baudrate) - 1
-     戦略
-     　誤差を小さくしたい。
-     　4bitシフトして計算した後3bit目を足すことで四捨五入の代わりにする。
-  */
-  uint32_t brg_x16 = ((uint32_t)PBCLK << 2) / baudrate;
-  U1BRG = (brg_x16 >> 4) + ((brg_x16 & 0xf) >> 3) - 1;
-}
-
-static void uart2_set_baudrate( int baudrate )
-{
-  uint32_t brg_x16 = ((uint32_t)PBCLK << 2) / baudrate;
-  U2BRG = (brg_x16 >> 4) + ((brg_x16 & 0xf) >> 3) - 1;
-}
-
-
-//================================================================
 /*! clear rx buffer and hardware FIFO
 */
 static void uart1_clear_rx_buffer( UART_HANDLE *uh )
@@ -195,64 +171,220 @@ static int uart2_write( const void *buffer, int size )
 void uart_init(void)
 {
   /* UART1
-      TxD: RPB4(11pin)
-      RxD: RPA4(12pin)
+      TxD: RPB4(11pin) = Pin9
+      RxD: RPA4(12pin) = none
   */
+  uart1_handle.number = 1;
   uart1_handle.delimiter = '\n';
-  uart1_handle.set_baudrate = uart1_set_baudrate;
+  uart1_handle.txd_pin = 9;
   uart1_handle.clear_rx_buffer = uart1_clear_rx_buffer;
   uart1_handle.write = uart1_write;
-
-  TRISBbits.TRISB4 = 0;		// RB4->output
-  RPB4Rbits.RPB4R = 0x0001;	// RB4->UART1:U1TX
-  TRISAbits.TRISA4 = 1;		// RA4->input
-  U1RXRbits.U1RXR = 0x0002;	// RA4->UART1:U1RX
 
   // UART1 parameter.
   U1MODE = 0x0008;
   U1STA = 0x0;
-  U1TXREG = 0x0;
-  uart1_set_baudrate( 19200 );
+  uart_set_modem_params( &uart1_handle, 19200, -1, -1, uart1_handle.txd_pin, 4 );
 
   // interrupt.
   IPC8bits.U1IP = 4;		// interrupt level
   IPC8bits.U1IS = 3;
-  IEC1bits.U1RXIE = 1;		// Rx interrupt
 
   // Enabling UART1
-  U1STAbits.UTXEN = 1;		// TX_enable
-  U1STAbits.URXEN = 1;		// RX_enable
-  U1MODEbits.ON = 1;
+  uart_enable( &uart1_handle, 1 );
 
   /* UART2
-      TxD: RPB9(18pin)
-      RxD: RPB8(17pin)
+      TxD: RPB9(18pin) = Pin14
+      RxD: RPB8(17pin) = Pin13
   */
+  uart2_handle.number = 2;
   uart2_handle.delimiter = '\n';
-  uart2_handle.set_baudrate = uart2_set_baudrate;
+  uart2_handle.txd_pin = 14;
   uart2_handle.clear_rx_buffer = uart2_clear_rx_buffer;
   uart2_handle.write = uart2_write;
-
-  TRISBbits.TRISB9 = 0;		// RB9->output
-  RPB9Rbits.RPB9R = 0x0002;	// RB9->UART2:U2TX
-  TRISBbits.TRISB8 = 1;		// RB8->input
-  U2RXRbits.U2RXR = 0x0004;	// RB8->UART2:U2RX
 
   // UART2 parameter.
   U2MODE = 0x0008;
   U2STA = 0x0;
-  U2TXREG = 0x0;
-  uart2_set_baudrate( 19200 );
+  uart_set_modem_params( &uart2_handle, 19200, -1, -1, uart2_handle.txd_pin, 13 );
 
   // interrupt.
   IPC9bits.U2IP = 4;		// interrupt level
   IPC9bits.U2IS = 3;
-  IEC1bits.U2RXIE = 1;		// Rx interrupt
 
   // Enabling UART2
-  U2STAbits.UTXEN = 1;		// TX_enable
-  U2STAbits.URXEN = 1;		// RX_enable
-  U2MODEbits.ON = 1;
+  uart_enable( &uart2_handle, 1 );
+}
+
+
+//================================================================
+/*! enable or disable uart
+*/
+void uart_enable( const UART_HANDLE *uh, int en_dis )
+{
+  switch( uh->number ) {
+  case 1:
+    if( en_dis ) {
+      // enable UART1
+      IEC1bits.U1RXIE = 1;	// Rx interrupt
+      U1STAbits.UTXEN = 1;	// TX enable
+      U1STAbits.URXEN = 1;	// RX enable
+      U1MODEbits.ON = 1;
+    } else {
+      //disable
+      while( U1STAbits.TRMT == 0 )
+	;
+      IEC1bits.U1RXIE = 0;
+      U1MODEbits.ON = 0;
+      U1STAbits.UTXEN = 0;
+      U1STAbits.URXEN = 0;
+    }
+    break;
+
+  case 2:
+    if( en_dis ) {
+      // enable UART2
+      IEC1bits.U2RXIE = 1;	// Rx interrupt
+      U2STAbits.UTXEN = 1;	// TX enable
+      U2STAbits.URXEN = 1;	// RX enable
+      U2MODEbits.ON = 1;
+    } else {
+      //disable UART2
+      while( U2STAbits.TRMT == 0 )
+	;
+      IEC1bits.U2RXIE = 0;
+      U2MODEbits.ON = 0;
+      U2STAbits.UTXEN = 0;
+      U2STAbits.URXEN = 0;
+    }
+    break;
+  }
+}
+
+
+
+//================================================================
+/*! set parameter
+*/
+int uart_set_modem_params( UART_HANDLE *uh, int baud, int parity, int stop_bits, int txd, int rxd )
+{
+  if( baud >= 0 ) {
+    /* データシート掲載計算式
+         UxBRG = PBCLK / (4 * baudrate) - 1
+       戦略
+       　誤差を小さくしたい。
+       　4bitシフトして計算した後3bit目を足すことで四捨五入の代わりにする。
+    */
+    uint32_t brg_x16 = ((uint32_t)PBCLK << 2) / baud;
+    uint16_t brg = (brg_x16 >> 4) + ((brg_x16 & 0xf) >> 3) - 1;
+    switch( uh->number ) {
+    case 1: U1BRG = brg; break;
+    case 2: U2BRG = brg; break;
+    }
+  }
+
+  if( 0 <= parity && parity <= 2 ) {
+    static const uint8_t pdsel[] = { 0, 2, 1 };
+    switch( uh->number ) {
+    case 1: U1MODEbits.PDSEL = pdsel[parity]; break;
+    case 2: U2MODEbits.PDSEL = pdsel[parity]; break;
+    }
+  }
+
+  if( 1 <= stop_bits && stop_bits <= 2 ) {
+    switch( uh->number ) {
+    case 1: U1MODEbits.STSEL = stop_bits - 1; break;
+    case 2: U2MODEbits.STSEL = stop_bits - 1; break;
+    }
+  }
+
+  /* TxD, RxD の設定可能な値
+    -----------------------------------
+          Reg  Rboard
+	        Pin    Device
+    -----------------------------------
+    U1TX  RA0    0      LED
+          RB3    8      I2C
+	  RB4    9      (default)
+	  RB15  20      Analog
+	  RB7   12      SW
+    -----------------------------------
+    U1RX  RA2    2
+          RB6   11
+          RA4    4      (default)
+          RB13  18
+          RB2    7      I2C
+    -----------------------------------
+    U2TX  RA3    3
+          RB14  19      Analog
+          RB0    5      LED
+          RB10  15      Digital
+          RB9   14      (default)
+    -----------------------------------
+    U2RX  RA1    1      LED
+          RB5   10
+          RB1    6      LED
+          RB11  16      Digital
+          RB8   13      (default)
+    -----------------------------------
+  */
+  static const uint8_t u1tx_pins[] = {0,8,9,20,12};
+  static const uint8_t u1rx_pins[] = {2,11,4,18,7};
+  static const uint8_t u2tx_pins[] = {3,19,5,15,14};
+  static const uint8_t u2rx_pins[] = {1,10,6,16,13};
+
+#define RPnR(pin) *((pin) < 5 ? &RPA0R + (pin) : &RPB0R + (pin) - 5)
+
+  if( 0 <= txd && txd <= 20 ) {
+    int i;
+    switch( uh->number ) {
+    case 1:
+      for( i = 0; i < sizeof(u1tx_pins); i++ ) {
+	if( u1tx_pins[i] == txd ) break;
+      }
+      if( i < sizeof(u1tx_pins) ) {
+	RPnR(uh->txd_pin) = 0;
+	RPnR(txd) = 0x1;
+	uh->txd_pin = txd;
+      }
+      break;
+
+    case 2:
+      for( i = 0; i < sizeof(u2tx_pins); i++ ) {
+	if( u2tx_pins[i] == txd ) break;
+      }
+      if( i < sizeof(u2tx_pins) ) {
+	RPnR(uh->txd_pin) = 0;
+	RPnR(txd) = 0x2;
+	uh->txd_pin = txd;
+      }
+      break;
+    }
+  }
+
+  if( 0 <= rxd && rxd <= 20 ) {
+    int i;
+    switch( uh->number ) {
+    case 1:
+      for( i = 0; i < sizeof(u1rx_pins); i++ ) {
+	if( u1rx_pins[i] == rxd ) {
+	  U1RXRbits.U1RXR = i;
+	  break;
+	}
+      }
+      break;
+
+    case 2:
+      for( i = 0; i < sizeof(u2rx_pins); i++ ) {
+	if( u2rx_pins[i] == rxd ) {
+	  U2RXRbits.U2RXR = i;
+	  break;
+	}
+      }
+      break;
+    }
+  }
+
+  return 0;
 }
 
 
@@ -299,7 +431,7 @@ int uart_read( UART_HANDLE *uh, void *buffer, size_t size )
   @param  uh		Pointer of UART_HANDLE.
   @return int		result (bytes)
 */
-int uart_bytes_available( UART_HANDLE *uh )
+int uart_bytes_available( const UART_HANDLE *uh )
 {
   uint16_t rx_wr = uh->rx_wr;
 
@@ -321,7 +453,7 @@ int uart_bytes_available( UART_HANDLE *uh )
   @note
    If RX-FIFO buffer is full, return -1.
 */
-int uart_can_read_line( UART_HANDLE *uh )
+int uart_can_read_line( const UART_HANDLE *uh )
 {
   uint16_t idx   = uh->rx_rd;
   uint16_t rx_wr = uh->rx_wr;
@@ -380,15 +512,17 @@ static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
   // make instance
   mrbc_value val = mrbc_instance_new(vm, v->cls, sizeof(UART_HANDLE *));
   switch( ch ) {
-    case 1: *((UART_HANDLE**)val.instance->data) = &uart1_handle; break;
-    case 2: *((UART_HANDLE**)val.instance->data) = &uart2_handle; break;
+  case 1: *((UART_HANDLE**)val.instance->data) = &uart1_handle; break;
+  case 2: *((UART_HANDLE**)val.instance->data) = &uart2_handle; break;
   default: goto ERROR_PARAM;
   }
 
   // set baudrate.
   if( baud > 0 ) {
     UART_HANDLE *handle = *(UART_HANDLE **)val.instance->data;
-    (handle->set_baudrate)( baud );
+    uart_enable( handle, 0 );
+    uart_set_modem_params( handle, baud, -1, -1, -1, -1 );
+    uart_enable( handle, 1 );
   }
 
   SET_RETURN( val );
@@ -397,6 +531,76 @@ static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
  ERROR_PARAM:
   console_print("UART parameter error.\n");
 }
+
+//================================================================
+/*! set_modem_params
+
+  s = $uart.set_modem_params( params... )
+
+  @param  n		Number of bytes receive.
+  @return Bool		result.
+
+  (params)
+  :baud=>9600	set baud rate.
+  :stop_bits=>1	set stop_bits bit, 1 or 2.
+  :parity=>0	set parity bit, 0=unused, 1=odd, 2=even.
+  :txd=>10	set TxD pin.
+  :rxd=>11	set RxD pin.
+*/
+static void c_uart_set_modem_params(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int baud = -1;
+  int parity = -1;
+  int stop_bits = -1;
+  int txd = -1;
+  int rxd = -1;
+
+  if( argc != 1 ) goto ERROR_PARAM;
+  if( v[1].tt != MRBC_TT_HASH ) goto ERROR_PARAM;
+
+  // get parameter
+  mrbc_hash_iterator ite = mrbc_hash_iterator_new( &v[1] );
+  while( mrbc_hash_i_has_next(&ite) ) {
+    mrbc_value *kv = mrbc_hash_i_next(&ite);
+    if( mrbc_type(kv[0]) != MRBC_TT_STRING ) goto ERROR_PARAM;
+    if( mrbc_type(kv[1]) != MRBC_TT_FIXNUM ) goto ERROR_PARAM;
+
+    if( strcmp("baud", RSTRING_PTR(kv[0])) == 0 ) {
+      baud = kv[1].i;
+
+    } else if( strcmp("parity", RSTRING_PTR(kv[0])) == 0 ) {
+      parity = kv[1].i;
+
+    } else if( strcmp("stop_bits", RSTRING_PTR(kv[0])) == 0 ) {
+      stop_bits = kv[1].i;
+
+    } else if( strcmp("txd", RSTRING_PTR(kv[0])) == 0 ) {
+      txd = kv[1].i;
+
+    } else if( strcmp("rxd", RSTRING_PTR(kv[0])) == 0 ) {
+      rxd = kv[1].i;
+
+    } else {
+      goto ERROR_PARAM;
+    }
+  }
+
+  // set to UART
+  UART_HANDLE *handle = *(UART_HANDLE **)v->instance->data;
+  uart_enable( handle, 0 );
+  if( uart_set_modem_params( handle, baud, parity, stop_bits, txd, rxd ) == 0 ) {
+    uart_enable( handle, 1 );
+    SET_TRUE_RETURN();
+    return;
+  }
+
+ ERROR_PARAM:
+  console_print("UART parameter error.\n");
+  SET_FALSE_RETURN();
+}
+
+
+
 
 
 //================================================================
@@ -569,6 +773,7 @@ void mrbc_init_class_uart(struct VM *vm)
   uart = mrbc_define_class(0, "UART",		0 );
 
   mrbc_define_method(0, uart, "new",		c_uart_new);
+  mrbc_define_method(0, uart, "set_modem_params", c_uart_set_modem_params);
   mrbc_define_method(0, uart, "read",		c_uart_read);
   mrbc_define_method(0, uart, "read_nonblock",	c_uart_read_nonblock);
   mrbc_define_method(0, uart, "write",		c_uart_write);

@@ -34,33 +34,21 @@ extern "C" {
   UART Handle
 */
 typedef struct UART_HANDLE {
+  uint8_t number;
   uint8_t rx_overflow;		// buffer overflow flag.
   uint8_t delimiter;
+  uint8_t txd_pin;
 
   volatile uint16_t rx_rd;	// index of rxfifo for read.
   volatile uint16_t rx_wr;	// index of rxfifo for write.
   volatile uint8_t rxfifo[UART_SIZE_RXFIFO]; // FIFO for received data.
 
-  void (*set_baudrate)();
   void (*clear_rx_buffer)();
   int (*write)();
 
 } UART_HANDLE;
 
 extern UART_HANDLE uart1_handle, uart2_handle;
-
-
-//================================================================
-/*! set baud-rate
-
-  @memberof UART_HANDLE
-  @param  uh		Pointer of UART_HANDLE.
-  @param  baudrate	baudrate.
-*/
-static inline void uart_set_baudrate( const UART_HANDLE *uh, int baudrate )
-{
-  uh->set_baudrate( baudrate );
-}
 
 
 //================================================================
@@ -129,14 +117,13 @@ static inline int uart_puts( UART_HANDLE *uh, const void *s )
 }
 
 
-
-
 /* C codes */
 void uart_init(void);
+void uart_enable(const UART_HANDLE *uh, int en_dis);
+int uart_set_modem_params(UART_HANDLE *uh, int baud, int parity, int stop_bits, int txd, int rxd);
 int uart_read(UART_HANDLE *uh, void *buffer, size_t size);
-int uart_bytes_available(UART_HANDLE *uh);
-int uart_can_read_line(UART_HANDLE *uh);
-
+int uart_bytes_available(const UART_HANDLE *uh);
+int uart_can_read_line(const UART_HANDLE *uh);
 
 /* mruby/c codes */
 void mrbc_init_class_uart(struct VM *vm);
