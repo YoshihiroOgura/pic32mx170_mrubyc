@@ -333,31 +333,31 @@ int uart_set_modem_params( UART_HANDLE *uh, int baud, int parity, int stop_bits,
   static const uint8_t u2rx_pins[] = {1,10,6,16,13};
 
 #define RPnR(pin) *((pin) < 5 ? &RPA0R + (pin) : &RPB0R + (pin) - 5)
+#define TRISxSET(pin) ( ((pin) < 5)? (TRISASET = 1 << (pin)) : (TRISBSET = 1 << ((pin)-5)) )
+#define TRISxCLR(pin) ( ((pin) < 5)? (TRISACLR = 1 << (pin)) : (TRISBCLR = 1 << ((pin)-5)) )
+#define LATxSET(pin)  ( ((pin) < 5)? (LATASET  = 1 << (pin)) : (LATBSET  = 1 << ((pin)-5)) )
 
   if( 0 <= txd && txd <= 20 ) {
     int i;
     switch( uh->number ) {
     case 1:
       for( i = 0; i < sizeof(u1tx_pins); i++ ) {
-	if( u1tx_pins[i] == txd ) break;
-      }
-      if( i < sizeof(u1tx_pins) ) {
-	RPnR(uh->txd_pin) = 0;
-	RPnR(txd) = 0x1;
-	uh->txd_pin = txd;
+	if( u1tx_pins[i] == txd ) goto common_proc_txd;
       }
       break;
 
     case 2:
       for( i = 0; i < sizeof(u2tx_pins); i++ ) {
-	if( u2tx_pins[i] == txd ) break;
-      }
-      if( i < sizeof(u2tx_pins) ) {
-	RPnR(uh->txd_pin) = 0;
-	RPnR(txd) = 0x2;
-	uh->txd_pin = txd;
+	if( u2tx_pins[i] == txd ) goto common_proc_txd;
       }
       break;
+
+    common_proc_txd:
+      RPnR(uh->txd_pin) = 0;	// unmap txd pin.
+      LATxSET(txd);		// default HIGH level.
+      TRISxCLR(txd);		// set to output
+      RPnR(txd) = uh->number;	// remap txd pin.
+      uh->txd_pin = txd;
     }
   }
 
@@ -367,6 +367,7 @@ int uart_set_modem_params( UART_HANDLE *uh, int baud, int parity, int stop_bits,
     case 1:
       for( i = 0; i < sizeof(u1rx_pins); i++ ) {
 	if( u1rx_pins[i] == rxd ) {
+	  TRISxSET(rxd);		// set to input
 	  U1RXRbits.U1RXR = i;
 	  break;
 	}
@@ -376,6 +377,7 @@ int uart_set_modem_params( UART_HANDLE *uh, int baud, int parity, int stop_bits,
     case 2:
       for( i = 0; i < sizeof(u2rx_pins); i++ ) {
 	if( u2rx_pins[i] == rxd ) {
+	  TRISxSET(rxd);		// set to input
 	  U2RXRbits.U2RXR = i;
 	  break;
 	}
