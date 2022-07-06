@@ -22,24 +22,21 @@
 #include <math.h>
 #include<string.h>
 
-#define FLASH_SAVE_ADDR (0xBD032000)
-#define PAGE_SIZE (1024)
-#define MAX_SIZE (1024 * 40)
-#define ROW_SIZE (PAGE_SIZE / sizeof(uint8_t) / 8)
+#define FLASH_SAVE_ADDR 0xBD032000
+#define FLASH_END_ADDR  0xBD03EFFF
+#define PAGE_SIZE 1024
+#define ROW_SIZE (PAGE_SIZE / 8)
 
-#define ROW_COUNT(byte_size) ((byte_size) / ROW_SIZE + (byte_size % ROW_SIZE != 0))
+#define ALIGN_ROW_SIZE(byte_size) ((byte_size) + (((byte_size) % ROW_SIZE) == 0 ? 0 : (ROW_SIZE - ((byte_size) % ROW_SIZE))))
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-uint8_t *loadFlush();
-void add_code();
+void add_code(void);
 
-//void add_code(void);
-
-    /* Provide C++ Compatibility */
+/* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif

@@ -4,39 +4,13 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
-      <logicalFolder name="src" displayName="src" projectFiles="true">
-        <logicalFolder name="hal" displayName="hal" projectFiles="true">
-          <itemPath>src/hal/hal.h</itemPath>
-        </logicalFolder>
-        <itemPath>src/alloc.h</itemPath>
-        <itemPath>src/class.h</itemPath>
-        <itemPath>src/console.h</itemPath>
-        <itemPath>src/c_array.h</itemPath>
-        <itemPath>src/c_hash.h</itemPath>
-        <itemPath>src/c_math.h</itemPath>
-        <itemPath>src/c_numeric.h</itemPath>
-        <itemPath>src/c_range.h</itemPath>
-        <itemPath>src/c_string.h</itemPath>
-        <itemPath>src/global.h</itemPath>
-        <itemPath>src/keyvalue.h</itemPath>
-        <itemPath>src/load.h</itemPath>
-        <itemPath>src/mrubyc.h</itemPath>
-        <itemPath>src/opcode.h</itemPath>
-        <itemPath>src/rrt0.h</itemPath>
-        <itemPath>src/static.h</itemPath>
-        <itemPath>src/symbol.h</itemPath>
-        <itemPath>src/value.h</itemPath>
-        <itemPath>src/vm.h</itemPath>
-        <itemPath>src/vm_config.h</itemPath>
-        <itemPath>src/error.h</itemPath>
-      </logicalFolder>
-      <itemPath>delay.h</itemPath>
-      <itemPath>i2c.h</itemPath>
-      <itemPath>uart.h</itemPath>
-      <itemPath>mrbc_firm.h</itemPath>
       <itemPath>adc.h</itemPath>
+      <itemPath>delay.h</itemPath>
       <itemPath>digital.h</itemPath>
-      <itemPath>timer.h</itemPath>
+      <itemPath>i2c.h</itemPath>
+      <itemPath>mrbc_firm.h</itemPath>
+      <itemPath>spi.h</itemPath>
+      <itemPath>uart.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -46,8 +20,6 @@
                    displayName="Source Files"
                    projectFiles="true">
       <logicalFolder name="src" displayName="src" projectFiles="true">
-        <logicalFolder name="hal" displayName="hal" projectFiles="true">
-        </logicalFolder>
         <itemPath>src/alloc.c</itemPath>
         <itemPath>src/class.c</itemPath>
         <itemPath>src/console.c</itemPath>
@@ -62,11 +34,11 @@
         <itemPath>src/load.c</itemPath>
         <itemPath>src/mrblib.c</itemPath>
         <itemPath>src/rrt0.c</itemPath>
-        <itemPath>src/static.c</itemPath>
         <itemPath>src/symbol.c</itemPath>
         <itemPath>src/value.c</itemPath>
         <itemPath>src/vm.c</itemPath>
         <itemPath>src/error.c</itemPath>
+        <itemPath>src/c_object.c</itemPath>
       </logicalFolder>
       <itemPath>delay.c</itemPath>
       <itemPath>main.c</itemPath>
@@ -75,7 +47,7 @@
       <itemPath>mrbc_firm.c</itemPath>
       <itemPath>adc.c</itemPath>
       <itemPath>digital.c</itemPath>
-      <itemPath>timer.c</itemPath>
+      <itemPath>spi.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -96,12 +68,14 @@
         <targetPluginBoard></targetPluginBoard>
         <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>XC32</languageToolchain>
-        <languageToolchainVersion>2.30</languageToolchainVersion>
+        <languageToolchainVersion>2.50</languageToolchainVersion>
         <platform>3</platform>
       </toolsSet>
       <packs>
-        <pack name="PIC32MX_DFP" vendor="Microchip" version="1.1.215"/>
+        <pack name="PIC32MX_DFP" vendor="Microchip" version="1.3.231"/>
       </packs>
+      <ScriptingSettings>
+      </ScriptingSettings>
       <compileType>
         <linkerTool>
           <linkerLibItems>
@@ -119,6 +93,7 @@
       </compileType>
       <makeCustomizationType>
         <makeCustomizationPreStepEnabled>false</makeCustomizationPreStepEnabled>
+        <makeUseCleanTarget>false</makeUseCleanTarget>
         <makeCustomizationPreStep></makeCustomizationPreStep>
         <makeCustomizationPostStepEnabled>false</makeCustomizationPostStepEnabled>
         <makeCustomizationPostStep></makeCustomizationPostStep>
@@ -139,11 +114,12 @@
         <property key="generate-micro-compressed-code" value="false"/>
         <property key="isolate-each-function" value="false"/>
         <property key="make-warnings-into-errors" value="false"/>
-        <property key="optimization-level" value=""/>
+        <property key="optimization-level" value="-O1"/>
         <property key="place-data-into-section" value="false"/>
         <property key="post-instruction-scheduling" value="default"/>
         <property key="pre-instruction-scheduling" value="default"/>
-        <property key="preprocessor-macros" value=""/>
+        <property key="preprocessor-macros"
+                  value="MRBC_USE_HAL_PIC32;UART_SIZE_RXFIFO=1024"/>
         <property key="strict-ansi" value="false"/>
         <property key="support-ansi" value="false"/>
         <property key="toplevel-reordering" value=""/>
@@ -198,7 +174,7 @@
         <property key="generate-16-bit-code" value="false"/>
         <property key="generate-cross-reference-file" value="false"/>
         <property key="generate-micro-compressed-code" value="false"/>
-        <property key="heap-size" value="1023"/>
+        <property key="heap-size" value="0x2000"/>
         <property key="input-libraries" value=""/>
         <property key="kseg-length" value=""/>
         <property key="kseg-origin" value=""/>
@@ -213,7 +189,7 @@
         <property key="report-memory-usage" value="false"/>
         <property key="serial-length" value=""/>
         <property key="serial-origin" value=""/>
-        <property key="stack-size" value="1023"/>
+        <property key="stack-size" value="0x2000"/>
         <property key="symbol-stripping" value=""/>
         <property key="trace-symbols" value=""/>
         <property key="warn-section-align" value="false"/>
@@ -254,6 +230,7 @@
         <property key="mdtcm" value=""/>
         <property key="mitcm" value=""/>
         <property key="mstacktcm" value="false"/>
+        <property key="omit-pack-options" value="1"/>
         <property key="relaxed-math" value="false"/>
         <property key="save-temps" value="false"/>
         <property key="wpo-lto" value="false"/>

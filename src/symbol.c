@@ -11,23 +11,26 @@
   </pre>
 */
 
+/***** Feature test switches ************************************************/
+/***** System headers *******************************************************/
 #include "vm_config.h"
 #include <stdint.h>
 #include <string.h>
 #include <limits.h>
 #include <assert.h>
 
+/***** Local headers ********************************************************/
 #include "value.h"
 #include "vm.h"
 #include "alloc.h"
-#include "static.h"
 #include "class.h"
 #include "symbol.h"
+#include "c_object.h"
 #include "c_string.h"
 #include "c_array.h"
 #include "console.h"
 
-
+/***** Constant values ******************************************************/
 #if !defined(MRBC_SYMBOL_SEARCH_LINER) && !defined(MRBC_SYMBOL_SEARCH_BTREE)
 #define MRBC_SYMBOL_SEARCH_BTREE
 #endif
@@ -38,6 +41,11 @@
 #define MRBC_SYMBOL_TABLE_INDEX_TYPE	uint16_t
 #endif
 
+#define OFFSET_BUILTIN_SYMBOL 256
+
+
+/***** Macros ***************************************************************/
+/***** Typedefs *************************************************************/
 struct SYM_INDEX {
   uint16_t hash;	//!< hash value, returned by calc_hash().
 #ifdef MRBC_SYMBOL_SEARCH_BTREE
@@ -48,9 +56,20 @@ struct SYM_INDEX {
 };
 
 
+/***** Function prototypes **************************************************/
+/***** Local variables ******************************************************/
+
 static struct SYM_INDEX sym_index[MAX_SYMBOLS_COUNT];
 static int sym_index_pos;	// point to the last(free) sym_index array.
 
+#define MRBC_DEFINE_SYMBOL_TABLE
+#include "symbol_builtin.h"	// built-in symbol table.
+#undef MRBC_DEFINE_SYMBOL_TABLE
+
+
+/***** Global variables *****************************************************/
+/***** Signal catching functions ********************************************/
+/***** Local functions ******************************************************/
 
 //================================================================
 /*! Calculate hash value.
@@ -63,26 +82,57 @@ static inline uint16_t calc_hash(const char *str)
   uint16_t h = 0;
 
   while( *str != '\0' ) {
-    h = h * 37 + *str;
-    str++;
+    h = h * 17 + *str++;
   }
   return h;
 }
 
 
 //================================================================
-/*! cleanup
- */
-void mrbc_cleanup_symbol(void)
+/*! search built-in symbol table
+
+  @param  str	string ptr.
+  @return	symbol id. or -1 if not found.
+*/
+static int search_builtin_symbol( const char *str )
 {
-  memset(sym_index, 0, sizeof(sym_index));
-  sym_index_pos = 0;
+  int left = 0;
+  int right = sizeof(builtin_symbols) / sizeof(builtin_symbols[0]);
+
+  while( left < right ) {
+    int mid = (left + right) / 2;
+    const unsigned char *p1 = (const unsigned char *)builtin_symbols[mid];
+    const unsigned char *p2 = (const unsigned char *)str;
+
+    while( 1 ) {	// string compare, same order as cruby.
+      if( *p1 < *p2 ) {
+	left = mid + 1;
+	break;
+      }
+      if( *p1 > *p2 ) {
+	right = mid;
+	break;
+      }
+      if( *p1 == 0 ) {
+	return mid;
+      }
+
+      p1++;
+      p2++;
+    }
+  }
+
+  return -1;
 }
 
 
 //================================================================
 /*! search index table
- */
+
+  @param  hash	hash value.
+  @param  str	string ptr.
+  @return	index. or -1 if not found.
+*/
 static int search_index( uint16_t hash, const char *str )
 {
 #ifdef MRBC_SYMBOL_SEARCH_LINER
@@ -114,7 +164,11 @@ static int search_index( uint16_t hash, const char *str )
 
 //================================================================
 /*! add to index table
- */
+
+  @param  hash	return value.
+  @param  str	string ptr.
+  @return	index. or -1 if error.
+*/
 static int add_index( uint16_t hash, const char *str )
 {
   // check overflow.
@@ -123,11 +177,11 @@ static int add_index( uint16_t hash, const char *str )
     return -1;
   }
 
-  int sym_id = sym_index_pos++;
+  int idx = sym_index_pos++;
 
   // append table.
-  sym_index[sym_id].hash = hash;
-  sym_index[sym_id].cstr = str;
+  sym_index[idx].hash = hash;
+  sym_index[idx].cstr = str;
 
 #ifdef MRBC_SYMBOL_SEARCH_BTREE
   int i = 0;
@@ -136,14 +190,14 @@ static int add_index( uint16_t hash, const char *str )
     if( hash < sym_index[i].hash ) {
       // left side
       if( sym_index[i].left == 0 ) {	// left is empty?
-        sym_index[i].left = sym_id;
+        sym_index[i].left = idx;
         break;
       }
       i = sym_index[i].left;
     } else {
       // right side
       if( sym_index[i].right == 0 ) {	// right is empty?
-        sym_index[i].right = sym_id;
+        sym_index[i].right = idx;
         break;
       }
       i = sym_index[i].right;
@@ -151,7 +205,79 @@ static int add_index( uint16_t hash, const char *str )
   }
 #endif
 
-  return sym_id;
+  return idx;
+}
+
+
+/***** Global functions *****************************************************/
+
+//================================================================
+/*! cleanup
+*/
+void mrbc_cleanup_symbol(void)
+{
+  memset(sym_index, 0, sizeof(sym_index));
+  sym_index_pos = 0;
+}
+
+
+//================================================================
+/*! Convert string to symbol value.
+
+  @param  str		Target string.
+  @return mrbc_sym	Symbol value.
+*/
+mrbc_sym mrbc_str_to_symid(const char *str)
+{
+  mrbc_sym sym_id = search_builtin_symbol(str);
+  if( sym_id >= 0 ) return sym_id;
+
+  uint16_t h = calc_hash(str);
+  sym_id = search_index(h, str);
+  if( sym_id < 0 ) sym_id = add_index( h, str );
+  if( sym_id < 0 ) return sym_id;
+
+  return sym_id + OFFSET_BUILTIN_SYMBOL;
+}
+
+
+//================================================================
+/*! Convert symbol value to string.
+
+  @param  sym_id	Symbol value.
+  @return const char*	String.
+  @retval NULL		Invalid sym_id was given.
+*/
+const char * mrbc_symid_to_str(mrbc_sym sym_id)
+{
+  if( sym_id < OFFSET_BUILTIN_SYMBOL ) {
+    return builtin_symbols[sym_id];
+  }
+
+  sym_id -= OFFSET_BUILTIN_SYMBOL;
+  if( sym_id < 0 ) return NULL;
+  if( sym_id >= sym_index_pos ) return NULL;
+
+  return sym_index[sym_id].cstr;
+}
+
+
+//================================================================
+/*! Search only.
+
+  @param  str	C string.
+  @return	symbol id. or -1 if not registered.
+*/
+mrbc_sym mrbc_search_symid( const char *str )
+{
+  mrbc_sym sym_id = search_builtin_symbol(str);
+  if( sym_id >= 0 ) return sym_id;
+
+  uint16_t h = calc_hash(str);
+  sym_id = search_index(h, str);
+  if( sym_id < 0 ) return sym_id;
+
+  return sym_id + OFFSET_BUILTIN_SYMBOL;
 }
 
 
@@ -164,58 +290,24 @@ static int add_index( uint16_t hash, const char *str )
 */
 mrbc_value mrbc_symbol_new(struct VM *vm, const char *str)
 {
-  mrbc_value ret = {.tt = MRBC_TT_SYMBOL};
-  uint16_t h = calc_hash(str);
-  mrbc_sym sym_id = search_index(h, str);
-
-  if( sym_id >= 0 ) {
-    ret.i = sym_id;
-    return ret;		// already exist.
-  }
+  mrbc_sym sym_id = mrbc_search_symid( str );
+  if( sym_id >= 0 ) goto DONE;
 
   // create symbol object dynamically.
   int size = strlen(str) + 1;
   char *buf = mrbc_raw_alloc_no_free(size);
-  if( buf == NULL ) return ret;		// ENOMEM raise?
+  if( buf == NULL ) return mrbc_nil_value();	// ENOMEM raise?
 
   memcpy(buf, str, size);
-  ret.i = add_index( h, buf );
+  sym_id = add_index( calc_hash(buf), buf );
+  if( sym_id >= 0 ) sym_id += OFFSET_BUILTIN_SYMBOL;
 
-  return ret;
+ DONE:
+  return mrbc_symbol_value( sym_id );
 }
 
 
-//================================================================
-/*! Convert string to symbol value.
-
-  @param  str		Target string.
-  @return mrbc_sym	Symbol value.
-*/
-mrbc_sym str_to_symid(const char *str)
-{
-  uint16_t h = calc_hash(str);
-  mrbc_sym sym_id = search_index(h, str);
-  if( sym_id >= 0 ) return sym_id;
-
-  return add_index( h, str );
-}
-
-
-//================================================================
-/*! Convert symbol value to string.
-
-  @param  sym_id	Symbol value.
-  @return const char*	String.
-  @retval NULL		Invalid sym_id was given.
-*/
-const char * symid_to_str(mrbc_sym sym_id)
-{
-  if( sym_id < 0 ) return NULL;
-  if( sym_id >= sym_index_pos ) return NULL;
-
-  return sym_index[sym_id].cstr;
-}
-
+/***** mruby/c methods ******************************************************/
 
 //================================================================
 /*! (method) all_symbols
@@ -225,10 +317,12 @@ static void c_all_symbols(struct VM *vm, mrbc_value v[], int argc)
   mrbc_value ret = mrbc_array_new(vm, sym_index_pos);
 
   int i;
+  for( i = 0; i < sizeof(builtin_symbols) / sizeof(builtin_symbols[0]); i++ ) {
+    mrbc_array_push(&ret, &mrbc_symbol_value(i));
+  }
+
   for( i = 0; i < sym_index_pos; i++ ) {
-    mrbc_value sym1 = {.tt = MRBC_TT_SYMBOL};
-    sym1.i = i;
-    mrbc_array_push(&ret, &sym1);
+    mrbc_array_push(&ret, &mrbc_symbol_value(i + OFFSET_BUILTIN_SYMBOL));
   }
   SET_RETURN(ret);
 }
@@ -240,7 +334,7 @@ static void c_all_symbols(struct VM *vm, mrbc_value v[], int argc)
 */
 static void c_inspect(struct VM *vm, mrbc_value v[], int argc)
 {
-  const char *s = symid_to_str(v[0].i);
+  const char *s = mrbc_symid_to_str( mrbc_symbol(v[0]) );
   v[0] = mrbc_string_new_cstr(vm, ":");
   mrbc_string_append_cstr(&v[0], s);
 }
@@ -251,27 +345,26 @@ static void c_inspect(struct VM *vm, mrbc_value v[], int argc)
 */
 static void c_to_s(struct VM *vm, mrbc_value v[], int argc)
 {
-  v[0] = mrbc_string_new_cstr(vm, symid_to_str(v[0].i));
+  v[0] = mrbc_string_new_cstr(vm, mrbc_symid_to_str( mrbc_symbol(v[0]) ));
 }
 #endif
 
 
+/* MRBC_AUTOGEN_METHOD_TABLE
 
-//================================================================
-/*! initialize
-*/
-void mrbc_init_class_symbol(struct VM *vm)
-{
-  mrbc_class_symbol = mrbc_define_class(vm, "Symbol", mrbc_class_object);
+  CLASS("Symbol")
+  FILE("method_table_symbol.h")
+  FUNC("mrbc_init_class_symbol")
 
-  mrbc_define_method(vm, mrbc_class_symbol, "all_symbols", c_all_symbols);
+  METHOD( "all_symbols", c_all_symbols )
 #if MRBC_USE_STRING
-  mrbc_define_method(vm, mrbc_class_symbol, "inspect", c_inspect);
-  mrbc_define_method(vm, mrbc_class_symbol, "to_s", c_to_s);
-  mrbc_define_method(vm, mrbc_class_symbol, "id2name", c_to_s);
+  METHOD( "inspect", c_inspect )
+  METHOD( "to_s", c_to_s )
+  METHOD( "id2name", c_to_s )
 #endif
-  mrbc_define_method(vm, mrbc_class_symbol, "to_sym", c_ineffect);
-}
+  METHOD( "to_sym", c_ineffect )
+*/
+#include "method_table_symbol.h"
 
 
 

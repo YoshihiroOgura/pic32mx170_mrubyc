@@ -18,6 +18,30 @@
 #include "digital.h"
 
 /* ================================ C codes ================================ */
+
+GPIO_HANDLE gpioh[21];
+PWM_HANDLE pwmh[21];
+
+void set_compare(int pin, uint32_t param){
+    switch(out_compare[pin]){
+        case 1:
+            OC1RS = param;
+            break;
+        case 2:
+            OC2RS = param;
+            break;
+        case 3:
+            OC3RS = param;
+            break;
+        case 4:
+            OC4RS = param;
+            break;
+        case 5:
+            OC5RS = param;
+            break;
+    }
+}
+
 /* ============================= mruby/c codes ============================= */
 
 static void c_leds(mrb_vm *vm, mrb_value *v, int argc) {
@@ -32,9 +56,36 @@ static void c_sw(mrb_vm *vm, mrb_value *v, int argc) {
     SET_INT_RETURN(PORTBbits.RB7);
 }
 
-static void c_pin_mode(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
-    int mode = GET_INT_ARG(2);
+static void c_gpio_new(mrb_vm *vm, mrb_value *v, int argc) {
+    *v = mrbc_instance_new(vm, v->cls, sizeof(GPIO_HANDLE *));
+    *((GPIO_HANDLE **)v->instance->data) = &gpioh[GET_INT_ARG(1)];
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    handle->pin_num = GET_INT_ARG(1);
+}
+
+static void c_gpio_write(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
+    int mode = GET_INT_ARG(1);
+    if(pin < 5){
+        if(mode == 0){
+	    LATA &= ~(1<<pin);
+        }else{
+            LATA |= (1<<pin);
+        }
+    }else{
+        if(mode == 0){
+            LATB &= ~(1<<(pin-5));
+        }else{
+            LATB |= (1<<(pin-5));
+        }
+    }
+}
+
+static void c_gpio_setmode(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
+    int mode = GET_INT_ARG(1);
     if(pin < 5){
         ANSELA &= ~(1<<pin);
         if(mode == 0){
@@ -52,26 +103,9 @@ static void c_pin_mode(mrb_vm *vm, mrb_value *v, int argc) {
     }
 }
 
-static void c_pin_write(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
-    int mode = GET_INT_ARG(2);
-    if(pin < 5){
-        if(mode == 0){
-            LATA &= ~(1<<pin);
-        }else{
-            LATA |= (1<<pin);
-        }
-    }else{
-        if(mode == 0){
-            LATB &= ~(1<<(pin-5));
-        }else{
-            LATB |= (1<<(pin-5));
-        }
-    }
-}
-
-static void c_pin_read(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
+static void c_gpio_read(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
     if(pin < 5){
         SET_INT_RETURN((PORTA>>pin)&1);
     }else{
@@ -79,9 +113,10 @@ static void c_pin_read(mrb_vm *vm, mrb_value *v, int argc) {
     }
 }
 
-static void c_pin_pull(mrb_vm *vm, mrb_value *v, int argc) {
-    int pin = GET_INT_ARG(1);
-    int mode = GET_INT_ARG(2);
+static void c_gpio_pull(mrb_vm *vm, mrb_value *v, int argc) {
+    GPIO_HANDLE *handle = *(GPIO_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
+    int mode = GET_INT_ARG(1);
     if(pin < 5){
         if(mode == 0){
             CNPUA &= ~(1<<pin);
@@ -104,98 +139,43 @@ static void c_pin_pull(mrb_vm *vm, mrb_value *v, int argc) {
 }
 
 static void c_pwm_init(mrb_vm *vm, mrb_value *v, int argc) {
-}
-
-static void c_pwm_cycle(mrb_vm *vm, mrb_value *v, int argc) {
-    PR3 = GET_INT_ARG(1);
-    T3CONbits.TCKPS = GET_INT_ARG(2);
-    OC1CON = OC2CON = OC3CON = OC4CON = OC5CON = 0x800F;
+    int pin = GET_INT_ARG(1);
+    *v = mrbc_instance_new(vm, v->cls, sizeof(PWM_HANDLE *));
+    *((PWM_HANDLE **)v->instance->data) = &pwmh[GET_INT_ARG(1)];
+    PWM_HANDLE *handle = *(PWM_HANDLE **)v->instance->data;
+    handle->pin_num = pin;
+    T3CONbits.TCKPS = 0;
+    OC1CON = OC2CON = OC3CON = OC4CON = OC5CON = 0x800E;
     OC1R = OC2R = OC3R = OC4R = OC5R = PR3;
-    OC1RS = OC2RS = OC3RS = OC4RS = OC5RS = PR3/2;
-}
-
-static void c_pwm_rate(mrb_vm *vm, mrb_value *v, int argc) {
-    float percent = 100.0 / GET_INT_ARG(1);
-    switch(GET_INT_ARG(2)){
-        case 1:
-            OC1RS = PR3/percent;
-            break;
-        case 2:
-            OC2RS = PR3/percent;
-            break;
-        case 3:
-            OC3RS = PR3/percent;
-            break;
-        case 4:
-            OC4RS = PR3/percent;
-            break;
-        case 5:
-            OC5RS = PR3/percent;
-            break;
+    if(pin < 5){
+        *(pwm_a+pin) = 0x0005;
+    }else{
+        *(pwm_b+(pin-5)) = 0x0005;
     }
 }
 
-static void c_pwm_start(mrb_vm *vm, mrb_value *v, int argc) {
-    switch(GET_INT_ARG(1)){
-        case 1:
-            OC1CONbits.ON = 1;
-            break;
-        case 2:
-            OC2CONbits.ON = 1;
-            break;
-        case 3:
-            OC3CONbits.ON = 1;
-            break;
-        case 4:
-            OC4CONbits.ON = 1;
-            break;
-        case 5:
-            OC4CONbits.ON = 1;
-            break;
-    }
+static void c_pwm_frequency(mrb_vm *vm, mrb_value *v, int argc) {
+    PR3 = 10000000 / GET_INT_ARG(1);
+    OC1R = OC2R = OC3R = OC4R = OC5R = PR3;
 }
 
-static void c_pwm_pin(mrb_vm *vm, mrb_value *v, int argc) {
-    switch(GET_INT_ARG(1)){
-        case 2:
-            RPA2Rbits.RPA2R = 0x0006;
-            break;
-        case 18:
-            RPB13Rbits.RPB13R = 0x0005;
-            break;
-        case 16:
-            RPB11Rbits.RPB11R = 0x0005;
-            break;
-        case 12:
-            RPB7Rbits.RPB7R = 0x0005;
-            break;
-        case 0:
-            RPA2Rbits.RPA2R = 0;
-            RPB13Rbits.RPB13R = 0;
-            RPB11Rbits.RPB11R = 0;
-            RPB7Rbits.RPB7R = 0;
-            break;
-    }
+static void c_pwm_period_us(mrb_vm *vm, mrb_value *v, int argc) {
+    PR3 = GET_INT_ARG(1) * 10;
+    OC1R = OC2R = OC3R = OC4R = OC5R = PR3;
 }
 
-static void c_pwm_stop(mrb_vm *vm, mrb_value *v, int argc) {
-    switch(GET_INT_ARG(1)){
-        case 1:
-            OC1CONbits.ON = 0;
-            break;
-        case 2:
-            OC2CONbits.ON = 0;
-            break;
-        case 3:
-            OC3CONbits.ON = 0;
-            break;
-        case 4:
-            OC4CONbits.ON = 0;
-            break;
-        case 5:
-            OC4CONbits.ON = 0;
-            break;
-    }
+static void c_pwm_duty(mrb_vm *vm, mrb_value *v, int argc) {
+    PWM_HANDLE *handle = *(PWM_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
+    float percent = 1023.0 / GET_INT_ARG(1);
+    set_compare(pin,PR3/percent);
+}
+
+static void c_pwm_duty_us(mrb_vm *vm, mrb_value *v, int argc) {
+    PWM_HANDLE *handle = *(PWM_HANDLE **)v->instance->data;
+    int pin = handle->pin_num;
+    uint32_t us = GET_INT_ARG(1);
+    set_compare(pin,us);
 }
 
 void mrbc_init_class_onboard(struct VM *vm){
@@ -204,19 +184,21 @@ void mrbc_init_class_onboard(struct VM *vm){
 }
 
 void mrbc_init_class_digital(struct VM *vm){
-    mrbc_define_method(0, mrbc_class_object, "pinMode", c_pin_mode);
-    mrbc_define_method(0, mrbc_class_object, "pinPull", c_pin_pull);
-    mrbc_define_method(0, mrbc_class_object, "digitalWrite", c_pin_write);
-    mrbc_define_method(0, mrbc_class_object, "digitalRead", c_pin_read);
+    mrb_class *gpio;
+    gpio = mrbc_define_class(0, "GPIO",	mrbc_class_object);
+    mrbc_define_method(0, gpio, "new", c_gpio_new);
+    mrbc_define_method(0, gpio, "write", c_gpio_write);
+    mrbc_define_method(0, gpio, "setmode", c_gpio_setmode);
+    mrbc_define_method(0, gpio, "read", c_gpio_read);
+    mrbc_define_method(0, gpio, "pull", c_gpio_pull);
 }
 
 void mrbc_init_class_pwm(struct VM *vm){
     mrb_class *pwm;
     pwm = mrbc_define_class(0, "PWM",	mrbc_class_object);
     mrbc_define_method(0, pwm, "new", c_pwm_init);
-    mrbc_define_method(0, pwm, "cycle", c_pwm_cycle);
-    mrbc_define_method(0, pwm, "rate", c_pwm_rate);
-    mrbc_define_method(0, pwm, "start", c_pwm_start);
-    mrbc_define_method(0, pwm, "stop", c_pwm_stop);
-    mrbc_define_method(0, pwm, "pin", c_pwm_pin);
+    mrbc_define_method(0, pwm, "frequency", c_pwm_frequency);
+    mrbc_define_method(0, pwm, "period_us", c_pwm_period_us);
+    mrbc_define_method(0, pwm, "duty", c_pwm_duty);
+    mrbc_define_method(0, pwm, "duty_us", c_pwm_duty_us);
 }

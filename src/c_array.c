@@ -3,8 +3,8 @@
   mruby/c Array class
 
   <pre>
-  Copyright (C) 2015-2018 Kyushu Institute of Technology.
-  Copyright (C) 2015-2018 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2020 Kyushu Institute of Technology.
+  Copyright (C) 2015-2020 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -18,7 +18,6 @@
 #include "value.h"
 #include "vm.h"
 #include "alloc.h"
-#include "static.h"
 #include "class.h"
 #include "c_array.h"
 #include "c_string.h"
@@ -80,8 +79,7 @@ mrbc_value mrbc_array_new(struct VM *vm, int size)
     return value;
   }
 
-  h->ref_count = 1;
-  h->tt = MRBC_TT_ARRAY;
+  MRBC_INIT_OBJECT_HEADER( h, "AR" );
   h->data_size = size;
   h->n_stored = 0;
   h->data = data;
@@ -103,7 +101,7 @@ void mrbc_array_delete(mrbc_value *ary)
   mrbc_value *p1 = h->data;
   const mrbc_value *p2 = p1 + h->n_stored;
   while( p1 < p2 ) {
-    mrbc_dec_ref_counter(p1++);
+    mrbc_decref(p1++);
   }
 
   mrbc_array_delete_handle(ary);
@@ -174,7 +172,7 @@ int mrbc_array_set(mrbc_value *ary, int idx, mrbc_value *set_val)
 
   if( idx < h->n_stored ) {
     // release existing data.
-    mrbc_dec_ref_counter( &h->data[idx] );
+    mrbc_decref( &h->data[idx] );
   } else {
     // clear empty cells.
     int i;
@@ -366,7 +364,7 @@ void mrbc_array_clear(mrbc_value *ary)
   mrbc_value *p1 = h->data;
   const mrbc_value *p2 = p1 + h->n_stored;
   while( p1 < p2 ) {
-    mrbc_dec_ref_counter(p1++);
+    mrbc_decref(p1++);
   }
 
   h->n_stored = 0;
@@ -451,7 +449,7 @@ mrbc_value mrbc_array_dup(struct VM *vm, const mrbc_value *ary)
   mrbc_value *p1 = dv.array->data;
   const mrbc_value *p2 = p1 + dv.array->n_stored;
   while( p1 < p2 ) {
-    mrbc_dup(p1++);
+    mrbc_incref(p1++);
   }
 
   return dv;
@@ -498,7 +496,7 @@ static void c_array_new(struct VM *vm, mrbc_value v[], int argc)
 
     int i;
     for( i = 0; i < v[1].i; i++ ) {
-      mrbc_dup(&v[2]);
+      mrbc_incref(&v[2]);
       mrbc_array_set(&ret, i, &v[2]);
     }
     SET_RETURN(ret);
@@ -517,7 +515,7 @@ static void c_array_new(struct VM *vm, mrbc_value v[], int argc)
 */
 static void c_array_add(struct VM *vm, mrbc_value v[], int argc)
 {
-  if( GET_TT_ARG(1) != MRBC_TT_ARRAY ) {
+  if( mrb_type(v[1]) != MRBC_TT_ARRAY ) {
     console_print( "TypeError\n" );	// raise?
     return;
   }
@@ -537,10 +535,10 @@ static void c_array_add(struct VM *vm, mrbc_value v[], int argc)
   mrbc_value *p1 = value.array->data;
   const mrbc_value *p2 = p1 + value.array->n_stored;
   while( p1 < p2 ) {
-    mrbc_dup(p1++);
+    mrbc_incref(p1++);
   }
 
-  mrbc_release(v+1);
+  mrbc_decref_empty(v+1);
   SET_RETURN(value);
 }
 
@@ -573,7 +571,7 @@ static void c_array_get(struct VM *vm, mrbc_value v[], int argc)
   */
   if( argc == 1 && v[1].tt == MRBC_TT_FIXNUM ) {
     mrbc_value ret = mrbc_array_get(v, v[1].i);
-    mrbc_dup(&ret);
+    mrbc_incref(&ret);
     SET_RETURN(ret);
     return;
   }
@@ -597,7 +595,7 @@ static void c_array_get(struct VM *vm, mrbc_value v[], int argc)
     int i;
     for( i = 0; i < size; i++ ) {
       mrbc_value val = mrbc_array_get(v, v[1].i + i);
-      mrbc_dup(&val);
+      mrbc_incref(&val);
       mrbc_array_push(&ret, &val);
     }
 
@@ -712,12 +710,23 @@ static void c_array_index(struct VM *vm, mrbc_value v[], int argc)
 
 
 //================================================================
+/*! (method) include?
+*/
+static void c_array_include(struct VM *vm, mrbc_value v[], int argc)
+{
+  c_array_index(vm, v, argc);
+
+  SET_BOOL_RETURN( mrb_type(v[0]) == MRBC_TT_FIXNUM );
+}
+
+
+//================================================================
 /*! (method) first
 */
 static void c_array_first(struct VM *vm, mrbc_value v[], int argc)
 {
   mrbc_value val = mrbc_array_get(v, 0);
-  mrbc_dup(&val);
+  mrbc_incref(&val);
   SET_RETURN(val);
 }
 
@@ -728,7 +737,7 @@ static void c_array_first(struct VM *vm, mrbc_value v[], int argc)
 static void c_array_last(struct VM *vm, mrbc_value v[], int argc)
 {
   mrbc_value val = mrbc_array_get(v, -1);
-  mrbc_dup(&val);
+  mrbc_incref(&val);
   SET_RETURN(val);
 }
 
@@ -833,7 +842,7 @@ static void c_array_min(struct VM *vm, mrbc_value v[], int argc)
     return;
   }
 
-  mrbc_dup(p_min_value);
+  mrbc_incref(p_min_value);
   SET_RETURN(*p_min_value);
 }
 
@@ -853,7 +862,7 @@ static void c_array_max(struct VM *vm, mrbc_value v[], int argc)
     return;
   }
 
-  mrbc_dup(p_max_value);
+  mrbc_incref(p_max_value);
   SET_RETURN(*p_max_value);
 }
 
@@ -873,8 +882,8 @@ static void c_array_minmax(struct VM *vm, mrbc_value v[], int argc)
   if( p_min_value == NULL ) p_min_value = &nil;
   if( p_max_value == NULL ) p_max_value = &nil;
 
-  mrbc_dup(p_min_value);
-  mrbc_dup(p_max_value);
+  mrbc_incref(p_min_value);
+  mrbc_incref(p_max_value);
   mrbc_array_set(&ret, 0, p_min_value);
   mrbc_array_set(&ret, 1, p_max_value);
 
@@ -927,7 +936,7 @@ static void c_array_join_1(struct VM *vm, mrbc_value v[], int argc,
     } else {
       mrbc_value v1 = mrbc_send( vm, v, argc, &src->array->data[i], "to_s", 0 );
       flag_error |= mrbc_string_append( ret, &v1 );
-      mrbc_dec_ref_counter(&v1);
+      mrbc_decref(&v1);
     }
     if( ++i >= mrbc_array_size(src) ) break;	// normal return.
     flag_error |= mrbc_string_append( ret, separator );
@@ -943,7 +952,7 @@ static void c_array_join(struct VM *vm, mrbc_value v[], int argc)
     mrbc_send( vm, v, argc, &v[1], "to_s", 0 );
 
   c_array_join_1(vm, v, argc, &v[0], &ret, &separator );
-  mrbc_dec_ref_counter(&separator);
+  mrbc_decref(&separator);
 
   SET_RETURN(ret);
   return;
@@ -955,40 +964,40 @@ static void c_array_join(struct VM *vm, mrbc_value v[], int argc)
 #endif
 
 
+/* MRBC_AUTOGEN_METHOD_TABLE
 
-//================================================================
-/*! initialize
-*/
-void mrbc_init_class_array(struct VM *vm)
-{
-  mrbc_class_array = mrbc_define_class(vm, "Array", mrbc_class_object);
+  CLASS("Array")
+  FILE("method_table_array.h")
+  FUNC("mrbc_init_class_array")
 
-  mrbc_define_method(vm, mrbc_class_array, "new", c_array_new);
-  mrbc_define_method(vm, mrbc_class_array, "+", c_array_add);
-  mrbc_define_method(vm, mrbc_class_array, "[]", c_array_get);
-  mrbc_define_method(vm, mrbc_class_array, "at", c_array_get);
-  mrbc_define_method(vm, mrbc_class_array, "[]=", c_array_set);
-  mrbc_define_method(vm, mrbc_class_array, "<<", c_array_push);
-  mrbc_define_method(vm, mrbc_class_array, "clear", c_array_clear);
-  mrbc_define_method(vm, mrbc_class_array, "delete_at", c_array_delete_at);
-  mrbc_define_method(vm, mrbc_class_array, "empty?", c_array_empty);
-  mrbc_define_method(vm, mrbc_class_array, "size", c_array_size);
-  mrbc_define_method(vm, mrbc_class_array, "length", c_array_size);
-  mrbc_define_method(vm, mrbc_class_array, "count", c_array_size);
-  mrbc_define_method(vm, mrbc_class_array, "index", c_array_index);
-  mrbc_define_method(vm, mrbc_class_array, "first", c_array_first);
-  mrbc_define_method(vm, mrbc_class_array, "last", c_array_last);
-  mrbc_define_method(vm, mrbc_class_array, "push", c_array_push);
-  mrbc_define_method(vm, mrbc_class_array, "pop", c_array_pop);
-  mrbc_define_method(vm, mrbc_class_array, "shift", c_array_shift);
-  mrbc_define_method(vm, mrbc_class_array, "unshift", c_array_unshift);
-  mrbc_define_method(vm, mrbc_class_array, "dup", c_array_dup);
-  mrbc_define_method(vm, mrbc_class_array, "min", c_array_min);
-  mrbc_define_method(vm, mrbc_class_array, "max", c_array_max);
-  mrbc_define_method(vm, mrbc_class_array, "minmax", c_array_minmax);
+  METHOD( "new",	c_array_new )
+  METHOD( "+",		c_array_add )
+  METHOD( "[]",		c_array_get )
+  METHOD( "at",		c_array_get )
+  METHOD( "[]=",	c_array_set )
+  METHOD( "<<",		c_array_push )
+  METHOD( "clear",	c_array_clear )
+  METHOD( "delete_at",	c_array_delete_at )
+  METHOD( "empty?",	c_array_empty )
+  METHOD( "size",	c_array_size )
+  METHOD( "length",	c_array_size )
+  METHOD( "count",	c_array_size )
+  METHOD( "index",	c_array_index )
+  METHOD( "include?",	c_array_include )
+  METHOD( "first",	c_array_first )
+  METHOD( "last",	c_array_last )
+  METHOD( "push",	c_array_push )
+  METHOD( "pop",	c_array_pop )
+  METHOD( "shift",	c_array_shift )
+  METHOD( "unshift",	c_array_unshift )
+  METHOD( "dup",	c_array_dup )
+  METHOD( "min",	c_array_min )
+  METHOD( "max",	c_array_max )
+  METHOD( "minmax",	c_array_minmax )
 #if MRBC_USE_STRING
-  mrbc_define_method(vm, mrbc_class_array, "inspect", c_array_inspect);
-  mrbc_define_method(vm, mrbc_class_array, "to_s", c_array_inspect);
-  mrbc_define_method(vm, mrbc_class_array, "join", c_array_join);
+  METHOD( "inspect",	c_array_inspect )
+  METHOD( "to_s",	c_array_inspect )
+  METHOD( "join",	c_array_join )
 #endif
-}
+*/
+#include "method_table_array.h"
