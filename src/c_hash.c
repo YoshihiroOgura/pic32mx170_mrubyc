@@ -3,26 +3,40 @@
   mruby/c Hash class
 
   <pre>
-  Copyright (C) 2015-2020 Kyushu Institute of Technology.
-  Copyright (C) 2015-2020 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
   </pre>
 */
 
+/***** Feature test switches ************************************************/
+/***** System headers *******************************************************/
+//@cond
 #include "vm_config.h"
 #include <string.h>
 #include <assert.h>
+//@endcond
 
-#include "value.h"
-#include "vm.h"
+/***** Local headers ********************************************************/
 #include "alloc.h"
+#include "value.h"
 #include "class.h"
+#include "c_string.h"
 #include "c_array.h"
 #include "c_hash.h"
-#include "c_string.h"
 
+
+/***** Constat values *******************************************************/
+/***** Macros ***************************************************************/
+/***** Typedefs *************************************************************/
+/***** Function prototypes **************************************************/
+/***** Local variables ******************************************************/
+/***** Global variables *****************************************************/
+/***** Signal catching functions ********************************************/
+/***** Local functions ******************************************************/
+/***** Global functions *****************************************************/
 /*
   function summary
 
@@ -42,7 +56,6 @@
     mrbc_hash_remove	*K	T	Data does not remain in the container
     mrbc_hash_i_next		*T	Data remains in the container
 */
-
 
 
 //================================================================
@@ -278,7 +291,8 @@ static void c_hash_new(struct VM *vm, mrbc_value v[], int argc)
 static void c_hash_get(struct VM *vm, mrbc_value v[], int argc)
 {
   if( argc != 1 ) {
-    return;	// raise ArgumentError.
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments.");
+    return;
   }
 
   mrbc_value val = mrbc_hash_get(&v[0], &v[1]);
@@ -293,11 +307,12 @@ static void c_hash_get(struct VM *vm, mrbc_value v[], int argc)
 static void c_hash_set(struct VM *vm, mrbc_value v[], int argc)
 {
   if( argc != 2 ) {
-    return;	// raise ArgumentError.
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments.");
+    return;
   }
 
-  mrbc_value *v1 = &GET_ARG(1);
-  mrbc_value *v2 = &GET_ARG(2);
+  mrbc_value *v1 = &v[1];
+  mrbc_value *v2 = &v[2];
   mrbc_hash_set(v, v1, v2);
   v1->tt = MRBC_TT_EMPTY;
   v2->tt = MRBC_TT_EMPTY;
@@ -542,8 +557,7 @@ static void c_hash_inspect(struct VM *vm, mrbc_value v[], int argc)
 /* MRBC_AUTOGEN_METHOD_TABLE
 
   CLASS("Hash")
-  FILE("method_table_hash.h")
-  FUNC("mrbc_init_class_hash")
+  FILE("_autogen_class_hash.h")
 
   METHOD( "new",	c_hash_new )
   METHOD( "[]",		c_hash_get )
@@ -568,4 +582,4 @@ static void c_hash_inspect(struct VM *vm, mrbc_value v[], int argc)
   METHOD( "to_s",	c_hash_inspect )
 #endif
 */
-#include "method_table_hash.h"
+#include "_autogen_class_hash.h"

@@ -1,10 +1,10 @@
 /*! @file
   @brief
-  mrubyc memory management.
+  mruby/c memory management.
 
   <pre>
-  Copyright (C) 2015-2020 Kyushu Institute of Technology.
-  Copyright (C) 2015-2020 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -16,20 +16,32 @@
 #ifndef MRBC_SRC_ALLOC_H_
 #define MRBC_SRC_ALLOC_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /***** Feature test switches ************************************************/
 /***** System headers *******************************************************/
+//@cond
 #if defined(MRBC_ALLOC_LIBC)
 #include <stdlib.h>
 #endif
+//@endcond
 
 /***** Local headers ********************************************************/
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /***** Constant values ******************************************************/
 /***** Macros ***************************************************************/
 /***** Typedefs *************************************************************/
+/*!@brief
+  Return value structure for mrbc_alloc_statistics function.
+*/
+struct MRBC_ALLOC_STATISTICS {
+  unsigned int total;		//!< returns total memory.
+  unsigned int used;		//!< returns used memory.
+  unsigned int free;		//!< returns free memory.
+  unsigned int fragmentation;	//!< returns memory fragmentation count.
+};
+
 struct VM;
 
 /***** Global variables *****************************************************/
@@ -46,9 +58,7 @@ void mrbc_raw_free(void *ptr);
 void *mrbc_raw_realloc(void *ptr, unsigned int size);
 #define mrbc_free(vm,ptr)		mrbc_raw_free(ptr)
 #define mrbc_realloc(vm,ptr,size)	mrbc_raw_realloc(ptr, size)
-
-// for statistics or debug. (need #define MRBC_DEBUG)
-void mrbc_alloc_statistics(int *total, int *used, int *free, int *fragmentation);
+void mrbc_alloc_statistics(struct MRBC_ALLOC_STATISTICS *ret);
 void mrbc_alloc_print_memory_pool(void);
 
 

@@ -3,8 +3,8 @@
   mruby/c Hash class
 
   <pre>
-  Copyright (C) 2015-2018 Kyushu Institute of Technology.
-  Copyright (C) 2015-2018 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -14,6 +14,13 @@
 #ifndef MRBC_SRC_C_HASH_H_
 #define MRBC_SRC_C_HASH_H_
 
+/***** Feature test switches ************************************************/
+/***** System headers *******************************************************/
+//@cond
+#include <stdint.h>
+//@endcond
+
+/***** Local headers ********************************************************/
 #include "value.h"
 #include "c_array.h"
 
@@ -21,9 +28,14 @@
 extern "C" {
 #endif
 
+/***** Constat values *******************************************************/
+/***** Macros ***************************************************************/
+/***** Typedefs *************************************************************/
 //================================================================
 /*!@brief
-  Define Hash handle.
+  Hash object.
+
+  @extends RBasic
 */
 typedef struct RHash {
   // (NOTE)
@@ -31,7 +43,7 @@ typedef struct RHash {
   MRBC_OBJECT_HEADER;
 
   uint16_t data_size;	//!< data buffer size.
-  uint16_t n_stored;	//!< # of stored.
+  uint16_t n_stored;	//!< num of stored.
   mrbc_value *data;	//!< pointer to allocated memory.
 
   // TODO: and other member for search.
@@ -50,6 +62,8 @@ typedef struct RHashIterator {
 } mrbc_hash_iterator;
 
 
+/***** Global variables *****************************************************/
+/***** Function prototypes **************************************************/
 mrbc_value mrbc_hash_new(struct VM *vm, int size);
 void mrbc_hash_delete(mrbc_value *hash);
 mrbc_value *mrbc_hash_search(const mrbc_value *hash, const mrbc_value *key);
@@ -61,7 +75,7 @@ int mrbc_hash_compare(const mrbc_value *v1, const mrbc_value *v2);
 mrbc_value mrbc_hash_dup(struct VM *vm, mrbc_value *src);
 
 
-
+/***** Inline functions *****************************************************/
 //================================================================
 /*! get size
 */
@@ -69,12 +83,14 @@ static inline int mrbc_hash_size(const mrbc_value *hash) {
   return hash->hash->n_stored / 2;
 }
 
+#if defined(MRBC_ALLOC_VMID)
 //================================================================
 /*! clear vm_id
 */
 static inline void mrbc_hash_clear_vm_id(mrbc_value *hash) {
   mrbc_array_clear_vm_id(hash);
 }
+#endif
 
 //================================================================
 /*! resize buffer

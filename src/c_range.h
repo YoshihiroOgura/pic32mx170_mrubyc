@@ -1,10 +1,10 @@
 /*! @file
   @brief
-  mruby/c Range object
+  mruby/c Range class
 
   <pre>
-  Copyright (C) 2015-2018 Kyushu Institute of Technology.
-  Copyright (C) 2015-2018 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -14,16 +14,28 @@
 #ifndef MRBC_SRC_C_RANGE_H_
 #define MRBC_SRC_C_RANGE_H_
 
+/***** Feature test switches ************************************************/
+/***** System headers *******************************************************/
+//@cond
 #include <stdint.h>
+//@endcond
+
+/***** Local headers ********************************************************/
 #include "value.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/***** Constat values *******************************************************/
+/***** Macros ***************************************************************/
+/***** Typedefs *************************************************************/
+
 //================================================================
 /*!@brief
-  Define Range object (same the handles of other objects)
+  Range object
+
+  @extends RBasic
 */
 typedef struct RRange {
   MRBC_OBJECT_HEADER;
@@ -35,12 +47,15 @@ typedef struct RRange {
 } mrbc_range;
 
 
+/***** Global variables *****************************************************/
+/***** Function prototypes **************************************************/
 mrbc_value mrbc_range_new(struct VM *vm, mrbc_value *first, mrbc_value *last, int flag_exclude);
 void mrbc_range_delete(mrbc_value *v);
 void mrbc_range_clear_vm_id(mrbc_value *v);
 int mrbc_range_compare(const mrbc_value *v1, const mrbc_value *v2);
 
 
+/***** Inline functions *****************************************************/
 //================================================================
 /*! get first value
 */

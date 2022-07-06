@@ -17,6 +17,7 @@
 
 #include <xc.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "mrbc_firm.h"
 #include "uart.h"
 
@@ -284,17 +285,17 @@ static int cmd_write(void)
 static int cmd_showprog(void)
 {
   static const char RITE[4] = "RITE";
-  uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
-  int used_size = 0;
+  const uint8_t *fl_addr = (const uint8_t *)FLASH_SAVE_ADDR;
+  uint32_t used_size = 0;
   int n = 0;
   char buf[32];
 
   u_puts("idx   size");
   while( strncmp( fl_addr, RITE, sizeof(RITE)) == 0 ) {
-    int size = 0;
+    uint32_t size = 0;
     int i;
     for( i = 0; i < 4; i++ ) {
-      size = (size << 8) | fl_addr[10 + i];
+      size = (size << 8) | fl_addr[8 + i];
     }
     size = ALIGN_ROW_SIZE( size );
     used_size += size;

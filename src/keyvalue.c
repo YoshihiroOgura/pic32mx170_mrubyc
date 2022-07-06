@@ -3,22 +3,28 @@
   mruby/c Key(Symbol) - Value store.
 
   <pre>
-  Copyright (C) 2015-2018 Kyushu Institute of Technology.
-  Copyright (C) 2015-2018 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
   </pre>
 */
 
+/***** Feature test switches ************************************************/
+/***** System headers *******************************************************/
+//@cond
 #include "vm_config.h"
 #include <stdlib.h>
 #include <string.h>
+//@endcond
 
+/***** Local headers ********************************************************/
 #include "value.h"
 #include "alloc.h"
 #include "keyvalue.h"
 
+/***** Constat values *******************************************************/
 #if !defined(MRBC_KV_SIZE_INIT)
 #define MRBC_KV_SIZE_INIT 2
 #endif
@@ -26,7 +32,13 @@
 #define MRBC_KV_SIZE_INCREMENT 5
 #endif
 
-
+/***** Macros ***************************************************************/
+/***** Typedefs *************************************************************/
+/***** Function prototypes **************************************************/
+/***** Local variables ******************************************************/
+/***** Global variables *****************************************************/
+/***** Signal catching functions ********************************************/
+/***** Local functions ******************************************************/
 //================================================================
 /*! binary search
 
@@ -52,6 +64,8 @@ static int binary_search(mrbc_kv_handle *kvh, mrbc_sym sym_id)
   return left;
 }
 
+
+/***** Global functions *****************************************************/
 
 //================================================================
 /*! constructor
@@ -95,6 +109,10 @@ int mrbc_kv_init_handle(struct VM *vm, mrbc_kv_handle *kvh, int size)
     // Allocate data buffer.
     kvh->data = mrbc_alloc(vm, sizeof(mrbc_kv) * size);
     if( !kvh->data ) return -1;		// ENOMEM
+
+#if defined(MRBC_DEBUG)
+    memcpy( kvh->data->type, "KV", 2 );
+#endif
   }
 
   return 0;
@@ -128,6 +146,7 @@ void mrbc_kv_delete_data(mrbc_kv_handle *kvh)
 }
 
 
+#if defined(MRBC_ALLOC_VMID)
 //================================================================
 /*! clear vm_id
 
@@ -135,16 +154,19 @@ void mrbc_kv_delete_data(mrbc_kv_handle *kvh)
 */
 void mrbc_kv_clear_vm_id(mrbc_kv_handle *kvh)
 {
-  mrbc_set_vm_id( kvh, 0 );
   if( kvh->data_size == 0 ) return;
 
   mrbc_kv *p1 = kvh->data;
   const mrbc_kv *p2 = p1 + kvh->n_stored;
+
+  mrbc_set_vm_id( p1, 0 );
+
   while( p1 < p2 ) {
     mrbc_clear_vm_id(&p1->value);
     p1++;
   }
 }
+#endif
 
 
 //================================================================
@@ -164,7 +186,6 @@ int mrbc_kv_resize(mrbc_kv_handle *kvh, int size)
 
   return 0;
 }
-
 
 
 //================================================================
@@ -200,6 +221,10 @@ int mrbc_kv_set(mrbc_kv_handle *kvh, mrbc_sym sym_id, mrbc_value *set_val)
     kvh->data = mrbc_alloc(kvh->vm, sizeof(mrbc_kv) * MRBC_KV_SIZE_INIT);
     if( kvh->data == NULL ) return E_NOMEMORY_ERROR;	// ENOMEM
     kvh->data_size = MRBC_KV_SIZE_INIT;
+
+#if defined(MRBC_DEBUG)
+    memcpy( kvh->data->type, "KV", 2 );
+#endif
 
   // need resize?
   } else if( kvh->n_stored >= kvh->data_size ) {
@@ -240,7 +265,7 @@ mrbc_value * mrbc_kv_get(mrbc_kv_handle *kvh, mrbc_sym sym_id)
 }
 
 
-
+#if 0
 //================================================================
 /*! setter - only append tail
 
@@ -256,6 +281,10 @@ int mrbc_kv_append(mrbc_kv_handle *kvh, mrbc_sym sym_id, mrbc_value *set_val)
     kvh->data = mrbc_alloc(kvh->vm, sizeof(mrbc_kv) * MRBC_KV_SIZE_INIT);
     if( kvh->data == NULL ) return E_NOMEMORY_ERROR;	// ENOMEM
     kvh->data_size = MRBC_KV_SIZE_INIT;
+
+#if defined(MRBC_DEBUG)
+    memcpy( kvh->data->type, "KV", 2 );
+#endif
 
   // need resize?
   } else if( kvh->n_stored >= kvh->data_size ) {
@@ -292,7 +321,7 @@ int mrbc_kv_reorder(mrbc_kv_handle *kvh)
 
   return 0;
 }
-
+#endif
 
 
 //================================================================

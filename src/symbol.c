@@ -3,8 +3,8 @@
   mruby/c Symbol class
 
   <pre>
-  Copyright (C) 2015-2020 Kyushu Institute of Technology.
-  Copyright (C) 2015-2020 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -13,19 +13,21 @@
 
 /***** Feature test switches ************************************************/
 /***** System headers *******************************************************/
+//@cond
 #include "vm_config.h"
 #include <stdint.h>
 #include <string.h>
 #include <limits.h>
 #include <assert.h>
+//@endcond
 
 /***** Local headers ********************************************************/
-#include "value.h"
-#include "vm.h"
+#define MRBC_DEFINE_SYMBOL_TABLE
+#include "_autogen_builtin_symbol.h"
+#undef MRBC_DEFINE_SYMBOL_TABLE
 #include "alloc.h"
+#include "value.h"
 #include "class.h"
-#include "symbol.h"
-#include "c_object.h"
 #include "c_string.h"
 #include "c_array.h"
 #include "console.h"
@@ -58,13 +60,8 @@ struct SYM_INDEX {
 
 /***** Function prototypes **************************************************/
 /***** Local variables ******************************************************/
-
 static struct SYM_INDEX sym_index[MAX_SYMBOLS_COUNT];
 static int sym_index_pos;	// point to the last(free) sym_index array.
-
-#define MRBC_DEFINE_SYMBOL_TABLE
-#include "symbol_builtin.h"	// built-in symbol table.
-#undef MRBC_DEFINE_SYMBOL_TABLE
 
 
 /***** Global variables *****************************************************/
@@ -171,11 +168,7 @@ static int search_index( uint16_t hash, const char *str )
 */
 static int add_index( uint16_t hash, const char *str )
 {
-  // check overflow.
-  if( sym_index_pos >= MAX_SYMBOLS_COUNT ) {
-    console_printf( "Overflow MAX_SYMBOLS_COUNT for '%s'\n", str );
-    return -1;
-  }
+  if( sym_index_pos >= MAX_SYMBOLS_COUNT ) return -1;	// check overflow.
 
   int idx = sym_index_pos++;
 
@@ -225,7 +218,7 @@ void mrbc_cleanup_symbol(void)
 /*! Convert string to symbol value.
 
   @param  str		Target string.
-  @return mrbc_sym	Symbol value.
+  @return mrbc_sym	Symbol value. -1 if error.
 */
 mrbc_sym mrbc_str_to_symid(const char *str)
 {
@@ -300,7 +293,13 @@ mrbc_value mrbc_symbol_new(struct VM *vm, const char *str)
 
   memcpy(buf, str, size);
   sym_id = add_index( calc_hash(buf), buf );
-  if( sym_id >= 0 ) sym_id += OFFSET_BUILTIN_SYMBOL;
+  if( sym_id < 0 ) {
+    mrbc_raisef(vm, MRBC_CLASS(Exception),
+		"Overflow MAX_SYMBOLS_COUNT for '%s'", str );
+    return mrbc_nil_value();
+  }
+
+  sym_id += OFFSET_BUILTIN_SYMBOL;
 
  DONE:
   return mrbc_symbol_value( sym_id );
@@ -312,7 +311,7 @@ mrbc_value mrbc_symbol_new(struct VM *vm, const char *str)
 //================================================================
 /*! (method) all_symbols
 */
-static void c_all_symbols(struct VM *vm, mrbc_value v[], int argc)
+static void c_symbol_all_symbols(struct VM *vm, mrbc_value v[], int argc)
 {
   mrbc_value ret = mrbc_array_new(vm, sym_index_pos);
 
@@ -332,7 +331,7 @@ static void c_all_symbols(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! (method) inspect
 */
-static void c_inspect(struct VM *vm, mrbc_value v[], int argc)
+static void c_symbol_inspect(struct VM *vm, mrbc_value v[], int argc)
 {
   const char *s = mrbc_symid_to_str( mrbc_symbol(v[0]) );
   v[0] = mrbc_string_new_cstr(vm, ":");
@@ -343,7 +342,7 @@ static void c_inspect(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! (method) to_s
 */
-static void c_to_s(struct VM *vm, mrbc_value v[], int argc)
+static void c_symbol_to_s(struct VM *vm, mrbc_value v[], int argc)
 {
   v[0] = mrbc_string_new_cstr(vm, mrbc_symid_to_str( mrbc_symbol(v[0]) ));
 }
@@ -353,18 +352,17 @@ static void c_to_s(struct VM *vm, mrbc_value v[], int argc)
 /* MRBC_AUTOGEN_METHOD_TABLE
 
   CLASS("Symbol")
-  FILE("method_table_symbol.h")
-  FUNC("mrbc_init_class_symbol")
+  FILE("_autogen_class_symbol.h")
 
-  METHOD( "all_symbols", c_all_symbols )
+  METHOD( "all_symbols", c_symbol_all_symbols )
 #if MRBC_USE_STRING
-  METHOD( "inspect", c_inspect )
-  METHOD( "to_s", c_to_s )
-  METHOD( "id2name", c_to_s )
+  METHOD( "inspect", c_symbol_inspect )
+  METHOD( "to_s", c_symbol_to_s )
+  METHOD( "id2name", c_symbol_to_s )
 #endif
   METHOD( "to_sym", c_ineffect )
 */
-#include "method_table_symbol.h"
+#include "_autogen_class_symbol.h"
 
 
 
@@ -375,8 +373,8 @@ static void c_to_s(struct VM *vm, mrbc_value v[], int argc)
    (e.g.)
    total = MAX_SYMBOLS_COUNT;
    mrbc_symbol_statistics( &used );
-   console_printf("Symbol table: %d/%d %d%% used.\n",
-                   used, total, 100 * used / total );
+   mrbc_printf("Symbol table: %d/%d %d%% used.\n",
+		used, total, 100 * used / total );
 */
 void mrbc_symbol_statistics( int *total_used )
 {
