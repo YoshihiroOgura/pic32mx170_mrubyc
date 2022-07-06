@@ -1,22 +1,22 @@
 /* ************************************************************************** */
-/** ADC
+/** SPI
 
   @Company
     ShimaneJohoshoriCenter.inc
 
   @File Name
-    adc.h
+    spi.h
 
   @Summary
-    ADC processing
+    SPI processing
 
   @Description
     mruby/c function army
  */
 /* ************************************************************************** */
 
-#ifndef _ADC_H
-#define _ADC_H
+#ifndef _SPI_H
+#define _SPI_H
 
 #include "mrubyc.h"
 
@@ -24,16 +24,16 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+    
 /* C codes */
-void adc_init(void);
+void spi_init(void);
 
 /* mruby/c codes */
-void mrbc_init_class_adc(struct VM *vm);
+void mrbc_init_class_spi(struct VM *vm);
 
-/* Provide C++ Compatibility */
+    /* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _ADC_H */
+#endif /* _I2C_H */

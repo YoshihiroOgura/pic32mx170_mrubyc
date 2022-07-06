@@ -14,7 +14,6 @@
 #include "vm_config.h"
 #include "value.h"
 #include "alloc.h"
-#include "static.h"
 #include "class.h"
 #include "c_range.h"
 #include "c_string.h"
@@ -38,8 +37,7 @@ mrbc_value mrbc_range_new(struct VM *vm, mrbc_value *first, mrbc_value *last, in
   value.range = mrbc_alloc(vm, sizeof(mrbc_range));
   if( !value.range ) return value;		// ENOMEM
 
-  value.range->ref_count = 1;
-  value.range->tt = MRBC_TT_RANGE;	// TODO: for DEBUG
+  MRBC_INIT_OBJECT_HEADER( value.range, "RA" );
   value.range->flag_exclude = flag_exclude;
   value.range->first = *first;
   value.range->last = *last;
@@ -55,8 +53,8 @@ mrbc_value mrbc_range_new(struct VM *vm, mrbc_value *first, mrbc_value *last, in
 */
 void mrbc_range_delete(mrbc_value *v)
 {
-  mrbc_dec_ref_counter( &v->range->first );
-  mrbc_dec_ref_counter( &v->range->last );
+  mrbc_decref( &v->range->first );
+  mrbc_decref( &v->range->last );
 
   mrbc_raw_free( v->range );
 }
@@ -181,21 +179,19 @@ static void c_range_inspect(struct VM *vm, mrbc_value v[], int argc)
 #endif
 
 
+/* MRBC_AUTOGEN_METHOD_TABLE
 
-//================================================================
-/*! initialize
-*/
-void mrbc_init_class_range(struct VM *vm)
-{
-  mrbc_class_range = mrbc_define_class(vm, "Range", mrbc_class_object);
+  CLASS("Range")
+  FILE("method_table_range.h")
+  FUNC("mrbc_init_class_range")
 
-  mrbc_define_method(vm, mrbc_class_range, "===", c_range_equal3);
-  mrbc_define_method(vm, mrbc_class_range, "first", c_range_first);
-  mrbc_define_method(vm, mrbc_class_range, "last", c_range_last);
-  mrbc_define_method(vm, mrbc_class_range, "exclude_end?", c_range_exclude_end);
-
+  METHOD("===",		c_range_equal3 )
+  METHOD("first",	c_range_first )
+  METHOD("last",	c_range_last )
+  METHOD("exclude_end?", c_range_exclude_end )
 #if MRBC_USE_STRING
-  mrbc_define_method(vm, mrbc_class_range, "inspect", c_range_inspect);
-  mrbc_define_method(vm, mrbc_class_range, "to_s", c_range_inspect);
+  METHOD("inspect",	c_range_inspect )
+  METHOD("to_s",	c_range_inspect )
 #endif
-}
+*/
+#include "method_table_range.h"
