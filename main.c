@@ -1,13 +1,19 @@
 #include <xc.h>
-#include "mrubyc.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "delay.h"
-#include "string.h"
 #include <sys/attribs.h>
-#include <math.h>
+#include <string.h>
+//#include <math.h>
+
+#include "mrubyc.h"
+#include "adc.h"
+#include "delay.h"
+#include "digital.h"
+#include "i2c.h"
 #include "mrbc_firm.h"
+#include "spi.h"
 #include "uart.h"
+
 
 // DEVCFG3
 // USERID = No Setting
@@ -27,9 +33,9 @@
 #pragma config OSCIOFNC = OFF           // CLKO Output Signal Active on the OSCO Pin (Disabled)
 #pragma config FPBDIV = DIV_2           // Peripheral Clock Divisor (Pb_Clk is Sys_Clk/2)
 #pragma config FCKSM = CSECME           // Clock Switching and Monitor Selection (Clock Switch Enable, FSCM Enabled)
-#pragma config WDTPS = PS32              // Watchdog Timer Postscaler (1:1)
+#pragma config WDTPS = PS8192           // Watchdog Timer Postscaler->1:8192
 #pragma config WINDIS = OFF             // Watchdog Timer Window Enable (Watchdog Timer is in Non-Window Mode)
-#pragma config FWDTEN = OFF              // Watchdog Timer Disable (WDT Disable)
+#pragma config FWDTEN = OFF             // Watchdog Timer Disable (WDT Disable)
 
 // DEVCFG0
 #pragma config JTAGEN = OFF              // JTAG Enable (JTAG Port Enabled)
@@ -46,12 +52,67 @@
 uint8_t memory_pool[MEMORY_SIZE];
 uint8_t t_count = 0;
 
+//================================================================
+/*! system register lock / unlock
+*/
+void system_register_lock(void)
+{
+  SYSKEY = 0x0;
+}
+
+void system_register_unlock(void)
+{
+  unsigned int status;
+
+  // Suspend or Disable all Interrupts
+  asm volatile ("di %0" : "=r" (status));
+
+  // starting critical sequence
+  SYSKEY = 0x33333333; // write invalid key to force lock
+  SYSKEY = 0xAA996655; // write key1 to SYSKEY
+  SYSKEY = 0x556699AA; // write key2 to SYSKEY
+
+  // Restore Interrupts
+  if (status & 0x00000001) {
+    asm volatile ("ei");
+  } else {
+    asm volatile ("di");
+  }
+}
+
+
+//================================================================
+/*! software reset	DS60001118H
+*/
+void system_reset(void)
+{
+  system_register_unlock();
+
+  RSWRSTSET = 1;
+
+  // read RSWRST register to trigger reset
+  uint32_t dummy = RSWRST;
+  (void)dummy;
+
+  while(1)
+    ;
+}
+
 int hal_write(int fd, const void *buf, int nbytes) {
   return uart_write(&uart1_handle, buf, nbytes );
 }
 
 int hal_flush(int fd) {
     return 0;
+}
+
+void hal_abort( const char *s )
+{
+  if( s ) {
+    hal_write( 0, s, strlen(s) );
+  }
+  __delay_ms(5000);
+  system_reset();
 }
 
 void _mon_putc( char c )
@@ -142,7 +203,7 @@ int main(void)
     INTCONbits.MVEC = 1;
     __builtin_enable_interrupts();
 
-    //printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v2.1 start.\n");
+    printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v3.1 start.\n");
 
     if (check_timeout()){
         /* IDE code */
@@ -161,16 +222,16 @@ int main(void)
     mrbc_init_class_onboard(0);
     mrbc_init_class_spi(0);
 
-    uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
+    const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
     static const char RITE[4] = "RITE";
     while( strncmp( fl_addr, RITE, sizeof(RITE)) == 0 ) {
       mrbc_create_task(fl_addr, 0);
 
       // get a next irep.
-      int size = 0;
+      uint32_t size = 0;
       int i;
       for( i = 0; i < 4; i++ ) {
-	size = (size << 8) | fl_addr[10 + i];
+	size = (size << 8) | fl_addr[8 + i];
       }
       fl_addr += ALIGN_ROW_SIZE( size );
     }

@@ -14,10 +14,6 @@
 #ifndef MRBC_SRC_HAL_H_
 #define MRBC_SRC_HAL_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /***** Feature test switches ************************************************/
 /***** System headers *******************************************************/
 #include <xc.h>
@@ -40,6 +36,16 @@ extern "C" {
 #define MRBC_TIMESLICE_TICK_COUNT 10
 #endif
 
+
+/***** Typedefs *************************************************************/
+/***** Global variables *****************************************************/
+/***** Function prototypes **************************************************/
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void mrbc_tick(void);
+
 #if !defined(MRBC_NO_TIMER)	// use hardware timer.
 # define hal_init()        ((void)0)
 # define hal_enable_irq()  __builtin_enable_interrupts()
@@ -54,12 +60,9 @@ extern "C" {
 
 #endif
 
-
-/***** Typedefs *************************************************************/
-/***** Global variables *****************************************************/
-/***** Function prototypes **************************************************/
 int hal_write(int fd, const void *buf, int nbytes);
 int hal_flush(int fd);
+void hal_abort(const char *s);
 
 
 /***** Inline functions *****************************************************/

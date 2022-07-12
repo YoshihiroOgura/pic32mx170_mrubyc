@@ -3,8 +3,8 @@
   console output module. (not yet input)
 
   <pre>
-  Copyright (C) 2015-2020 Kyushu Institute of Technology.
-  Copyright (C) 2015-2020 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -12,9 +12,9 @@
 */
 
 /***** Feature test switches ************************************************/
-#include "vm_config.h"
-
 /***** System headers *******************************************************/
+//@cond
+#include "vm_config.h"
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
@@ -22,12 +22,16 @@
 #if MRBC_USE_FLOAT
 #include <stdio.h>
 #endif
+//@endcond
 
 /***** Local headers ********************************************************/
+#include "hal_selector.h"
+#include "alloc.h"
 #include "value.h"
 #include "class.h"
 #include "console.h"
 #include "symbol.h"
+#include "error.h"
 #include "c_string.h"
 #include "c_array.h"
 #include "c_hash.h"
@@ -35,7 +39,7 @@
 
 
 /***** Constant values ******************************************************/
-#define CONSOLE_PRINTF_MAX_WIDTH 82
+#define MRBC_PRINTF_MAX_WIDTH 82
 
 
 /***** Macros ***************************************************************/
@@ -45,6 +49,64 @@
 /***** Global variables *****************************************************/
 /***** Signal catching functions ********************************************/
 /***** Local functions ******************************************************/
+//----------------------------------------------------------------
+/* sub function for mrbc_printf
+*/
+static int mrbc_printf_sub_output_arg( mrbc_printf_t *pf, va_list *ap )
+{
+  int ret;
+
+  switch(pf->fmt.type) {
+  case 'c':
+    ret = mrbc_printf_char( pf, va_arg(*ap, int) );
+    break;
+
+  case 's':
+    ret = mrbc_printf_str( pf, va_arg(*ap, char *), ' ');
+    break;
+
+  case 'd':
+  case 'i':
+  case 'u':
+    ret = mrbc_printf_int( pf, va_arg(*ap, int), 10);
+    break;
+
+  case 'D':	// for mrbc_int_t (see mrbc_print_sub)
+    ret = mrbc_printf_int( pf, va_arg(*ap, mrbc_int_t), 10);
+    break;
+
+  case 'b':
+  case 'B':
+    ret = mrbc_printf_bit( pf, va_arg(*ap, unsigned int), 1);
+    break;
+
+  case 'x':
+  case 'X':
+    ret = mrbc_printf_bit( pf, va_arg(*ap, unsigned int), 4);
+    break;
+
+#if MRBC_USE_FLOAT
+  case 'f':
+  case 'e':
+  case 'E':
+  case 'g':
+  case 'G':
+    ret = mrbc_printf_float( pf, va_arg(*ap, double) );
+    break;
+#endif
+  case 'p':
+    ret = mrbc_printf_pointer( pf, va_arg(*ap, void *) );
+    break;
+
+  default:
+    ret = 0;
+    break;
+  }
+
+  return ret;
+}
+
+
 /***** Global functions *****************************************************/
 
 //================================================================
@@ -52,7 +114,7 @@
 
   @param  c	character
 */
-void console_putchar(char c)
+void mrbc_putchar(char c)
 {
 #if defined(MRBC_CONVERT_CRLF)
   static const char CRLF[2] = "\r\n";
@@ -74,7 +136,7 @@ void console_putchar(char c)
   @param str	str
   @param size	byte length.
 */
-void console_nprint(const char *str, int size)
+void mrbc_nprint(const char *str, int size)
 {
 #if defined(MRBC_CONVERT_CRLF)
   static const char CRLF[2] = "\r\n";
@@ -100,83 +162,351 @@ void console_nprint(const char *str, int size)
 
 
 //================================================================
-/*! output formatted string
+/*! formatted output conversion, output to console.
 
   @param  fstr		format string.
 */
-void console_printf(const char *fstr, ...)
+void mrbc_printf(const char *fstr, ...)
 {
   va_list ap;
   va_start(ap, fstr);
 
-  mrbc_printf pf;
-  char buf[CONSOLE_PRINTF_MAX_WIDTH];
-  mrbc_printf_init( &pf, buf, sizeof(buf), fstr );
-
-  int ret;
-  while( 1 ) {
-    ret = mrbc_printf_main( &pf );
-    if( mrbc_printf_len( &pf ) ) {
-      console_nprint( buf, mrbc_printf_len( &pf ) );
-      mrbc_printf_clear( &pf );
-    }
-    if( ret == 0 ) break;
-    if( ret < 0 ) continue;
-    if( ret > 0 ) {
-      switch(pf.fmt.type) {
-      case 'c':
-	ret = mrbc_printf_char( &pf, va_arg(ap, int) );
-	break;
-
-      case 's':
-	ret = mrbc_printf_str( &pf, va_arg(ap, char *), ' ');
-	break;
-
-      case 'd':
-      case 'i':
-      case 'u':
-	ret = mrbc_printf_int( &pf, va_arg(ap, int), 10);
-	break;
-
-      case 'D':	// for mrbc_int (see mrbc_print_sub)
-	ret = mrbc_printf_int( &pf, va_arg(ap, mrbc_int), 10);
-	break;
-
-      case 'b':
-      case 'B':
-	ret = mrbc_printf_bit( &pf, va_arg(ap, unsigned int), 1);
-	break;
-
-      case 'x':
-      case 'X':
-	ret = mrbc_printf_bit( &pf, va_arg(ap, unsigned int), 4);
-	break;
-
-#if MRBC_USE_FLOAT
-      case 'f':
-      case 'e':
-      case 'E':
-      case 'g':
-      case 'G':
-	ret = mrbc_printf_float( &pf, va_arg(ap, double) );
-	break;
-#endif
-      case 'p':
-	ret = mrbc_printf_pointer( &pf, va_arg(ap, void *) );
-	break;
-
-      default:
-	break;
-      }
-
-      console_nprint( buf, mrbc_printf_len( &pf ) );
-      mrbc_printf_clear( &pf );
-    }
-  }
+  mrbc_vprintf( fstr, ap );
 
   va_end(ap);
 }
 
+
+//================================================================
+/*! formatted output conversion, output to heap buffer.
+
+  @param  buf		double pointer to output buffer. must be allocated by mrbc_alloc.
+  @param  bufsiz	buffer size.
+  @param  fstr		format string.
+*/
+void mrbc_asprintf(char **buf, int bufsiz, const char *fstr, ...)
+{
+  va_list ap;
+  va_start(ap, fstr);
+
+  mrbc_vasprintf( buf, bufsiz, fstr, ap );
+
+  va_end(ap);
+}
+
+
+//================================================================
+/*! formatted output conversion, output to fixed buffer.
+
+  @param  buf		output buffer.
+  @param  bufsiz	buffer size.
+  @param  fstr		format string.
+*/
+void mrbc_snprintf(char *buf, int bufsiz, const char *fstr, ...)
+{
+  va_list ap;
+  va_start(ap, fstr);
+
+  mrbc_printf_t pf;
+  mrbc_printf_init( &pf, buf, bufsiz, fstr );
+
+  while( 1 ) {
+    if( mrbc_printf_main( &pf ) <= 0 ) break;
+				// normal end (==0) or buffer full (<0).
+    if( mrbc_printf_sub_output_arg( &pf, &ap ) != 0 ) break;
+  }
+
+  mrbc_printf_end( &pf );
+  va_end(ap);
+}
+
+
+//================================================================
+/*! formatted output conversion with va_list, output to console.
+
+  @param  fstr		format string.
+  @param  ap		variable argument pointer.
+*/
+void mrbc_vprintf(const char *fstr, va_list ap)
+{
+  va_list ap1;
+  va_copy( ap1, ap );
+
+  mrbc_printf_t pf;
+  char buf[MRBC_PRINTF_MAX_WIDTH];
+  mrbc_printf_init( &pf, buf, sizeof(buf), fstr );
+
+  while( 1 ) {
+    int ret = mrbc_printf_main( &pf );
+    if( mrbc_printf_len( &pf ) ) {
+      mrbc_nprint( buf, mrbc_printf_len( &pf ) );
+      mrbc_printf_clear( &pf );
+    }
+    if( ret == 0 ) break;
+    if( ret < 0 ) continue;
+
+    mrbc_printf_sub_output_arg( &pf, &ap1 );
+    mrbc_nprint( buf, mrbc_printf_len( &pf ) );
+    mrbc_printf_clear( &pf );
+  }
+
+  va_end(ap1);
+}
+
+
+//================================================================
+/*! formatted output conversion with va_list, output to heap buffer.
+
+  @param  buf		double pointer to output buffer. must be allocated by mrbc_alloc.
+  @param  bufsiz	buffer size.
+  @param  fstr		format string.
+  @param  ap		variable argument pointer.
+*/
+void mrbc_vasprintf(char **buf, int bufsiz, const char *fstr, va_list ap)
+{
+  va_list ap1, ap_bak;
+  va_copy( ap1, ap );
+
+  mrbc_printf_t pf;
+  mrbc_printf_init( &pf, *buf, bufsiz, fstr );
+
+  while( 1 ) {
+    va_copy(ap_bak, ap1);
+    mrbc_printf_t pf_bak = pf;
+
+    int ret = mrbc_printf_main( &pf );
+    if( ret == 0 ) break;	// normal break loop.
+    if( ret < 0 ) goto INCREASE_BUFFER;
+
+    ret = mrbc_printf_sub_output_arg( &pf, &ap1 );
+    if( ret >= 0 ) goto NEXT_LOOP;
+
+    va_end(ap1);
+    va_copy(ap1, ap_bak);
+    pf = pf_bak;
+
+  INCREASE_BUFFER:
+    bufsiz += 64;
+    void *newbuf = mrbc_raw_realloc( pf.buf, bufsiz );
+    if( !newbuf ) break;
+    mrbc_printf_replace_buffer( &pf, newbuf, bufsiz );
+    *buf = newbuf;
+
+  NEXT_LOOP:
+    va_end(ap_bak);
+  }
+
+  mrbc_printf_end( &pf );
+  va_end(ap1);
+  va_end(ap_bak);
+}
+
+
+//================================================================
+/*! print mrbc_value
+
+  @param  v	pointer to target value.
+*/
+void mrbc_p(const mrbc_value *v)
+{
+  mrbc_p_sub( v );
+  mrbc_putchar('\n');
+}
+
+
+//================================================================
+/*! p - sub function
+
+  @param  v	pointer to target value.
+ */
+int mrbc_p_sub(const mrbc_value *v)
+{
+  switch( mrbc_type(*v) ){
+  case MRBC_TT_NIL:
+    mrbc_print("nil");
+    break;
+
+  case MRBC_TT_SYMBOL:{
+    const char *s = mrbc_symbol_cstr( v );
+    char *fmt = strchr(s, ':') ? "\":%s\"" : ":%s";
+    mrbc_printf(fmt, s);
+  } break;
+
+#if MRBC_USE_STRING
+  case MRBC_TT_STRING:{
+    mrbc_putchar('"');
+    const unsigned char *s = (const unsigned char *)mrbc_string_cstr(v);
+    int i;
+    for( i = 0; i < mrbc_string_size(v); i++ ) {
+      if( s[i] < ' ' || 0x7f <= s[i] ) {	// tiny isprint()
+	mrbc_printf("\\x%02X", s[i]);
+      } else {
+	mrbc_putchar(s[i]);
+      }
+    }
+    mrbc_putchar('"');
+  } break;
+#endif
+
+  case MRBC_TT_RANGE:{
+    mrbc_value v1 = mrbc_range_first(v);
+    mrbc_p_sub(&v1);
+    mrbc_print( mrbc_range_exclude_end(v) ? "..." : ".." );
+    v1 = mrbc_range_last(v);
+    mrbc_p_sub(&v1);
+  } break;
+
+  default:
+    mrbc_print_sub(v);
+    break;
+  }
+
+#if 0
+  // display reference counter
+  if( mrbc_type(*v) >= MRBC_TT_OBJECT ) {
+    mrbc_printf("(%d)", v->instance->ref_count);
+  }
+#endif
+
+  return 0;
+}
+
+
+//================================================================
+/*! puts - sub function
+
+  @param  v	pointer to target value.
+  @retval 0	normal return.
+  @retval 1	already output LF.
+*/
+int mrbc_puts_sub(const mrbc_value *v)
+{
+  if( mrbc_type(*v) == MRBC_TT_ARRAY ) {
+    int i;
+    for( i = 0; i < mrbc_array_size(v); i++ ) {
+      if( i != 0 ) mrbc_putchar('\n');
+      mrbc_value v1 = mrbc_array_get(v, i);
+      mrbc_puts_sub(&v1);
+    }
+    return 0;
+  }
+
+  return mrbc_print_sub(v);
+}
+
+
+//================================================================
+/*! print - sub function
+
+  @param  v	pointer to target value.
+  @retval 0	normal return.
+  @retval 1	already output LF.
+*/
+int mrbc_print_sub(const mrbc_value *v)
+{
+  int ret = 0;
+
+  switch( mrbc_type(*v) ){
+  case MRBC_TT_EMPTY:	mrbc_print("(empty)");	break;
+  case MRBC_TT_NIL:					break;
+  case MRBC_TT_FALSE:	mrbc_print("false");		break;
+  case MRBC_TT_TRUE:	mrbc_print("true");		break;
+  case MRBC_TT_INTEGER:	mrbc_printf("%D", v->i);	break;
+#if MRBC_USE_FLOAT
+  case MRBC_TT_FLOAT:	mrbc_printf("%g", v->d);	break;
+#endif
+  case MRBC_TT_SYMBOL:
+    mrbc_print(mrbc_symbol_cstr(v));
+    break;
+
+  case MRBC_TT_CLASS:
+    mrbc_print(mrbc_symid_to_str(v->cls->sym_id));
+    break;
+
+  case MRBC_TT_OBJECT:
+    mrbc_printf("#<%s:%08x>",
+	mrbc_symid_to_str( find_class_by_object(v)->sym_id ), v->instance );
+    break;
+
+  case MRBC_TT_PROC:
+    mrbc_printf("#<Proc:%08x>", v->proc );
+    //mrbc_printf("#<Proc:%08x, callinfo=%p>", v->proc, v->proc->callinfo );
+    break;
+
+  case MRBC_TT_ARRAY:{
+    mrbc_putchar('[');
+    int i;
+    for( i = 0; i < mrbc_array_size(v); i++ ) {
+      if( i != 0 ) mrbc_print(", ");
+      mrbc_value v1 = mrbc_array_get(v, i);
+      mrbc_p_sub(&v1);
+    }
+    mrbc_putchar(']');
+  } break;
+
+#if MRBC_USE_STRING
+  case MRBC_TT_STRING:
+    mrbc_nprint( mrbc_string_cstr(v), mrbc_string_size(v) );
+    if( mrbc_string_size(v) != 0 &&
+	mrbc_string_cstr(v)[ mrbc_string_size(v) - 1 ] == '\n' ) ret = 1;
+    break;
+#endif
+
+  case MRBC_TT_RANGE:{
+    mrbc_value v1 = mrbc_range_first(v);
+    mrbc_print_sub(&v1);
+    mrbc_print( mrbc_range_exclude_end(v) ? "..." : ".." );
+    v1 = mrbc_range_last(v);
+    mrbc_print_sub(&v1);
+  } break;
+
+  case MRBC_TT_HASH:{
+    mrbc_putchar('{');
+    mrbc_hash_iterator ite = mrbc_hash_iterator_new(v);
+    while( mrbc_hash_i_has_next(&ite) ) {
+      mrbc_value *vk = mrbc_hash_i_next(&ite);
+      mrbc_p_sub(vk);
+      mrbc_print("=>");
+      mrbc_p_sub(vk+1);
+      if( mrbc_hash_i_has_next(&ite) ) mrbc_print(", ");
+    }
+    mrbc_putchar('}');
+  } break;
+
+  case MRBC_TT_HANDLE:
+    mrbc_printf("#<Handle:%08x>", v->handle );
+    break;
+
+  case MRBC_TT_EXCEPTION:
+    mrbc_printf("#<%s: %s>", mrbc_symid_to_str(v->exception->cls->sym_id),
+		 v->exception->message ?
+		   (const char *)v->exception->message :
+		   mrbc_symid_to_str(v->exception->cls->sym_id) );
+    break;
+
+  default:
+    mrbc_printf("Not support MRBC_TT_XX(%d)", mrbc_type(*v));
+    break;
+  }
+
+  return ret;
+}
+
+
+//================================================================
+/*! replace output buffer
+
+  @param  pf	pointer to mrbc_printf
+  @param  buf	pointer to output buffer.
+  @param  size	buffer size.
+*/
+void mrbc_printf_replace_buffer(mrbc_printf_t *pf, char *buf, int size)
+{
+  int p_ofs = pf->p - pf->buf;
+  pf->buf = buf;
+  pf->buf_end = buf + size - 1;
+  pf->p = pf->buf + p_ofs;
+}
 
 
 //================================================================
@@ -188,7 +518,7 @@ void console_printf(const char *fstr, ...)
   @retval -1	buffer full.
   @note		not terminate ('\0') buffer tail.
 */
-int mrbc_printf_main( mrbc_printf *pf )
+int mrbc_printf_main( mrbc_printf_t *pf )
 {
   int ch = -1;
   pf->fmt = (struct RPrintfFormat){0};
@@ -239,7 +569,6 @@ int mrbc_printf_main( mrbc_printf *pf )
 }
 
 
-
 //================================================================
 /*! sprintf subcontract function for char '%c'
 
@@ -249,7 +578,7 @@ int mrbc_printf_main( mrbc_printf *pf )
   @retval -1	buffer full.
   @note		not terminate ('\0') buffer tail.
 */
-int mrbc_printf_char( mrbc_printf *pf, int ch )
+int mrbc_printf_char( mrbc_printf_t *pf, int ch )
 {
   if( pf->fmt.flag_minus ) {
     if( pf->p == pf->buf_end ) return -1;
@@ -282,7 +611,7 @@ int mrbc_printf_char( mrbc_printf *pf, int ch )
   @retval -1	buffer full.
   @note		not terminate ('\0') buffer tail.
 */
-int mrbc_printf_bstr( mrbc_printf *pf, const char *str, int len, int pad )
+int mrbc_printf_bstr( mrbc_printf_t *pf, const char *str, int len, int pad )
 {
   int ret = 0;
 
@@ -334,10 +663,10 @@ int mrbc_printf_bstr( mrbc_printf *pf, const char *str, int len, int pad )
   @retval -1	buffer full.
   @note		not terminate ('\0') buffer tail.
 */
-int mrbc_printf_int( mrbc_printf *pf, mrbc_int value, int base )
+int mrbc_printf_int( mrbc_printf_t *pf, mrbc_int_t value, unsigned int base )
 {
   int sign = 0;
-  mrbc_int v = value;
+  mrbc_uint_t v = value;
   char *pf_p_ini_val = pf->p;
 
   if( value < 0 ) {
@@ -355,11 +684,11 @@ int mrbc_printf_int( mrbc_printf *pf, mrbc_int value, int base )
   }
 
   // create string to temporary buffer
-  char buf[sizeof(mrbc_int) * 8];
+  char buf[sizeof(mrbc_int_t) * 8];
   char *p = buf + sizeof(buf);
 
   do {
-    int ch = v % base;
+    unsigned int ch = v % base;
     *--p = ch + ((ch < 10)? '0' : 'a' - 10);
     v /= base;
   } while( v != 0 );
@@ -421,7 +750,7 @@ int mrbc_printf_int( mrbc_printf *pf, mrbc_int value, int base )
   @retval -1	buffer full.
   @note		not terminate ('\0') buffer tail.
 */
-int mrbc_printf_bit( mrbc_printf *pf, mrbc_int value, int bit )
+int mrbc_printf_bit( mrbc_printf_t *pf, mrbc_int_t value, int bit )
 {
   if( pf->fmt.flag_plus || pf->fmt.flag_space ) {
     return mrbc_printf_int( pf, value, 1 << bit );
@@ -432,14 +761,14 @@ int mrbc_printf_bit( mrbc_printf *pf, mrbc_int value, int bit )
   }
   pf->fmt.precision = 0;
 
-  mrbc_int v = value;
+  mrbc_int_t v = value;
   int offset_a = (pf->fmt.type == 'X') ? 'A' - 10 : 'a' - 10;
   int mask = (1 << bit) - 1;	// 0x0f, 0x07, 0x01
   int mchar = mask + ((mask < 10)? '0' : offset_a);
 
   // create string to local buffer
-  char buf[40];	// > int32(bit) + '..f\0'
-  assert( sizeof(buf) > (sizeof(mrbc_int) * 8 + 4) );
+  char buf[sizeof(mrbc_int_t) * 8 + 5];
+  assert( sizeof(buf) > (sizeof(mrbc_int_t) * 8 + 4) );
   char *p = buf + sizeof(buf) - 1;
   *p = '\0';
   int n;
@@ -481,7 +810,7 @@ int mrbc_printf_bit( mrbc_printf *pf, mrbc_int value, int bit )
   @retval 0	done.
   @retval -1	buffer full.
 */
-int mrbc_printf_float( mrbc_printf *pf, double value )
+int mrbc_printf_float( mrbc_printf_t *pf, double value )
 {
   char fstr[16];
   const char *p1 = pf->fstr;
@@ -515,9 +844,13 @@ int mrbc_printf_float( mrbc_printf *pf, double value )
     up to 8 digits, even if 64bit machines.
     not support sign, width, precision and other parameters.
 */
-int mrbc_printf_pointer( mrbc_printf *pf, void *ptr )
+int mrbc_printf_pointer( mrbc_printf_t *pf, void *ptr )
 {
+#if defined(UINTPTR_MAX)
+  uintptr_t v = (uintptr_t)ptr;
+#else
   int v = (int)ptr; // regal (void* to int), but implementation defined.
+#endif
   int n = sizeof(ptr) * 2;
   if( n > 8 ) n = 8;
 
@@ -535,205 +868,4 @@ int mrbc_printf_pointer( mrbc_printf *pf, void *ptr )
   }
 
   return 0;
-}
-
-
-
-//================================================================
-/*! replace output buffer
-
-  @param  pf	pointer to mrbc_printf
-  @param  buf	pointer to output buffer.
-  @param  size	buffer size.
-*/
-void mrbc_printf_replace_buffer(mrbc_printf *pf, char *buf, int size)
-{
-  int p_ofs = pf->p - pf->buf;
-  pf->buf = buf;
-  pf->buf_end = buf + size - 1;
-  pf->p = pf->buf + p_ofs;
-}
-
-
-
-//================================================================
-/*! p - sub function
-
-  @param  v	pointer to target value.
- */
-int mrbc_p_sub(const mrbc_value *v)
-{
-  switch( v->tt ){
-  case MRBC_TT_NIL:
-    console_print("nil");
-    break;
-
-  case MRBC_TT_SYMBOL:{
-    const char *s = mrbc_symbol_cstr( v );
-    char *fmt = strchr(s, ':') ? "\":%s\"" : ":%s";
-    console_printf(fmt, s);
-  } break;
-
-#if MRBC_USE_STRING
-  case MRBC_TT_STRING:{
-    console_putchar('"');
-    const unsigned char *s = (const unsigned char *)mrbc_string_cstr(v);
-    int i;
-    for( i = 0; i < mrbc_string_size(v); i++ ) {
-      if( s[i] < ' ' || 0x7f <= s[i] ) {	// tiny isprint()
-	console_printf("\\x%02X", s[i]);
-      } else {
-	console_putchar(s[i]);
-      }
-    }
-    console_putchar('"');
-  } break;
-#endif
-
-  case MRBC_TT_RANGE:{
-    mrbc_value v1 = mrbc_range_first(v);
-    mrbc_p_sub(&v1);
-    console_print( mrbc_range_exclude_end(v) ? "..." : ".." );
-    v1 = mrbc_range_last(v);
-    mrbc_p_sub(&v1);
-  } break;
-
-  default:
-    mrbc_print_sub(v);
-    break;
-  }
-
-#if 0
-  // display reference counter
-  if( v->tt >= MRBC_TT_OBJECT ) {
-    console_printf("(%d)", v->instance->ref_count);
-  }
-#endif
-
-  return 0;
-}
-
-
-//================================================================
-/*! print - sub function
-
-  @param  v	pointer to target value.
-  @retval 0	normal return.
-  @retval 1	already output LF.
-*/
-int mrbc_print_sub(const mrbc_value *v)
-{
-  int ret = 0;
-
-  switch( v->tt ){
-  case MRBC_TT_EMPTY:	console_print("(empty)");	break;
-  case MRBC_TT_NIL:					break;
-  case MRBC_TT_FALSE:	console_print("false");		break;
-  case MRBC_TT_TRUE:	console_print("true");		break;
-  case MRBC_TT_FIXNUM:	console_printf("%D", v->i);	break;
-#if MRBC_USE_FLOAT
-  case MRBC_TT_FLOAT:	console_printf("%g", v->d);	break;
-#endif
-  case MRBC_TT_SYMBOL:
-    console_print(mrbc_symbol_cstr(v));
-    break;
-
-  case MRBC_TT_CLASS:
-    console_print(symid_to_str(v->cls->sym_id));
-    break;
-
-  case MRBC_TT_OBJECT:
-    console_printf( "#<%s:%08x>",
-	symid_to_str( find_class_by_object(v)->sym_id ), v->instance );
-    break;
-
-  case MRBC_TT_PROC:
-    console_printf( "#<Proc:%08x>", v->proc );
-    break;
-
-  case MRBC_TT_ARRAY:{
-    console_putchar('[');
-    int i;
-    for( i = 0; i < mrbc_array_size(v); i++ ) {
-      if( i != 0 ) console_print(", ");
-      mrbc_value v1 = mrbc_array_get(v, i);
-      mrbc_p_sub(&v1);
-    }
-    console_putchar(']');
-  } break;
-
-#if MRBC_USE_STRING
-  case MRBC_TT_STRING:
-    console_nprint( mrbc_string_cstr(v), mrbc_string_size(v) );
-    if( mrbc_string_size(v) != 0 &&
-	mrbc_string_cstr(v)[ mrbc_string_size(v) - 1 ] == '\n' ) ret = 1;
-    break;
-#endif
-
-  case MRBC_TT_RANGE:{
-    mrbc_value v1 = mrbc_range_first(v);
-    mrbc_print_sub(&v1);
-    console_print( mrbc_range_exclude_end(v) ? "..." : ".." );
-    v1 = mrbc_range_last(v);
-    mrbc_print_sub(&v1);
-  } break;
-
-  case MRBC_TT_HASH:{
-    console_putchar('{');
-    mrbc_hash_iterator ite = mrbc_hash_iterator_new(v);
-    while( mrbc_hash_i_has_next(&ite) ) {
-      mrbc_value *vk = mrbc_hash_i_next(&ite);
-      mrbc_p_sub(vk);
-      console_print("=>");
-      mrbc_p_sub(vk+1);
-      if( mrbc_hash_i_has_next(&ite) ) console_print(", ");
-    }
-    console_putchar('}');
-  } break;
-
-  case MRBC_TT_HANDLE:
-    console_printf( "#<Handle:%08x>", v->handle );
-    break;
-
-  default:
-    console_printf("Not support MRBC_TT_XX(%d)", v->tt);
-    break;
-  }
-
-  return ret;
-}
-
-
-//================================================================
-/*! puts - sub function
-
-  @param  v	pointer to target value.
-  @retval 0	normal return.
-  @retval 1	already output LF.
-*/
-int mrbc_puts_sub(const mrbc_value *v)
-{
-  if( v->tt == MRBC_TT_ARRAY ) {
-    int i;
-    for( i = 0; i < mrbc_array_size(v); i++ ) {
-      if( i != 0 ) console_putchar('\n');
-      mrbc_value v1 = mrbc_array_get(v, i);
-      mrbc_puts_sub(&v1);
-    }
-    return 0;
-  }
-
-  return mrbc_print_sub(v);
-}
-
-
-//================================================================
-/*! p - print mrbc_value (BETA)
-
-  @param  v	pointer to target value.
-*/
-void mrbc_p(const mrbc_value *v)
-{
-  mrbc_p_sub( v );
-  console_putchar('\n');
 }

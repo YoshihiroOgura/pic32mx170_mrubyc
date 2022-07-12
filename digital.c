@@ -21,6 +21,9 @@
 
 GPIO_HANDLE gpioh[21];
 PWM_HANDLE pwmh[21];
+int out_compare[21] = {1,2,4,3,4,3,2,4,1,1,2,4,1,2,3,3,2,0,4,3,1};
+uint32_t* pwm_a=(&RPA0R);
+uint32_t* pwm_b=(&RPB0R);
 
 void set_compare(int pin, uint32_t param){
     switch(out_compare[pin]){

@@ -3,8 +3,8 @@
   mruby/c Key(Symbol) - Value store.
 
   <pre>
-  Copyright (C) 2015-2018 Kyushu Institute of Technology.
-  Copyright (C) 2015-2018 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2022 Kyushu Institute of Technology.
+  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -14,16 +14,31 @@
 #ifndef MRBC_SRC_C_KEYVALUE_H_
 #define MRBC_SRC_C_KEYVALUE_H_
 
+/***** Feature test switches ************************************************/
+/***** System headers *******************************************************/
+//@cond
+#include "vm_config.h"
+#include <stdint.h>
+//@endcond
+
+/***** Local headers ********************************************************/
 #include "value.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
+/***** Constant values ******************************************************/
+/***** Typedefs *************************************************************/
 //================================================================
-/*! Define Key-Value data.
+/*!@brief
+  Key-Value data.
 */
 typedef struct RKeyValue {
+#if defined(MRBC_DEBUG)
+  char type[2];
+#endif
   mrbc_sym sym_id;	//!< symbol ID as key.
   mrbc_value value;	//!< stored value.
 
@@ -31,11 +46,12 @@ typedef struct RKeyValue {
 
 
 //================================================================
-/*! Define Key-Value handle.
+/*!@brief
+  Key-Value handle.
 */
 typedef struct RKeyValueHandle {
   uint16_t data_size;	//!< data buffer size.
-  uint16_t n_stored;	//!< # of stored.
+  uint16_t n_stored;	//!< num of stored.
   union {
     mrbc_kv *data;	//!< pointer to allocated memory.
     struct VM *vm;	//!< pointer to VM (if data_size == 0)
@@ -45,7 +61,8 @@ typedef struct RKeyValueHandle {
 
 
 //================================================================
-/*! Define Key-Value iterator.
+/*!@brief
+  Key-Value iterator.
 */
 typedef struct RKeyValueIterator {
   const mrbc_kv_handle *target;
@@ -54,6 +71,9 @@ typedef struct RKeyValueIterator {
 } mrbc_kv_iterator;
 
 
+/***** Macros ***************************************************************/
+/***** Global variables *****************************************************/
+/***** Function prototypes **************************************************/
 mrbc_kv_handle *mrbc_kv_new(struct VM *vm, int size);
 int mrbc_kv_init_handle(struct VM *vm, mrbc_kv_handle *kvh, int size);
 void mrbc_kv_delete(mrbc_kv_handle *kvh);
@@ -69,6 +89,7 @@ void mrbc_kv_clear(mrbc_kv_handle *kvh);
 void mrbc_kv_dup(const mrbc_kv_handle *src, mrbc_kv_handle *dst);
 
 
+/***** Inline functions *****************************************************/
 //================================================================
 /*! get size
 */
