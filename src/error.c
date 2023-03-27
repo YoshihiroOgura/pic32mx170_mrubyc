@@ -139,14 +139,17 @@ void mrbc_exception_delete(mrbc_value *value)
 /*! raise exception
 
   @param  vm		pointer to VM.
-  @param  exc_cls	pointer to Exception class.
-  @param  msg		message.
+  @param  exc_cls	pointer to Exception class or NULL.
+  @param  msg		message or NULL.
   @note	(usage) mrbc_raise(vm, MRBC_CLASS(TypeError), "message here.");
 */
 void mrbc_raise( struct VM *vm, struct RClass *exc_cls, const char *msg )
 {
   if( vm ) {
-    vm->exception = mrbc_exception_new( vm, exc_cls ? exc_cls : MRBC_CLASS(RuntimeError), msg, 0 );
+    struct RClass *cls = exc_cls ? exc_cls : MRBC_CLASS(RuntimeError);
+    const char msg_len = msg ? strlen(msg) : 0;
+
+    vm->exception = mrbc_exception_new( vm, cls, msg, msg_len );
     vm->flag_preemption = 2;
 
   } else {

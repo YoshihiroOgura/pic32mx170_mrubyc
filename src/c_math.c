@@ -134,8 +134,7 @@ static void c_math_cosh(struct VM *vm, mrbc_value v[], int argc)
 */
 static void c_math_erf(struct VM *vm, mrbc_value v[], int argc)
 {
-  //v[0] = mrbc_float_value(vm, erf( to_double(vm, &v[1]) ));
-  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), 0);
+  v[0] = mrbc_float_value(vm, erf( to_double(vm, &v[1]) ));
 }
 
 //================================================================
@@ -143,8 +142,7 @@ static void c_math_erf(struct VM *vm, mrbc_value v[], int argc)
 */
 static void c_math_erfc(struct VM *vm, mrbc_value v[], int argc)
 {
-  //v[0] = mrbc_float_value(vm, erfc( to_double(vm, &v[1]) ));
-  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), 0);
+  v[0] = mrbc_float_value(vm, erfc( to_double(vm, &v[1]) ));
 }
 
 //================================================================
@@ -201,8 +199,7 @@ static void c_math_log10(struct VM *vm, mrbc_value v[], int argc)
 */
 static void c_math_log2(struct VM *vm, mrbc_value v[], int argc)
 {
-  //v[0] = mrbc_float_value(vm, log2( to_double(vm, &v[1]) ));
-  v[0] = mrbc_float_value(vm, log( to_double(vm, &v[1])) / M_LN2);
+  v[0] = mrbc_float_value(vm, log2( to_double(vm, &v[1]) ));
 }
 
 //================================================================

@@ -3,8 +3,8 @@
   mruby bytecode loader.
 
   <pre>
-  Copyright (C) 2015-2022 Kyushu Institute of Technology.
-  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2023 Kyushu Institute of Technology.
+  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -213,7 +213,11 @@ static mrbc_irep * load_irep_1(struct VM *vm, const uint8_t *bin, int *len, int 
   uint16_t *ofs_pools = mrbc_irep_tbl_pools(p_irep);
   p = p_irep->pool + 2;
   for( i = 0; i < irep.plen; i++ ) {
-    int siz;
+    int siz = 0;
+    if( (p - irep.pool) > UINT16_MAX ) {
+      mrbc_raise(vm, MRBC_CLASS(Exception), "Overflow IREP data offset table.");
+      return NULL;
+    }
     *ofs_pools++ = (uint16_t)(p - irep.pool);
     switch( *p++ ) {
     case IREP_TT_STR:
@@ -364,9 +368,9 @@ mrbc_value mrbc_irep_pool_value(struct VM *vm, int n)
     break;
 #endif
 
-#ifdef MRBC_INT64
+#if defined(MRBC_INT64)
   case IREP_TT_INT64:
-    mrbc_set_integer(&obj, obj.i = bin_to_int64(p));
+    mrbc_set_integer(&obj, bin_to_int64(p));
     break;
 #endif
 

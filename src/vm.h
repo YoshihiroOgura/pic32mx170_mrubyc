@@ -119,6 +119,7 @@ typedef struct CALLINFO {
   mrbc_sym method_id;		//!< called method ID.
   uint8_t reg_offset;		//!< register offset after call.
   uint8_t n_args;		//!< num of arguments.
+  uint8_t kd_reg_offset;	//!< keyword or dictionary register offset.
   uint8_t is_called_super;	//!< this is called by op_super.
 
 } mrbc_callinfo;
@@ -150,7 +151,7 @@ typedef struct VM {
   mrbc_proc	  *ret_blk;		//!< Return block.
 
   mrbc_value	  exception;		//!< Raised exception or nil.
-  mrbc_value      regs[MAX_REGS_SIZE];
+  mrbc_value      regs[];
 } mrbc_vm;
 typedef struct VM mrb_vm;
 
@@ -162,7 +163,8 @@ mrbc_sym mrbc_get_callee_symid(struct VM *vm);
 const char *mrbc_get_callee_name(struct VM *vm);
 mrbc_callinfo *mrbc_push_callinfo(struct VM *vm, mrbc_sym method_id, int reg_offset, int n_args);
 void mrbc_pop_callinfo(struct VM *vm);
-mrbc_vm *mrbc_vm_open(struct VM *vm_arg);
+mrbc_vm *mrbc_vm_new(int regs_size);
+mrbc_vm *mrbc_vm_open(struct VM *vm);
 void mrbc_vm_close(struct VM *vm);
 void mrbc_vm_begin(struct VM *vm);
 void mrbc_vm_end(struct VM *vm);
