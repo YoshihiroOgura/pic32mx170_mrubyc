@@ -18,6 +18,8 @@
 #include <xc.h>
 #include <stdio.h>
 #include <stdint.h>
+
+#include "common.h"
 #include "mrbc_firm.h"
 #include "uart.h"
 
@@ -132,8 +134,8 @@ static unsigned int flash_write_row(void *address, void *data)
 */
 static void u_puts( const void *s )
 {
-  uart_puts(&uart1_handle, s);
-  uart_puts(&uart1_handle, "\r\n");
+  uart_puts(UART_CONSOLE, s);
+  uart_puts(UART_CONSOLE, "\r\n");
 }
 
 
@@ -146,7 +148,7 @@ static int cmd_help(void)
 
   int i;
   for( i = 0; i < sizeof(monitor_commands)/sizeof(struct monitor_commands); i++ ) {
-    uart_puts(&uart1_handle, "  ");
+    uart_puts(UART_CONSOLE, "  ");
     u_puts(monitor_commands[i].command);
   }
   u_puts("+DONE");
@@ -171,18 +173,7 @@ static int cmd_reset(void)
 {
   __builtin_disable_interrupts();
 
-  // starting critical sequence
-  SYSKEY = 0x33333333; //write invalid key to force lock
-  SYSKEY = 0xAA996655; //write key1 to SYSKEY
-  SYSKEY = 0x556699AA; //write key2 to SYSKEY
-
-  RSWRSTbits.SWRST = 1;
-  uint32_t dummy = RSWRST;
-  (void)dummy;
-
-  while(1)
-    ;
-
+  system_reset();
   return 0;
 }
 
@@ -238,15 +229,15 @@ static int cmd_write(void)
   uint8_t *p = memory_pool;
   int n = size;
   while (n > 0) {
-    int readed_size = uart_read( &uart1_handle, p, size );
+    int readed_size = uart_read( UART_CONSOLE, p, size );
     p += readed_size;
     n -= readed_size;
   }
 
   // erase required amount of PAGE
-  uint8_t *page_top = p_irep_write - ((uintptr_t)p_irep_write % PAGE_SIZE);
-  uint8_t *next_page_top = page_top + PAGE_SIZE;
-  uint8_t *prog_end_addr = p_irep_write + ALIGN_ROW_SIZE(size);
+  uint8_t *page_top = p_irep_write - ((uintptr_t)p_irep_write % FLASH_PAGE_SIZE);
+  uint8_t *next_page_top = page_top + FLASH_PAGE_SIZE;
+  uint8_t *prog_end_addr = p_irep_write + FLASH_ALIGN_ROW_SIZE(size);
 
   if( prog_end_addr > (uint8_t*)FLASH_END_ADDR ) {
     u_puts("-ERR total bytecode size overflow.");
@@ -258,7 +249,7 @@ static int cmd_write(void)
       u_puts("-ERR Flash erase error.");
       goto DONE;
     }
-    next_page_top += PAGE_SIZE;
+    next_page_top += FLASH_PAGE_SIZE;
   }
 
   // Write data to FLASH. segmentad by ROW size.
@@ -268,8 +259,8 @@ static int cmd_write(void)
       u_puts("-ERR Flash write error.");
       goto DONE;
     }
-    p_irep_write += ROW_SIZE;
-    p += ROW_SIZE;
+    p_irep_write += FLASH_ROW_SIZE;
+    p += FLASH_ROW_SIZE;
   }
 
   u_puts("+DONE");
@@ -291,13 +282,13 @@ static int cmd_showprog(void)
   char buf[32];
 
   u_puts("idx   size");
-  while( strncmp( fl_addr, RITE, sizeof(RITE)) == 0 ) {
+  while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
     uint32_t size = 0;
     int i;
     for( i = 0; i < 4; i++ ) {
       size = (size << 8) | fl_addr[8 + i];
     }
-    size = ALIGN_ROW_SIZE( size );
+    size = FLASH_ALIGN_ROW_SIZE( size );
     used_size += size;
     fl_addr += size;
 
@@ -324,14 +315,14 @@ void add_code(void)
 
   while( 1 ) {
     // get the command string.
-    int len = uart_can_read_line(&uart1_handle);
+    int len = uart_can_read_line(UART_CONSOLE);
     if( !len ) continue;
 
     if( len >= sizeof(buf) ) {
-      uart_clear_rx_buffer(&uart1_handle);
+      uart_clear_rx_buffer(UART_CONSOLE);
       continue;
     }
-    uart_read(&uart1_handle, buf, len);
+    uart_read(UART_CONSOLE, buf, len);
     buf[len] = 0;
 
     // split tokens.

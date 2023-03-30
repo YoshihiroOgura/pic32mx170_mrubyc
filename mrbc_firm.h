@@ -18,16 +18,7 @@
 #ifndef _MRBC_FIRM_H    /* Guard against multiple inclusion */
 #define _MRBC_FIRM_H
 
-#include <xc.h>
-#include <math.h>
-#include<string.h>
-
-#define FLASH_SAVE_ADDR 0xBD032000
-#define FLASH_END_ADDR  0xBD03EFFF
-#define PAGE_SIZE 1024
-#define ROW_SIZE (PAGE_SIZE / 8)
-
-#define ALIGN_ROW_SIZE(byte_size) ((byte_size) + (((byte_size) % ROW_SIZE) == 0 ? 0 : (ROW_SIZE - ((byte_size) % ROW_SIZE))))
+#define FLASH_ALIGN_ROW_SIZE(byte_size) ((byte_size) + (((byte_size) % FLASH_ROW_SIZE) == 0 ? 0 : (FLASH_ROW_SIZE - ((byte_size) % FLASH_ROW_SIZE))))
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
