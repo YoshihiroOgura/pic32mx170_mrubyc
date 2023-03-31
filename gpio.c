@@ -15,6 +15,7 @@
  */
 /* ************************************************************************** */
 
+#include "common.h"
 #include "gpio.h"
 
 /* ================================ C codes ================================ */
@@ -63,10 +64,9 @@ static void c_gpio_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( set_pin_handle( h, &v[1] ) != 0 ) goto ERROR_RETURN;
   if( v[2].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
   if( (mrbc_integer(v[2]) & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
-
-  SET_RETURN( val );
   if( gpio_setmode( h, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
 
+  SET_RETURN( val );
   return;
 
  ERROR_RETURN:
@@ -212,8 +212,7 @@ static void c_gpio_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 
-/*!
-  initializer
+/*! Initializer
 */
 void mrbc_init_class_gpio( void )
 {

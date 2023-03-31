@@ -18,7 +18,6 @@
 #ifndef RBOARD_DIGITAL_H
 #define RBOARD_DIGITAL_H
 
-#include "common.h"
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
