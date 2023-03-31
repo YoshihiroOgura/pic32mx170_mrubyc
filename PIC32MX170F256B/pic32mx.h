@@ -37,6 +37,8 @@ extern "C" {
 #define PORTx(x)	*(&PORTA     + (0x100 / sizeof(uint32_t)) * ((x)-1))
 #define LATxSET(x)	*(&LATASET   + (0x100 / sizeof(uint32_t)) * ((x)-1))
 #define LATxCLR(x)	*(&LATACLR   + (0x100 / sizeof(uint32_t)) * ((x)-1))
+#define ODCxSET(x)	*(&ODCASET   + (0x100 / sizeof(uint32_t)) * ((x)-1))
+#define ODCxCLR(x)	*(&ODCACLR   + (0x100 / sizeof(uint32_t)) * ((x)-1))
 #define CNPUxSET(x)	*(&CNPUASET  + (0x100 / sizeof(uint32_t)) * ((x)-1))
 #define CNPUxCLR(x)	*(&CNPUACLR  + (0x100 / sizeof(uint32_t)) * ((x)-1))
 #define CNPDxSET(x)	*(&CNPDASET  + (0x100 / sizeof(uint32_t)) * ((x)-1))

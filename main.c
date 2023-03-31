@@ -23,6 +23,8 @@
 #include "common.h"
 #include "uart.h"
 #include "mrbc_firm.h"
+#include "gpio.h"
+
 
 
 
@@ -34,10 +36,10 @@
 
 #include "mrubyc.h"
 //#include "adc.h"
-#include "digital.h"
+//#include "digital.h"
 //#include "i2c.h"
 //#include "spi.h"
-#include "uart.h"
+//#include "uart.h"
 
 // /TODO refactoring
 
@@ -254,15 +256,6 @@ static void tick_timer_init( void )
 void __ISR(_TIMER_1_VECTOR, IPL1AUTO) timer1_isr( void )
 {
   mrbc_tick();
-  static int cnt = 0;
-
-  if( ++cnt == 1000 ) {
-    onboard_led(2,1);
-  } else if( cnt == 2000 ) {
-    onboard_led(2,0);
-    cnt = 0;
-  }
-
   IFS0CLR = (1 << _IFS0_T1IF_POSITION);
 }
 
@@ -290,7 +283,6 @@ int main(void)
   system_init();
   uart_init();
 
-  tick_timer_init();	// TODO: mrbc_initのあとが良いのでは？
 
 
 
@@ -309,7 +301,8 @@ int main(void)
   /* start mruby/c */
   mrbc_init(memory_pool, MEMORY_SIZE);
   mrbc_define_method(0, mrbc_class_object, "pinInit", (mrbc_func_t)pin_init);
-  mrbc_init_gpio();
+
+  mrbc_init_class_gpio();
 
 
     //    mrbc_init_class_adc(0);
@@ -320,6 +313,7 @@ int main(void)
     //    mrbc_init_class_onboard(0);
     //    mrbc_init_class_spi(0);
 
+  tick_timer_init();	// TODO: mrbc_initのあとが良いのでは？
 
 #if 0
   const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
