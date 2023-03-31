@@ -67,11 +67,6 @@ extern "C" {
 #define UxBRG(x)	*(&U1BRG     + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define UxRXR(x)	*(&U1RXR     + (0x008 / sizeof(uint32_t)) * ((x)-1))
 
-// TIMER IFS,IEC,IPC
-#define IFS_T1IF_clear()	(IFS0CLR= 1 << _IFS0_T1IF_POSITION)
-#define IEC_T1IE_set(f)		(IEC0bits.T1IE = (f))
-#define IPC_T1IPIS(ip,is)	(IPC1bits.T1IP = (ip), IPC1bits.T1IS = (is))
-
 // Output pin selection.
 #define RPxnR(x,n)	(TBL_RPxnR[(x)-1][n])
 extern volatile uint32_t *TBL_RPxnR[];
@@ -87,7 +82,7 @@ extern volatile uint32_t *TBL_RPxnR[];
 
 
 // flash memory address and parameter.
-#define FLASH_SAVE_ADDR 0xBD032000
+#define FLASH_SAVE_ADDR 0xBD034000
 #define FLASH_END_ADDR  0xBD03EFFF
 #define FLASH_PAGE_SIZE 1024
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE / 8)

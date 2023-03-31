@@ -243,10 +243,10 @@ static void tick_timer_init( void )
   TMR1 = 0;
   PR1 = PBCLK / 1000;
 
-  IFS_T1IF_clear();
-  IPC_T1IPIS( 1, 0 );	// Interrupt priority.
-  IEC_T1IE_set( 1 );	// Enable interrupt
-
+  IFS0CLR = (1 << _IFS0_T1IF_POSITION);
+  IPC1bits.T1IP = 1;	// Interrupt priority.
+  IPC1bits.T1IS = 0;
+  IEC0bits.T1IE = 1;	// Enable interrupt
   T1CONbits.ON = 1;
 }
 
@@ -263,7 +263,7 @@ void __ISR(_TIMER_1_VECTOR, IPL1AUTO) timer1_isr( void )
     cnt = 0;
   }
 
-  IFS_T1IF_clear();
+  IFS0CLR = (1 << _IFS0_T1IF_POSITION);
 }
 
 
@@ -309,6 +309,9 @@ int main(void)
   /* start mruby/c */
   mrbc_init(memory_pool, MEMORY_SIZE);
   mrbc_define_method(0, mrbc_class_object, "pinInit", (mrbc_func_t)pin_init);
+  mrbc_init_gpio();
+
+
     //    mrbc_init_class_adc(0);
     //    mrbc_init_class_i2c(0);
     //    mrbc_init_class_uart(0);
@@ -318,7 +321,7 @@ int main(void)
     //    mrbc_init_class_spi(0);
 
 
-#if 1
+#if 0
   const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
   static const char RITE[4] = "RITE";
   while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
