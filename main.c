@@ -24,6 +24,7 @@
 #include "uart.h"
 #include "mrbc_firm.h"
 #include "gpio.h"
+#include "adc.h"
 
 
 
@@ -35,7 +36,6 @@
 //#include <math.h>
 
 #include "mrubyc.h"
-//#include "adc.h"
 //#include "digital.h"
 //#include "i2c.h"
 //#include "spi.h"
@@ -282,12 +282,12 @@ int main(void)
   /* module init */
   system_init();
   uart_init();
+  adc_init();
 
 
 
 
   //    i2c_init();
-  //    adc_init();
 
   __delay_ms( 1000 );
   printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v3.2 start.\n");
@@ -303,9 +303,9 @@ int main(void)
   mrbc_define_method(0, mrbc_class_object, "pinInit", (mrbc_func_t)pin_init);
 
   mrbc_init_class_gpio();
+  mrbc_init_class_adc();
 
 
-    //    mrbc_init_class_adc(0);
     //    mrbc_init_class_i2c(0);
     //    mrbc_init_class_uart(0);
     //    mrbc_init_class_digital(0);

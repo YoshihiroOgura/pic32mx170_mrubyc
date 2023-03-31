@@ -18,7 +18,6 @@
 #ifndef _ADC_H
 #define _ADC_H
 
-#include "mrubyc.h"
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
@@ -29,7 +28,7 @@ extern "C" {
 void adc_init(void);
 
 /* mruby/c codes */
-void mrbc_init_class_adc(struct VM *vm);
+void mrbc_init_class_adc(void);
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
