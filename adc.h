@@ -15,8 +15,8 @@
  */
 /* ************************************************************************** */
 
-#ifndef _ADC_H
-#define _ADC_H
+#ifndef RBOARD_ADC_H
+#define RBOARD_ADC_H
 
 
 /* Provide C++ Compatibility */
@@ -35,4 +35,4 @@ void mrbc_init_class_adc(void);
 }
 #endif
 
-#endif /* _ADC_H */
+#endif /* RBOARD_ADC_H */

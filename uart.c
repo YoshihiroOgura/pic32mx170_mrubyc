@@ -123,17 +123,17 @@ static int set_pin_to_uart( const UART_HANDLE *uh )
      Pin assign: DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
   */
   ANSELxCLR(txd_p) = (1 << txd_n);	// digital
-  TRISxCLR(txd_p) = (1 << txd_n);		// output
+  TRISxCLR(txd_p) = (1 << txd_n);	// output
   CNPUxCLR(txd_p) = (1 << txd_n);
   CNPDxCLR(txd_p) = (1 << txd_n);
-  LATxSET(txd_p) = (1 << txd_n);		// set high level
+  LATxSET(txd_p) = (1 << txd_n);	// set high level
   RPxnR(txd_p, txd_n) = unit;		// pin assign
 
   /* set input (RxD) pin.
      Pin assign: DS60001168L  TABLE 11-1: INPUT PIN SELECTION
   */
   ANSELxCLR(rxd_p) = (1 << rxd_n);	// digital
-  TRISxSET(rxd_p) = (1 << rxd_n);		// input
+  TRISxSET(rxd_p) = (1 << rxd_n);	// input
   CNPUxCLR(rxd_p) = (1 << rxd_n);
   CNPDxCLR(rxd_p) = (1 << rxd_n);
   //                                  RPA2    B6    A4    B13   B2
