@@ -24,10 +24,6 @@
 extern "C" {
 #endif
 
-/* C codes */
-void adc_init(void);
-
-/* mruby/c codes */
 void mrbc_init_class_adc(void);
 
 /* Provide C++ Compatibility */

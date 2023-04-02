@@ -23,7 +23,7 @@
 
 typedef struct ADC_HANDLE {
   PIN_HANDLE pin;
-  uint8_t channel;
+  uint8_t channel;	// 0..12
 } ADC_HANDLE;
 
 static const ADC_HANDLE adc_handle_[] = {
@@ -41,18 +41,6 @@ static const ADC_HANDLE adc_handle_[] = {
 
 
 /* ================================ C codes ================================ */
-void adc_init( void )
-{
-  AD1CON1 = 0x00e0;	// SSRC=111 CLRASAM=0 ASAM=0 SAMP=0
-  AD1CON2 = 0x0000;
-  AD1CON3 = 0x1e09;	// SAMC=1e(60us) ADCS=09(TAD=2us)
-  AD1CHS  = 0x0000;
-  AD1CSSL = 0x0000;
-
-  // Enable ADC
-  AD1CON1bits.ADON = 1;
-}
-
 
 /* ============================= mruby/c codes ============================= */
 
@@ -136,6 +124,15 @@ static void c_adc_max(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init_class_adc(void)
 {
+  AD1CON1 = 0x00e0;	// SSRC=111 CLRASAM=0 ASAM=0 SAMP=0
+  AD1CON2 = 0x0000;
+  AD1CON3 = 0x1e09;	// SAMC=1e(60us) ADCS=09(TAD=2us)
+  AD1CHS  = 0x0000;
+  AD1CSSL = 0x0000;
+
+  // Enable ADC
+  AD1CON1bits.ADON = 1;
+
   mrbc_class *adc = mrbc_define_class(0, "ADC", 0);
 
   mrbc_define_method(0, adc, "new", c_adc_new);
