@@ -59,7 +59,7 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
   ADC_HANDLE adc_h;
   if( set_pin_handle( &adc_h.pin, &v[1] ) != 0 ) goto ERROR_RETURN;
 
-  // find ADC channel from adc_channel_ table.
+  // find ADC channel from adc_handle_ table.
   int i;
   for( i = 0; i < sizeof(adc_handle_)/sizeof(ADC_HANDLE); i++ ) {
     if( (adc_handle_[i].pin.port == adc_h.pin.port) &&
