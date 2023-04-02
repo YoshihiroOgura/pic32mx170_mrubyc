@@ -19,20 +19,18 @@
 #include "gpio.h"
 
 /* ================================ C codes ================================ */
-#define GPIO_IN			0x01
-#define GPIO_OUT		0x02
-#define GPIO_HIGH_Z		0x04
-#define GPIO_PULL_UP		0x08
-#define GPIO_PULL_DOWN		0x10
-#define GPIO_OPEN_DRAIN		0x20
 
 
 /* ============================= mruby/c codes ============================= */
 
-static int gpio_setmode( const PIN_HANDLE *pin, int mode )
+int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode )
 {
-  if( mode & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z) ) {
-    ANSELxCLR(pin->port) = (1 << pin->num);	// digital
+  if( mode & (GPIO_IN|GPIO_OUT|GPIO_ANALOG|GPIO_HIGH_Z) ) {
+    if( mode & GPIO_ANALOG ) {
+      ANSELxSET(pin->port) = (1 << pin->num);
+    } else {
+      ANSELxCLR(pin->port) = (1 << pin->num);
+    }
     CNPUxCLR(pin->port) = (1 << pin->num);
     CNPDxCLR(pin->port) = (1 << pin->num);
     ODCxCLR(pin->port) = (1 << pin->num);

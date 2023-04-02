@@ -18,6 +18,7 @@
 #include <xc.h>
 
 #include "common.h"
+#include "gpio.h"
 #include "adc.h"
 
 
@@ -69,11 +70,7 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
   *(const ADC_HANDLE **)(val.instance->data) = &adc_handle_[i];
 
   // set pin to analog input
-  ANSELxSET(adc_h.pin.port) = (1 << adc_h.pin.num);
-  TRISxSET(adc_h.pin.port) = (1 << adc_h.pin.num);
-  CNPUxCLR(adc_h.pin.port) = (1 << adc_h.pin.num);
-  CNPDxCLR(adc_h.pin.port) = (1 << adc_h.pin.num);
-  ODCxCLR(adc_h.pin.port) = (1 << adc_h.pin.num);
+  gpio_setmode( &adc_h.pin, GPIO_ANALOG|GPIO_IN );
 
   SET_RETURN( val );
   return;
