@@ -275,10 +275,9 @@ typedef struct RObject mrbc_value;
     mrbc_decref(v);		\
     v[0].tt = MRBC_TT_TRUE;	\
   } while(0)
-#define SET_BOOL_RETURN(n) do {			 \
-    int tt = (n) ? MRBC_TT_TRUE : MRBC_TT_FALSE; \
-    mrbc_decref(v);				 \
-    v[0].tt = tt;				 \
+#define SET_BOOL_RETURN(n) do {			  \
+    mrbc_decref(v);				  \
+    v[0].tt = (n) ? MRBC_TT_TRUE : MRBC_TT_FALSE; \
   } while(0)
 #define SET_INT_RETURN(n) do {	\
     mrbc_int_t nnn = (n);	\
@@ -308,12 +307,29 @@ typedef struct RObject mrbc_value;
 #endif
 
 
+// for Numeric values.
+/**
+  @def MRBC_ISNUMERIC(val)
+  Check the val is numeric.
+
+  @def MRBC_TO_INT(val)
+  Convert mrbc_value to C-lang int.
+
+  @def MRBC_TO_FLOAT(val)
+  Convert mrbc_value to C-lang double.
+*/
+#define MRBC_ISNUMERIC(val) \
+  ((val).tt == MRBC_TT_INTEGER || (val).tt == MRBC_TT_FLOAT)
+#define MRBC_TO_INT(val) \
+  (val).tt == MRBC_TT_INTEGER ? (val).i : \
+  (val).tt == MRBC_TT_FLOAT ? (mrbc_int_t)(val).d : 0
+#define MRBC_TO_FLOAT(val) \
+  (val).tt == MRBC_TT_FLOAT ? (val).d : \
+  (val).tt == MRBC_TT_INTEGER ? (mrbc_float_t)(val).i : 0.0
+
+
 // for keyword arguments
 /**
-  @def MRBC_KW_START()
-  Check if keyword argument is given.
-  If not given, raise ArgumentError and return.
-
   @def MRBC_KW_ARG(keyword1,...)
   Get keyword arguments and define mrbc_value with same name.
   Up to 32 arguments can be specified.
@@ -332,38 +348,34 @@ typedef struct RObject mrbc_value;
   Check for excess keyword arguments.
   If excess keyword argument are given, return False(=0) and set ArgumentError.
 
-  @def MRBC_KW_PURGE(mrbc_value1,...)
-  Purge retrieved keyword arguments.
+  @def MRBC_KW_DELETE(mrbc_value1,...)
+  Delete retrieved keyword arguments.
 */
-#define MRBC_KW_START() \
-  if( v[argc].tt != MRBC_TT_HASH ) { \
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "missing keyword parameter."); \
-    return; \
-  }
-
 #define MRBC_KW_ARG(...) \
   MRBC_KW_join( MRBC_KW_nest, MRBC_KW_n_args(__VA_ARGS__) )( MRBC_KW_ARG_decl, __VA_ARGS__ )
 #define MRBC_KW_ARG_decl(kw) \
-  mrbc_value kw = mrbc_hash_remove_by_id(&v[argc], mrbc_str_to_symid(#kw));
+  mrbc_value kw = (v[argc].tt == MRBC_TT_HASH) ? mrbc_hash_remove_by_id(&v[argc], mrbc_str_to_symid(#kw)) : (mrbc_value){.tt = MRBC_TT_EMPTY};
 
 #define MRBC_KW_DICT(dict) \
-  mrbc_value dict = v[argc]; v[argc].tt = MRBC_TT_EMPTY;
+  mrbc_value dict; \
+  if( v[argc].tt == MRBC_TT_HASH ) { dict = v[argc]; v[argc].tt = MRBC_TT_EMPTY; } \
+  else { dict = mrbc_hash_new(vm, 0); }
 
 #define MRBC_KW_ISVALID(kw) (kw.tt != MRBC_TT_EMPTY)
 
-#define MRBC_KW_MANDATORY(...) ( \
+#define MRBC_KW_MANDATORY(...) \
   (MRBC_KW_join( MRBC_KW_nest, MRBC_KW_n_args(__VA_ARGS__) ) \
-   ( MRBC_KW_MANDATORY_decl, __VA_ARGS__ ) 1) ? 1 : \
-  (mrbc_raise(vm, MRBC_CLASS(ArgumentError), "missing keyword parameter."), 0))
-#define MRBC_KW_MANDATORY_decl(kw) MRBC_KW_ISVALID(kw)&&
+   ( MRBC_KW_MANDATORY_decl, __VA_ARGS__ ) 1)
+#define MRBC_KW_MANDATORY_decl(kw) (MRBC_KW_ISVALID(kw)? 1 : \
+  (mrbc_raisef(vm, MRBC_CLASS(ArgumentError), "missing keyword: %s", #kw), 0))&&
 
 #define MRBC_KW_END() \
-  (mrbc_hash_size(&v[argc]) ? \
-    (mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unknown keyword parameter."), 0) : 1)
+  (((v[argc].tt == MRBC_TT_HASH) && mrbc_hash_size(&v[argc])) ? \
+   (mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unknown keyword."), 0) : 1)
 
-#define MRBC_KW_PURGE(...) \
-  MRBC_KW_join( MRBC_KW_nest, MRBC_KW_n_args(__VA_ARGS__) )( MRBC_KW_PURGE_decl, __VA_ARGS__ )
-#define MRBC_KW_PURGE_decl(kw) mrbc_decref(&kw);
+#define MRBC_KW_DELETE(...) \
+  MRBC_KW_join( MRBC_KW_nest, MRBC_KW_n_args(__VA_ARGS__) )( MRBC_KW_DELETE_decl, __VA_ARGS__ )
+#define MRBC_KW_DELETE_decl(kw) mrbc_decref(&kw);
 
 
 #define MRBC_KW_n_args(...) MRBC_KW_n_args_sub(__VA_ARGS__, 32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)

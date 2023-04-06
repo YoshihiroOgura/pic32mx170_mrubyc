@@ -25,7 +25,7 @@
 #include "mrbc_firm.h"
 #include "gpio.h"
 #include "adc.h"
-
+#include "pwm.h"
 
 
 
@@ -282,7 +282,6 @@ int main(void)
   /* module init */
   system_init();
   uart_init();
-  adc_init();
 
 
 
@@ -304,6 +303,7 @@ int main(void)
 
   mrbc_init_class_gpio();
   mrbc_init_class_adc();
+  mrbc_init_class_pwm();
 
 
     //    mrbc_init_class_i2c(0);
@@ -315,7 +315,7 @@ int main(void)
 
   tick_timer_init();	// TODO: mrbc_initのあとが良いのでは？
 
-#if 0
+#if 1
   const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
   static const char RITE[4] = "RITE";
   while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
