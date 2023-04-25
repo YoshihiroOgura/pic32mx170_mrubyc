@@ -226,16 +226,13 @@ void mrbc_separate_nested_symid(mrbc_sym sym_id, mrbc_sym *id1, mrbc_sym *id2)
 
 #ifdef MRBC_DEBUG
 //================================================================
-/*! debug dump all const and global tables.
+/*! debug dump all const table.
+
+  (examples)
+  mrbc_define_method(0, 0, "dump_const", (mrbc_func_t)mrbc_debug_dump_const);
 */
-void mrbc_global_debug_dump(int mode_flag)
+void mrbc_debug_dump_const( void )
 {
-  int flag_global = !(mode_flag & 0x01);
-  int flag_const = !(mode_flag & 0x02);
-  int flag_const_ge100 = !!(mode_flag & 0x04);
-
-  if( !flag_const ) goto DISP_GLOBAL;
-
   mrbc_print("<< Const table dump. >>\n(s_id:identifier = value)\n");
   mrbc_kv_iterator ite = mrbc_kv_iterator_new( &handle_const );
 
@@ -243,7 +240,7 @@ void mrbc_global_debug_dump(int mode_flag)
     const mrbc_kv *kv = mrbc_kv_i_next( &ite );
     const char *s = mrbc_symid_to_str(kv->sym_id);
 
-    if( flag_const_ge100 && kv->sym_id < 100 ) continue;
+    if( kv->sym_id < 0x100 ) continue;
 
     mrbc_printf(" %04x:%s", kv->sym_id, s );
     if( mrbc_is_nested_symid(kv->sym_id) ) {
@@ -265,12 +262,20 @@ void mrbc_global_debug_dump(int mode_flag)
       mrbc_printf(".tt=%d.ref=%d\n", mrbc_type(kv->value), kv->value.obj->ref_count);
     }
   }
+}
 
- DISP_GLOBAL:
-  if( !flag_global ) goto DONE;
 
+//================================================================
+/*! debug dump all global table.
+
+  (examples)
+  mrbc_define_method(0, 0, "dump_global", (mrbc_func_t)mrbc_debug_dump_global);
+*/
+void mrbc_debug_dump_global( void )
+{
   mrbc_print("<< Global table dump. >>\n(s_id:identifier = value)\n");
-  ite = mrbc_kv_iterator_new( &handle_global );
+
+  mrbc_kv_iterator ite = mrbc_kv_iterator_new( &handle_global );
   while( mrbc_kv_i_has_next( &ite ) ) {
     mrbc_kv *kv = mrbc_kv_i_next( &ite );
 
@@ -282,9 +287,5 @@ void mrbc_global_debug_dump(int mode_flag)
       mrbc_printf(" .tt=%d refcnt=%d\n", mrbc_type(kv->value), kv->value.obj->ref_count);
     }
   }
-
- DONE:
-  mrbc_print("\n");
 }
-
 #endif

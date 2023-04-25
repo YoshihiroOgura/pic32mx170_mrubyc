@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  Global configration of mruby/c VM's
+  Global configuration of mruby/c VM's
 
   <pre>
   Copyright (C) 2015-2022 Kyushu Institute of Technology.
@@ -103,11 +103,12 @@
 // If you use LIBC malloc instead of mruby/c malloc
 //#define MRBC_ALLOC_LIBC
 
-#define MRBC_OUT_OF_MEMORY() \
-  hal_abort("Fatal error: Out of memory.\n")
+// #define MRBC_OUT_OF_MEMORY() mrbc_alloc_print_memory_pool(); hal_abort(0)
+// #define MRBC_ABORT_BY_EXCEPTION(vm) mrbc_p( &vm->exception ); hal_abort(0)
 
 void hal_abort(const char *s);
-#define MRBC_ABORT_BY_EXCEPTION(vm) \
-  mrbc_print_vm_exception( vm ); hal_abort(0)
+#define MRBC_OUT_OF_MEMORY() hal_abort("Fatal error: Out of memory.\n")
+#define MRBC_ABORT_BY_EXCEPTION(vm) mrbc_print_vm_exception( vm ); hal_abort(0)
+
 
 #endif

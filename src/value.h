@@ -3,8 +3,8 @@
   mruby/c value definitions
 
   <pre>
-  Copyright (C) 2015-2021 Kyushu Institute of Technology.
-  Copyright (C) 2015-2021 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2023 Kyushu Institute of Technology.
+  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -275,9 +275,10 @@ typedef struct RObject mrbc_value;
     mrbc_decref(v);		\
     v[0].tt = MRBC_TT_TRUE;	\
   } while(0)
-#define SET_BOOL_RETURN(n) do {			  \
-    mrbc_decref(v);				  \
-    v[0].tt = (n) ? MRBC_TT_TRUE : MRBC_TT_FALSE; \
+#define SET_BOOL_RETURN(n) do {			 \
+    int tt = (n) ? MRBC_TT_TRUE : MRBC_TT_FALSE; \
+    mrbc_decref(v);				 \
+    v[0].tt = tt;				 \
   } while(0)
 #define SET_INT_RETURN(n) do {	\
     mrbc_int_t nnn = (n);	\
@@ -425,6 +426,7 @@ extern void (* const mrbc_delfunc[])(mrbc_value *);
 int mrbc_compare(const mrbc_value *v1, const mrbc_value *v2);
 void mrbc_clear_vm_id(mrbc_value *v);
 mrbc_int_t mrbc_atoi(const char *s, int base);
+int mrbc_strcpy(char *dest, int destsize, const char *src);
 
 
 /***** Inline functions *****************************************************/

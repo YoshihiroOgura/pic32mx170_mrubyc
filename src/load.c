@@ -106,7 +106,7 @@ static int load_header(struct VM *vm, const uint8_t *bin)
   @return	Pointer to allocated mrbc_irep or NULL
 
   <pre>
-   (loop n of child irep bellow)
+   (loop n of child irep below)
    0000_0000	record size
    0000		n of local variable
    0000		n of register

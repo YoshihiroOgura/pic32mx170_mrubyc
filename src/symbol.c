@@ -3,8 +3,8 @@
   mruby/c Symbol class
 
   <pre>
-  Copyright (C) 2015-2022 Kyushu Institute of Technology.
-  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2023 Kyushu Institute of Technology.
+  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -375,7 +375,7 @@ static void c_symbol_to_s(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! debug dump all symbols.
 */
-void mrbc_symbol_debug_dump(void)
+void mrbc_debug_dump_symbol(void)
 {
   mrbc_print("<< Symbol table dump >>\n");
 

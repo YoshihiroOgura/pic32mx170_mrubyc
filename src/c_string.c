@@ -584,7 +584,7 @@ static void c_string_insert(struct VM *vm, mrbc_value v[], int argc)
     other cases
   */
   else {
-    mrbc_raise( vm, MRBC_CLASS(TypeError), "Not supprted." );
+    mrbc_raise( vm, MRBC_CLASS(TypeError), "Not supported." );
     return;
   }
 

@@ -98,8 +98,8 @@ typedef struct IREP mrb_irep;
 */
 typedef struct IREP_CATCH_HANDLER {
   uint8_t type;		//!< enum mrb_catch_type, 1 byte. 0=rescue, 1=ensure
-  uint8_t begin[4];	//!< The starting address to match the hander. Includes this.
-  uint8_t end[4];	//!< The endpoint address that matches the hander. Not Includes this.
+  uint8_t begin[4];	//!< The starting address to match the handler. Includes this.
+  uint8_t end[4];	//!< The endpoint address that matches the handler. Not Includes this.
   uint8_t target[4];	//!< The address to jump to if a match is made.
 } mrbc_irep_catch_handler;
 

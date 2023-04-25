@@ -37,7 +37,8 @@ int mrbc_set_global(mrbc_sym sym_id, mrbc_value *v);
 mrbc_value *mrbc_get_global(mrbc_sym sym_id);
 void mrbc_global_clear_vm_id(void);
 void mrbc_separate_nested_symid(mrbc_sym sym_id, mrbc_sym *id1, mrbc_sym *id2);
-void mrbc_global_debug_dump(int mode_flag);
+void mrbc_debug_dump_const(void);
+void mrbc_debug_dump_global(void);
 
 
 /***** Inline functions *****************************************************/

@@ -448,7 +448,7 @@ void mrbc_cleanup(void)
 
 <b>Code example</b>
 @code
-  //  If you want specify default value, see bellow.
+  //  If you want specify default value, see below.
   //    regs_size:  MAX_REGS_SIZE (in vm_config.h)
   //    task_state: MRBC_TASK_DEFAULT_STATE
   //    priority:   MRBC_TASK_DEFAULT_PRIORITY

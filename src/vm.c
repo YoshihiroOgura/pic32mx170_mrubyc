@@ -402,15 +402,6 @@ void mrbc_vm_begin( struct VM *vm )
 */
 void mrbc_vm_end( struct VM *vm )
 {
-#if 0
-  void mrbc_symbol_debug_dump(void);
-  mrbc_symbol_debug_dump();
-  void mrbc_global_debug_dump(int);
-  mrbc_global_debug_dump(5);
-  void mrbc_alloc_print_memory_pool( void );
-  //  mrbc_alloc_print_memory_pool();
-#endif
-
   if( mrbc_israised(vm) ) {
 #if defined(MRBC_ABORT_BY_EXCEPTION)
     MRBC_ABORT_BY_EXCEPTION(vm);
@@ -2432,6 +2423,26 @@ static inline void op_hashadd( mrbc_vm *vm, mrbc_value *regs EXT )
 
 
 //================================================================
+/*! OP_HASHCAT
+
+  R[a] = hash_cat(R[a],R[a+1])
+*/
+static inline void op_hashcat( mrbc_vm *vm, mrbc_value *regs EXT )
+{
+  FETCH_B();
+
+  mrbc_hash_iterator ite = mrbc_hash_iterator_new(&regs[a+1]);
+
+  while( mrbc_hash_i_has_next(&ite) ) {
+    mrbc_value *kv = mrbc_hash_i_next(&ite);
+    mrbc_hash_set( &regs[a], &kv[0], &kv[1] );
+    mrbc_incref( &kv[0] );
+    mrbc_incref( &kv[1] );
+  }
+}
+
+
+//================================================================
 /*! OP_BLOCK, OP_METHOD
 
   R[a] = lambda(Irep[b],L_BLOCK)
@@ -2815,7 +2826,7 @@ int mrbc_vm_run( struct VM *vm )
     case OP_STRCAT:     op_strcat     (vm, regs EXT); break;
     case OP_HASH:       op_hash       (vm, regs EXT); break;
     case OP_HASHADD:    op_hashadd    (vm, regs EXT); break;
-    case OP_HASHCAT:    op_unsupported(vm, regs EXT); break; // not implemented.
+    case OP_HASHCAT:    op_hashcat    (vm, regs EXT); break;
     case OP_LAMBDA:     op_unsupported(vm, regs EXT); break; // not implemented.
     case OP_BLOCK:      // fall through
     case OP_METHOD:     op_method     (vm, regs EXT); break;

@@ -79,6 +79,12 @@ mrbc_class * const mrbc_class_tbl[MRBC_TT_MAXVAL+1] = {
 */
 mrbc_class * mrbc_define_class(struct VM *vm, const char *name, mrbc_class *super)
 {
+  // nested class?
+  if( vm && mrbc_type(vm->cur_regs[0]) == MRBC_TT_CLASS ) {
+    assert(vm->target_class == vm->cur_regs[0].cls );
+    return mrbc_define_class_under(vm, vm->target_class, name, super);
+  }
+
   mrbc_sym sym_id = mrbc_str_to_symid(name);
   if( sym_id < 0 ) {
     mrbc_raise(vm, MRBC_CLASS(Exception), "Overflow MAX_SYMBOLS_COUNT");
@@ -86,21 +92,12 @@ mrbc_class * mrbc_define_class(struct VM *vm, const char *name, mrbc_class *supe
   }
 
   // already defined?
-  {
-    const mrbc_value *val;
-
-    // nested class?
-    if( vm && mrbc_type(vm->cur_regs[0]) == MRBC_TT_CLASS ) {
-      assert(vm->target_class == vm->cur_regs[0].cls );
-      val = mrbc_get_class_const( vm->target_class, sym_id );
-    } else {
-      val = mrbc_get_const(sym_id);
+  const mrbc_value *val = mrbc_get_const(sym_id);
+  if( val ) {
+    if( mrbc_type(*val) != MRBC_TT_CLASS ) {
+      mrbc_raisef(vm, MRBC_CLASS(TypeError), "%s is not a class", name);
     }
-
-    if( val ) {
-      assert( mrbc_type(*val) == MRBC_TT_CLASS );
-      return val->cls;
-    }
+    return val->cls;
   }
 
   // create a new class.
@@ -116,13 +113,52 @@ mrbc_class * mrbc_define_class(struct VM *vm, const char *name, mrbc_class *supe
 #endif
 
   // register to global constant
-  if( vm && mrbc_type(vm->cur_regs[0]) == MRBC_TT_CLASS ) {
-    // (note) override cls->sym_id in this function.
-    mrbc_set_class_const( vm->target_class, sym_id,
-			  &(mrbc_value){.tt = MRBC_TT_CLASS, .cls = cls});
-  } else {
-    mrbc_set_const( sym_id, &(mrbc_value){.tt = MRBC_TT_CLASS, .cls = cls});
+  mrbc_set_const( sym_id, &(mrbc_value){.tt = MRBC_TT_CLASS, .cls = cls});
+
+  return cls;
+}
+
+
+//================================================================
+/*! define nested class
+
+  @param  vm		pointer to vm.
+  @param  outer		outer class
+  @param  name		class name.
+  @param  super		super class.
+  @return		pointer to defined class.
+*/
+mrbc_class * mrbc_define_class_under(struct VM *vm, const mrbc_class *outer, const char *name, mrbc_class *super)
+{
+  mrbc_sym sym_id = mrbc_str_to_symid(name);
+  if( sym_id < 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(Exception), "Overflow MAX_SYMBOLS_COUNT");
+    return 0;
   }
+
+  // already defined?
+  const mrbc_value *val = mrbc_get_class_const( outer, sym_id );
+  if( val ) {
+    assert( mrbc_type(*val) == MRBC_TT_CLASS );
+    return val->cls;
+  }
+
+  // create a new nested class.
+  mrbc_class *cls = mrbc_raw_alloc_no_free( sizeof(mrbc_class) );
+  if( !cls ) return cls;	// ENOMEM
+
+  cls->sym_id = sym_id;
+  cls->num_builtin_method = 0;
+  cls->super = super ? super : mrbc_class_object;
+  cls->method_link = 0;
+#if defined(MRBC_DEBUG)
+  cls->name = name;
+#endif
+
+  // register to global constant
+  // (note) override cls->sym_id in this function.
+  mrbc_set_class_const( outer, sym_id,
+			&(mrbc_value){.tt = MRBC_TT_CLASS, .cls = cls});
 
   return cls;
 }
@@ -387,8 +423,8 @@ mrbc_class * mrbc_get_class_by_name( const char *name )
 /*! (BETA) Call any method of the object, but written by C.
 
   @param  vm		pointer to vm.
-  @param  v		see bellow example.
-  @param  reg_ofs	see bellow example.
+  @param  v		see below example.
+  @param  reg_ofs	see below example.
   @param  recv		pointer to receiver.
   @param  method_name	method name.
   @param  argc		num of params.
