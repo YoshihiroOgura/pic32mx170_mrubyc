@@ -15,8 +15,8 @@
  */
 /* ************************************************************************** */
 
-#ifndef RBOARD_DIGITAL_H
-#define RBOARD_DIGITAL_H
+#ifndef RBOARD_GPIO_H
+#define RBOARD_GPIO_H
 
 
 /* Provide C++ Compatibility */
@@ -42,4 +42,4 @@ void mrbc_init_class_gpio( void );
 #ifdef __cplusplus
 }
 #endif
-#endif /* RBOARD_DIGITAL_H */
+#endif /* RBOARD_GPIO_H */
