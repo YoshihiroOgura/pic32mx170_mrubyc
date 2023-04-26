@@ -15,11 +15,20 @@
  */
 /* ************************************************************************** */
 
+#include <xc.h>
 #include <sys/attribs.h>
+
+#include "common.h"
+#include "gpio.h"
 #include "uart.h"
 
 
 /* ================================ C codes ================================ */
+#define UART_NONE	0
+#define UART_ODD	1
+#define UART_EVEN	2
+#define UART_RTSCTS	4
+
 // handle table.
 UART_HANDLE uart_handle_[2];
 
@@ -94,7 +103,7 @@ static void uart_push_rxfifo( UART_HANDLE *uh, uint8_t ch )
 //================================================================
 /*! UART enable or disable interrupt.
 */
-static void uart_interrupt_enable( const UART_HANDLE *uh, int en_dis )
+static void uart_interrupt_en_dis( const UART_HANDLE *uh, int en_dis )
 {
   switch( uh->unit_num ) {
   case 1: IEC1bits.U1RXIE = en_dis;
@@ -102,7 +111,18 @@ static void uart_interrupt_enable( const UART_HANDLE *uh, int en_dis )
   }
 }
 
+static inline void uart_interrupt_enable( const UART_HANDLE *uh )
+{
+  uart_interrupt_en_dis( uh, 1 );
+}
 
+static inline void uart_interrupt_disable( const UART_HANDLE *uh )
+{
+  uart_interrupt_en_dis( uh, 0 );
+}
+
+
+//================================================================
 /*! assign the pin to UART
 
   @param  uh	UART HANDLE
@@ -110,37 +130,26 @@ static void uart_interrupt_enable( const UART_HANDLE *uh, int en_dis )
 */
 static int set_pin_to_uart( const UART_HANDLE *uh )
 {
-  int unit = uh->unit_num;
-  int txd_p = uh->txd_pin.port;
-  int txd_n = uh->txd_pin.num;
-  int rxd_p = uh->rxd_pin.port;
-  int rxd_n = uh->rxd_pin.num;
-
-  if( unit < 1 || unit > 2 ) return -1;		// error return.
+  if( uh->unit_num < 1 || uh->unit_num > 2 ) return -1;	// error return.
 
   /* set output (TxD) pin.
      Defaults to high level to keep high level when pin assignment is changed.
      Pin assign: DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
   */
-  ANSELxCLR(txd_p) = (1 << txd_n);	// digital
-  TRISxCLR(txd_p) = (1 << txd_n);	// output
-  CNPUxCLR(txd_p) = (1 << txd_n);
-  CNPDxCLR(txd_p) = (1 << txd_n);
-  LATxSET(txd_p) = (1 << txd_n);	// set high level
-  RPxnR(txd_p, txd_n) = unit;		// pin assign
+  gpio_setmode( &uh->txd_pin, GPIO_OUT );
+  LATxSET(uh->txd_pin.port) = (1 << uh->txd_pin.num);	// set high level
+  RPxnR(uh->txd_pin.port, uh->txd_pin.num) = uh->unit_num; // pin assign
 
   /* set input (RxD) pin.
      Pin assign: DS60001168L  TABLE 11-1: INPUT PIN SELECTION
   */
-  ANSELxCLR(rxd_p) = (1 << rxd_n);	// digital
-  TRISxSET(rxd_p) = (1 << rxd_n);	// input
-  CNPUxCLR(rxd_p) = (1 << rxd_n);
-  CNPDxCLR(rxd_p) = (1 << rxd_n);
+  gpio_setmode( &uh->rxd_pin, GPIO_IN );
   //                                  RPA2    B6    A4    B13   B2
   static const uint8_t U1RX_PINS[] = {0x12, 0x26, 0x14, 0x2d, 0x22};
   for( int i = 0; i < sizeof(U1RX_PINS); i++ ) {
-    if( rxd_p == (U1RX_PINS[i] >> 4) && rxd_n == (U1RX_PINS[i] & 0x0f) ) {
-      UxRXR(unit) = i;			// pin assign.
+    if( uh->rxd_pin.port == (U1RX_PINS[i] >> 4) &&
+	uh->rxd_pin.num  == (U1RX_PINS[i] & 0x0f) ) {
+      UxRXR(uh->unit_num) = i;			// pin assign.
       return 0;
     }
   }
@@ -166,7 +175,7 @@ void uart_init(void)
   // UART1 parameter.
   U1MODE = 0x0008;
   U1STA = 0x0;
-  uart_set_mode( &uart_handle_[0], 19200, 0, 1 );
+  uart_setmode( &uart_handle_[0], 19200, 0, 1 );
   set_pin_to_uart( &uart_handle_[0] );
 
   // interrupt level.
@@ -188,7 +197,7 @@ void uart_init(void)
   // UART2 parameter.
   U2MODE = 0x0008;
   U2STA = 0x0;
-  uart_set_mode( &uart_handle_[1], 19200, 0, 1 );
+  uart_setmode( &uart_handle_[1], 19200, 0, 1 );
   set_pin_to_uart( &uart_handle_[1] );
 
   // interrupt level.
@@ -202,10 +211,12 @@ void uart_init(void)
 
 //================================================================
 /*! enable uart
+
+  @memberof UART_HANDLE
 */
 void uart_enable( const UART_HANDLE *uh )
 {
-  uart_interrupt_enable( uh, 1 );
+  uart_interrupt_enable( uh );
   UxSTASET(uh->unit_num) = (_U1STA_UTXEN_MASK | _U1STA_URXEN_MASK);
   UxMODESET(uh->unit_num) = _U1MODE_ON_MASK;
 }
@@ -213,12 +224,14 @@ void uart_enable( const UART_HANDLE *uh )
 
 //================================================================
 /*! disable uart
+
+  @memberof UART_HANDLE
 */
 void uart_disable( const UART_HANDLE *uh )
 {
   while( (UxSTA(uh->unit_num) & _U1STA_TRMT_MASK) == 0 )
     ;
-  uart_interrupt_enable( uh, 0 );
+  uart_interrupt_disable( uh );
   UxMODECLR(uh->unit_num) = _U1MODE_ON_MASK;
   UxSTACLR(uh->unit_num) = (_U1STA_UTXEN_MASK | _U1STA_URXEN_MASK);
 }
@@ -227,12 +240,13 @@ void uart_disable( const UART_HANDLE *uh )
 //================================================================
 /*! set mode
 
+  @memberof UART_HANDLE
   @param  baud		baud rate.
   @param  parity	0:none 1:odd 2:even
   @param  stop_bits	1 or 2
   @note いずれも設定変更しないパラメータは、-1 を渡す。
 */
-int uart_set_mode( const UART_HANDLE *uh, int baud, int parity, int stop_bits )
+int uart_setmode( const UART_HANDLE *uh, int baud, int parity, int stop_bits )
 {
   if( baud >= 0 ) {
     /* データシート掲載計算式
@@ -274,7 +288,7 @@ int uart_set_mode( const UART_HANDLE *uh, int baud, int parity, int stop_bits )
 */
 void uart_clear_rx_buffer( UART_HANDLE *uh )
 {
-  uart_interrupt_enable( uh, 0 );	// Disable Rx interrupt
+  uart_interrupt_disable( uh );
 
   while( UxSTA(uh->unit_num) & _U1STA_URXDA_MASK ) {
     volatile uint8_t ch = UxRXREG(uh->unit_num); (void)ch;
@@ -283,7 +297,7 @@ void uart_clear_rx_buffer( UART_HANDLE *uh )
   uh->rx_wr = 0;
   uh->rx_overflow = 0;
 
-  uart_interrupt_enable( uh, 1 );	// Enable Rx interrupt.
+  uart_interrupt_enable( uh );
 }
 
 
@@ -403,228 +417,231 @@ int uart_can_read_line( const UART_HANDLE *uh )
 
 
 /* ============================= mruby/c codes ============================= */
+static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc);
 
 //================================================================
 /*! UART constructor
 
-  $uart = UART.new( ch, baud )	# ch = 1 or 2
+  uart1 = UART.new( id, *params )	# id = 1 or 2
 */
 static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int ch = -1;
-  int baud = -1;
+  MRBC_KW_ARG( unit );
 
-  // get parameter.
-  if( argc >= 1 ) {
-    if( mrbc_type(v[1]) != MRBC_TT_INTEGER ) goto ERROR_PARAM;
-    ch = mrbc_fixnum(v[1]);
-  }
-  if( argc >= 2 ) {
-    if( mrbc_type(v[2]) != MRBC_TT_INTEGER ) goto ERROR_PARAM;
-    baud = mrbc_fixnum(v[2]);
-  }
-
-  // in case of UART.new()
-  if( ch < 0 ) {
-    ch = 2;
-  }
-
-  // in case of UART.new(9600), for old version compatibility.
-  if( ch >= 300 && baud < 0 ) {
-    baud = ch;
-    ch = 2;
-  }
-
-  // make instance
-  mrbc_value val = mrbc_instance_new(vm, v->cls, sizeof(UART_HANDLE *));
-  switch( ch ) {
-  case 1: *((UART_HANDLE**)val.instance->data) = &uart_handle_[0]; break;
-  case 2: *((UART_HANDLE**)val.instance->data) = &uart_handle_[1]; break;
-  default: goto ERROR_PARAM;
-  }
-
-  // set baudrate.
-  if( baud > 0 ) {
-    UART_HANDLE *uh = *(UART_HANDLE **)val.instance->data;
-    uart_disable( uh );
-    uart_set_mode( uh, baud, -1, -1 );
-    uart_enable( uh );
-  }
-
+  // allocate instance with UART_HANDLE table pointer.
+  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
   SET_RETURN( val );
-  return;
 
- ERROR_PARAM:
-  console_print("UART parameter error.\n");
+  // get UART unit num.
+  int ch = 2;
+  if( argc >= 1 && mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
+    ch = mrbc_integer(v[1]);
+  }
+  if( MRBC_KW_ISVALID(unit) ) {
+    if( mrbc_type(unit) != MRBC_TT_INTEGER ) goto ERROR_RETURN;
+    ch = mrbc_integer(unit);
+  }
+  if( ch < 1 || ch > 2 ) goto ERROR_RETURN;
+
+  *(UART_HANDLE**)(val.instance->data) = &uart_handle_[ch-1];
+
+  c_uart_setmode( vm, v, argc );
+  goto RETURN;
+
+
+ ERROR_RETURN:
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "UART initialize.");
+
+ RETURN:
+  MRBC_KW_DELETE( unit );
 }
 
 
 //================================================================
-/*! set_modem_params
+/*! set mode
 
-  s = $uart.set_modem_params( params... )
-
-  @param  n		Number of bytes receive.
-  @return Bool		result.
-
-  (params)
-  :baud=>9600	set baud rate.
-  :stop_bits=>1	set stop_bits bit, 1 or 2.
-  :parity=>0	set parity bit, 0=unused, 1=odd, 2=even.
-  :txd=>10	set TxD pin.
-  :rxd=>11	set RxD pin.
+  s = uart1.setmode( params )
 */
-static void c_uart_set_mode(mrbc_vm *vm, mrbc_value v[], int argc)
+static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 {
+  MRBC_KW_ARG( baudrate, baud, data_bits, stop_bits, parity, flow_control, txd_pin, rxd_pin, rts_pin, cts_pin );
+  if( !MRBC_KW_END() ) goto RETURN;
+
   UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
-  int baud = -1;
-  int parity = -1;
-  int stop_bits = -1;
-  int flag_txd_rxd = 0;
+  int baud_rate = -1;
+  int flag_pin_change = 0;
   PIN_HANDLE now_txd_pin = uh->txd_pin;
 
-  if( argc != 1 ) goto ERROR_PARAM;
-  if( v[1].tt != MRBC_TT_HASH ) goto ERROR_PARAM;
-
-  // get parameter
-  mrbc_hash_iterator ite = mrbc_hash_iterator_new( &v[1] );
-  while( mrbc_hash_i_has_next(&ite) ) {
-    mrbc_value *kv = mrbc_hash_i_next(&ite);
-    const char *key;
-    if( mrbc_type(kv[0]) == MRBC_TT_STRING ) {
-      key = mrbc_string_cstr(&kv[0]);
-    } else if( mrbc_type(kv[0]) == MRBC_TT_SYMBOL ) {
-      key = mrbc_symbol_cstr(&kv[0]);
-    } else {
-      goto ERROR_PARAM;
-    }
-
-    if( strcmp("baud", key) == 0 ) {
-      if( mrbc_type(kv[1]) != MRBC_TT_INTEGER ) goto ERROR_PARAM;
-      baud = kv[1].i;
-
-    } else if( strcmp("parity", key) == 0 ) {
-      if( mrbc_type(kv[1]) != MRBC_TT_INTEGER ) goto ERROR_PARAM;
-      parity = kv[1].i;
-
-    } else if( strcmp("stop_bits", key) == 0 ) {
-      if( mrbc_type(kv[1]) != MRBC_TT_INTEGER ) goto ERROR_PARAM;
-      stop_bits = kv[1].i;
-
-    } else if( strcmp("txd", key) == 0 ) {
-      if( set_pin_handle( &(uh->txd_pin), &kv[1] ) != 0 ) goto ERROR_PARAM;
-      flag_txd_rxd = 1;
-
-    } else if( strcmp("rxd", key) == 0 ) {
-      if( set_pin_handle( &(uh->rxd_pin), &kv[1] ) != 0 ) goto ERROR_PARAM;
-      flag_txd_rxd = 1;
-
-    } else {
-      goto ERROR_PARAM;
-    }
+  if( MRBC_KW_ISVALID(baudrate) ) baud_rate = mrbc_integer(baudrate);
+  if( MRBC_KW_ISVALID(baud) ) baud_rate = mrbc_integer(baud);
+  if( MRBC_KW_ISVALID(data_bits) ) goto ERROR_NOT_IMPLEMENTED;
+  if( !MRBC_KW_ISVALID(stop_bits) ) stop_bits = mrbc_integer_value(-1);
+  if( !MRBC_KW_ISVALID(stop_bits) ) parity = mrbc_integer_value(-1);
+  if( MRBC_KW_ISVALID(flow_control) ) goto ERROR_NOT_IMPLEMENTED;
+  if( MRBC_KW_ISVALID(txd_pin) ) {
+    if( set_pin_handle( &(uh->txd_pin), &txd_pin ) != 0 ) goto ERROR_ARGUMENT;
+    flag_pin_change = 1;
   }
+  if( MRBC_KW_ISVALID(rxd_pin) ) {
+    if( set_pin_handle( &(uh->rxd_pin), &rxd_pin ) != 0 ) goto ERROR_ARGUMENT;
+  }
+  if( MRBC_KW_ISVALID(rts_pin) ) goto ERROR_NOT_IMPLEMENTED;
+  if( MRBC_KW_ISVALID(cts_pin) ) goto ERROR_NOT_IMPLEMENTED;
 
   // set to UART
   uart_disable( uh );
-  uart_set_mode( uh, baud, parity, stop_bits );
-  if( flag_txd_rxd ) {
+  uart_setmode( uh, baud_rate, parity.i, stop_bits.i );
+  if( flag_pin_change ) {
     RPxnR( now_txd_pin.port, now_txd_pin.num ) = 0;	// release TxD pin.
-    if( set_pin_to_uart( uh ) < 0 ) goto ERROR_PARAM;
+    if( set_pin_to_uart( uh ) < 0 ) goto ERROR_ARGUMENT;
   }
   uart_enable( uh );
-  SET_TRUE_RETURN();
-  return;
+  goto RETURN;
 
 
- ERROR_PARAM:
-  console_print("UART: set model parameter error.\n");
-  SET_FALSE_RETURN();
+ ERROR_NOT_IMPLEMENTED:
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), 0);
+  goto RETURN;
+
+ ERROR_ARGUMENT:
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+
+ RETURN:
+  MRBC_KW_DELETE( baudrate, baud, data_bits, stop_bits, parity, flow_control, txd_pin, rxd_pin, rts_pin, cts_pin );
 }
 
 
 //================================================================
 /*! read
 
-  s = $uart.read(n)
+  s = uart1.read(n)
 
   @param  n		Number of bytes receive.
   @return String	Received data.
-  @return Nil		Not enough receive length.
 */
 static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  mrbc_value ret;
   UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
-  int need_length = GET_INT_ARG(1);
+  mrbc_int_t read_bytes;
+
+  if( mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
+    read_bytes = mrbc_integer(v[1]);
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+    return;
+  }
 
   if( uart_is_rx_overflow( uh ) ) {
-    console_print("UART Rx buffer overflow. resetting.\n");
+    mrbc_raise(vm, 0, "UART Rx buffer overflow. resetting.");
     uart_clear_rx_buffer( uh );
-    goto RETURN_NIL;
+    return;
   }
 
-  if( uart_bytes_available(uh) < need_length ) {
-    goto RETURN_NIL;
-  }
-
-  char *buf = mrbc_alloc( vm, need_length + 1 );
+  mrbc_value ret = mrbc_string_new(vm, 0, read_bytes);
+  char *buf = mrbc_string_cstr(&ret);
   if( !buf ) {
-    goto RETURN_NIL;
+    SET_RETURN(mrbc_nil_value());
+    return;
   }
 
-  int readed_length = uart_read( uh, buf, need_length );
-  if( readed_length < 0 ) {
-    goto RETURN_NIL;
+  while( read_bytes > 0 ) {
+    mrbc_int_t n = uart_bytes_available(uh);
+    if( n == 0 ) {
+      Nop(); Nop(); Nop(); Nop();
+      continue;
+    }
+
+    if( n > read_bytes ) n = read_bytes;
+    uart_read( uh, buf, n );
+
+    buf += n;
+    read_bytes -= n;
   }
+  *buf = 0;
 
-  ret = mrbc_string_new_alloc( vm, buf, readed_length );
-  goto DONE;
-
- RETURN_NIL:
-  ret = mrbc_nil_value();
-
- DONE:
   SET_RETURN(ret);
 }
 
 
 //================================================================
-/*! read_nonblock
+/*! Returns the number of incoming bytes that are waiting to be read.
 
-  s = $uart.read_nonblock(maxlen)
+  uart1.bytes_available()
 
-  @param  maxlen	Maximum receive length.
-  @return String	Received data.
-  @return Nil		No received data
+  @return Integer	incomming bytes
 */
-static void c_uart_read_nonblock(mrbc_vm *vm, mrbc_value v[], int argc)
+static void c_uart_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  mrbc_value ret;
   UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
-  int max_length = GET_INT_ARG(1);
 
-  int len = uart_bytes_available(uh);
-  if( len == 0 ) {
-    ret = mrbc_nil_value();
-    goto DONE;
+  SET_INT_RETURN( uart_bytes_available( uh ) );
+}
+
+
+//================================================================
+/*! gets
+
+  s = uart1.gets()
+
+  @return String	Received string.
+*/
+static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+
+  int len;
+  while( 1 ) {
+    len = uart_can_read_line(uh);
+    if( len > 0 ) break;
+    if( len < 0 ) {
+      mrbc_raise(vm, 0, "UART Rx buffer overflow. resetting.");
+      uart_clear_rx_buffer( uh );
+      return;
+    }
+
+    Nop(); Nop(); Nop(); Nop();
   }
 
-  if( len > max_length ) len = max_length;
+  mrbc_value ret = mrbc_string_new(vm, 0, len);
+  char *buf = mrbc_string_cstr(&ret);
+  if( !buf ) {
+    SET_RETURN(mrbc_nil_value());
+    return;
+  }
 
-  char *buf = mrbc_alloc( vm, len + 1 );
   uart_read( uh, buf, len );
+  *(buf + len) = 0;
 
-  ret = mrbc_string_new_alloc( vm, buf, len );
-
- DONE:
   SET_RETURN(ret);
+}
+
+
+//================================================================
+/*! Returns true if a line of data can be read.
+
+  uart1.can_read_line()
+
+  @return Boolean
+*/
+static void c_uart_can_read_line(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+
+  int len = uart_can_read_line(uh);
+  if( len < 0 ) {
+    mrbc_raise(vm, 0, "UART Rx buffer overflow. resetting.");
+    uart_clear_rx_buffer( uh );
+    return;
+  }
+
+  SET_BOOL_RETURN( len );
 }
 
 
 //================================================================
 /*! write
 
-  $uart.write(s)
+  uart1.write(s)
 
   @param  s	  Write data.
 */
@@ -634,8 +651,7 @@ static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 
   switch( v[1].tt ) {
   case MRBC_TT_STRING: {
-    int n = uart_write( uh,
-			mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
+    int n = uart_write( uh, mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
     SET_INT_RETURN(n);
   } break;
 
@@ -647,53 +663,45 @@ static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 
 
 //================================================================
-/*! gets
+/*! Returns the number of bytes that are waiting to be written.
 
-  s = $uart.gets()
-  @return String	Received string.
-  @return Nil		Not enough receive length.
+  uart1.bytes_to_write()
+
+  @return  Integer
 */
-static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
+static void c_uart_bytes_to_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
-
-  int len = uart_can_read_line(uh);
-  if( len == 0 ) goto NIL_RETURN;
-  if( len <  0 ) {
-    console_print("UART Rx buffer overflow. resetting.\n");
-    uart_clear_rx_buffer( uh );
-    goto NIL_RETURN;
-  }
-
-  char *buf = mrbc_alloc( vm, len+1 );
-  if( !buf ) goto NIL_RETURN;
-
-  uart_read( uh, buf, len );
-
-  mrbc_value ret = mrbc_string_new_alloc( vm, buf, len );
-  SET_RETURN(ret);
-  return;
-
- NIL_RETURN:
-  SET_NIL_RETURN();
+  // always zero return because no write buffer.
+  SET_INT_RETURN( 0 );
 }
 
 
 //================================================================
-/*! clear_tx_buffer
+/*! flush tx buffer.
 
-  $uart.clear_tx_buffer()
+  uart1.flush()
+*/
+static void c_uart_flush(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  // nothing to do.
+}
+
+
+//================================================================
+/*! clear tx buffer
+
+  uart1.clear_tx_buffer()
 */
 static void c_uart_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  // nothing todo, yet.
+  // nothing to do.
 }
 
 
 //================================================================
-/*! clear_rx_buffer
+/*! clear rx buffer
 
-  $uart.clear_rx_buffer()
+  uart1.clear_rx_buffer()
 */
 static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
@@ -703,21 +711,41 @@ static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 
 
 //================================================================
+/*! send break signal.
+
+  uart1.clear_rx_buffer()
+*/
+static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+
+  // TODO
+}
+
+
+//================================================================
 /*! initialize
 */
-void mrbc_init_class_uart(struct VM *vm)
+void mrbc_init_class_uart(void)
 {
   // define class and methods.
-  mrbc_class *uart;
-  uart = mrbc_define_class(0, "UART",		0 );
+  mrbc_class *uart = mrbc_define_class(0, "UART", 0);
 
   mrbc_define_method(0, uart, "new",		c_uart_new);
-  mrbc_define_method(0, uart, "set_modem_params", c_uart_set_mode);
+  mrbc_define_method(0, uart, "setmode",	c_uart_setmode);
   mrbc_define_method(0, uart, "read",		c_uart_read);
-  mrbc_define_method(0, uart, "read_nonblock",	c_uart_read_nonblock);
-  mrbc_define_method(0, uart, "write",		c_uart_write);
+  mrbc_define_method(0, uart, "bytes_available",c_uart_bytes_available);
   mrbc_define_method(0, uart, "gets",		c_uart_gets);
-  mrbc_define_method(0, uart, "puts",		c_uart_write);
-  mrbc_define_method(0, uart, "clear_tx_buffer", c_uart_clear_tx_buffer);
-  mrbc_define_method(0, uart, "clear_rx_buffer", c_uart_clear_rx_buffer);
+  mrbc_define_method(0, uart, "can_read_line",	c_uart_can_read_line);
+  mrbc_define_method(0, uart, "write",		c_uart_write);
+  mrbc_define_method(0, uart, "bytes_to_write",	c_uart_bytes_to_write);
+  mrbc_define_method(0, uart, "flush",		c_uart_flush);
+  mrbc_define_method(0, uart, "clear_rx_buffer",c_uart_clear_rx_buffer);
+  mrbc_define_method(0, uart, "clear_tx_buffer",c_uart_clear_tx_buffer);
+  mrbc_define_method(0, uart, "send_break",	c_uart_send_break);
+
+  mrbc_set_class_const(uart, mrbc_str_to_symid("NONE"), &mrbc_integer_value(UART_NONE));
+  mrbc_set_class_const(uart, mrbc_str_to_symid("ODD"), &mrbc_integer_value(UART_ODD));
+  mrbc_set_class_const(uart, mrbc_str_to_symid("EVEN"), &mrbc_integer_value(UART_EVEN));
+  mrbc_set_class_const(uart, mrbc_str_to_symid("RTSCTS"), &mrbc_integer_value(UART_RTSCTS));
 }

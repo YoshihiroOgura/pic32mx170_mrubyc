@@ -58,13 +58,13 @@ extern UART_HANDLE uart_handle_[];
 void uart_init(void);
 void uart_enable(const UART_HANDLE *uh);
 void uart_disable(const UART_HANDLE *uh);
-int uart_set_mode(const UART_HANDLE *uh, int baud, int parity, int stop_bits);
+int uart_setmode(const UART_HANDLE *uh, int baud, int parity, int stop_bits);
 void uart_clear_rx_buffer(UART_HANDLE *uh);
 int uart_write(UART_HANDLE *uh, const void *buffer, int size);
 int uart_read(UART_HANDLE *uh, void *buffer, int size);
 int uart_bytes_available(const UART_HANDLE *uh);
 int uart_can_read_line(const UART_HANDLE *uh);
-void mrbc_init_class_uart(struct VM *vm);
+void mrbc_init_class_uart(void);
 
 
 //================================================================
