@@ -28,6 +28,7 @@
 #define UART_ODD	1
 #define UART_EVEN	2
 #define UART_RTSCTS	4
+#define UART_NL		'\n'
 
 // handle table.
 UART_HANDLE uart_handle_[2];
@@ -144,11 +145,14 @@ static int set_pin_to_uart( const UART_HANDLE *uh )
      Pin assign: DS60001168L  TABLE 11-1: INPUT PIN SELECTION
   */
   gpio_setmode( &uh->rxd_pin, GPIO_IN );
-  //                                  RPA2    B6    A4    B13   B2
-  static const uint8_t U1RX_PINS[] = {0x12, 0x26, 0x14, 0x2d, 0x22};
-  for( int i = 0; i < sizeof(U1RX_PINS); i++ ) {
-    if( uh->rxd_pin.port == (U1RX_PINS[i] >> 4) &&
-	uh->rxd_pin.num  == (U1RX_PINS[i] & 0x0f) ) {
+
+  static const uint8_t UxRX_PINS[2][5] = {
+    {0x12, 0x26, 0x14, 0x2d, 0x22},	// U1RX: A2, B6, A4, B13, B2
+    {0x11, 0x25, 0x21, 0x2b, 0x28},	// U2RX: A1, B5, B1, B11, B8
+  };
+  for( int i = 0; i < 5; i++ ) {
+    if( UxRX_PINS[uh->unit_num-1][i] ==
+	(uh->rxd_pin.port << 4 | uh->rxd_pin.num) ) {
       UxRXR(uh->unit_num) = i;			// pin assign.
       return 0;
     }
@@ -302,33 +306,6 @@ void uart_clear_rx_buffer( UART_HANDLE *uh )
 
 
 //================================================================
-/*! Send out binary data.
-
-  @memberof UART_HANDLE
-  @param  uh            Pointer of UART_HANDLE.
-  @param  buffer        Pointer of buffer.
-  @param  size          Size of buffer.
-  @return               Size of transmitted.
-*/
-int uart_write( UART_HANDLE *uh, const void *buffer, int size )
-{
-  const uint8_t *p = (const uint8_t *)buffer;
-  int n = size;
-
-  while( n > 0 ) {
-    // TX-FIFOに空きができるまで待つ。
-    while( UxSTA(uh->unit_num) & _U1STA_UTXBF_MASK ) {
-      Nop(); Nop(); Nop(); Nop();
-    }
-    UxTXREG(uh->unit_num) = *p++;
-    n--;
-  }
-
-  return size;
-}
-
-
-//================================================================
 /*! Receive binary data.
 
   @memberof UART_HANDLE
@@ -361,6 +338,33 @@ int uart_read( UART_HANDLE *uh, void *buffer, int size )
   } while( --cnt != 0 && rx_rd != uh->rx_wr );
 
   return size - cnt;
+}
+
+
+//================================================================
+/*! Send out binary data.
+
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
+  @param  buffer        Pointer of buffer.
+  @param  size          Size of buffer.
+  @return               Size of transmitted.
+*/
+int uart_write( UART_HANDLE *uh, const void *buffer, int size )
+{
+  const uint8_t *p = (const uint8_t *)buffer;
+  int n = size;
+
+  while( n > 0 ) {
+    // TX-FIFOに空きができるまで待つ。
+    while( UxSTA(uh->unit_num) & _U1STA_UTXBF_MASK ) {
+      Nop(); Nop(); Nop(); Nop();
+    }
+    UxTXREG(uh->unit_num) = *p++;
+    n--;
+  }
+
+  return size;
 }
 
 
@@ -476,7 +480,7 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   if( MRBC_KW_ISVALID(baud) ) baud_rate = mrbc_integer(baud);
   if( MRBC_KW_ISVALID(data_bits) ) goto ERROR_NOT_IMPLEMENTED;
   if( !MRBC_KW_ISVALID(stop_bits) ) stop_bits = mrbc_integer_value(-1);
-  if( !MRBC_KW_ISVALID(stop_bits) ) parity = mrbc_integer_value(-1);
+  if( !MRBC_KW_ISVALID(parity) ) parity = mrbc_integer_value(-1);
   if( MRBC_KW_ISVALID(flow_control) ) goto ERROR_NOT_IMPLEMENTED;
   if( MRBC_KW_ISVALID(txd_pin) ) {
     if( set_pin_handle( &(uh->txd_pin), &txd_pin ) != 0 ) goto ERROR_ARGUMENT;
@@ -564,17 +568,23 @@ static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 
 
 //================================================================
-/*! Returns the number of incoming bytes that are waiting to be read.
+/*! write
 
-  uart1.bytes_available()
+  uart1.write(s)
 
-  @return Integer	incomming bytes
+  @param  s	  Write data.
 */
-static void c_uart_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
+static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
 
-  SET_INT_RETURN( uart_bytes_available( uh ) );
+  if( v[1].tt == MRBC_TT_STRING ) {
+    int n = uart_write( uh, mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
+    SET_INT_RETURN(n);
+  }
+  else {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+  }
 }
 
 
@@ -617,6 +627,63 @@ static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 
 
 //================================================================
+/*! write string with LF
+
+  uart1.puts(s)
+
+  @param  s	  Write data.
+*/
+static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+
+  if( v[1].tt == MRBC_TT_STRING ) {
+    const char *s = mrbc_string_cstr(&v[1]);
+    int len = mrbc_string_size(&v[1]);
+
+    uart_write( uh, s, len );
+    if( len == 0 || s[len-1] != UART_NL ) {
+      const char nl[1] = {UART_NL};
+      uart_write( uh, nl, 1 );
+    }
+    SET_NIL_RETURN();
+  }
+  else {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+  }
+}
+
+
+//================================================================
+/*! Returns the number of incoming bytes that are waiting to be read.
+
+  uart1.bytes_available()
+
+  @return Integer	incomming bytes
+*/
+static void c_uart_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+
+  SET_INT_RETURN( uart_bytes_available( uh ) );
+}
+
+
+//================================================================
+/*! Returns the number of bytes that are waiting to be written.
+
+  uart1.bytes_to_write()
+
+  @return  Integer
+*/
+static void c_uart_bytes_to_write(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  // always zero return because no write buffer.
+  SET_INT_RETURN( 0 );
+}
+
+
+//================================================================
 /*! Returns true if a line of data can be read.
 
   uart1.can_read_line()
@@ -635,44 +702,6 @@ static void c_uart_can_read_line(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 
   SET_BOOL_RETURN( len );
-}
-
-
-//================================================================
-/*! write
-
-  uart1.write(s)
-
-  @param  s	  Write data.
-*/
-static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
-
-  switch( v[1].tt ) {
-  case MRBC_TT_STRING: {
-    int n = uart_write( uh, mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
-    SET_INT_RETURN(n);
-  } break;
-
-  default:
-    SET_NIL_RETURN();
-    break;
-  }
-}
-
-
-//================================================================
-/*! Returns the number of bytes that are waiting to be written.
-
-  uart1.bytes_to_write()
-
-  @return  Integer
-*/
-static void c_uart_bytes_to_write(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  // always zero return because no write buffer.
-  SET_INT_RETURN( 0 );
 }
 
 
@@ -719,7 +748,13 @@ static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
 
-  // TODO
+  while( (UxSTA(uh->unit_num) & _U1STA_TRMT_MASK) == 0 )
+    ;
+  UxSTASET(uh->unit_num) = _U1STA_UTXBRK_MASK;
+  UxTXREG(uh->unit_num) = 0x00;		// dummy data.
+
+  while( (UxSTA(uh->unit_num) & _U1STA_UTXBRK_MASK) )
+    ;
 }
 
 
@@ -734,11 +769,12 @@ void mrbc_init_class_uart(void)
   mrbc_define_method(0, uart, "new",		c_uart_new);
   mrbc_define_method(0, uart, "setmode",	c_uart_setmode);
   mrbc_define_method(0, uart, "read",		c_uart_read);
-  mrbc_define_method(0, uart, "bytes_available",c_uart_bytes_available);
-  mrbc_define_method(0, uart, "gets",		c_uart_gets);
-  mrbc_define_method(0, uart, "can_read_line",	c_uart_can_read_line);
   mrbc_define_method(0, uart, "write",		c_uart_write);
+  mrbc_define_method(0, uart, "gets",		c_uart_gets);
+  mrbc_define_method(0, uart, "puts",		c_uart_puts);
+  mrbc_define_method(0, uart, "bytes_available",c_uart_bytes_available);
   mrbc_define_method(0, uart, "bytes_to_write",	c_uart_bytes_to_write);
+  mrbc_define_method(0, uart, "can_read_line",	c_uart_can_read_line);
   mrbc_define_method(0, uart, "flush",		c_uart_flush);
   mrbc_define_method(0, uart, "clear_rx_buffer",c_uart_clear_rx_buffer);
   mrbc_define_method(0, uart, "clear_tx_buffer",c_uart_clear_tx_buffer);
