@@ -131,7 +131,7 @@ int mrbc_compare(const mrbc_value *v1, const mrbc_value *v2)
   case MRBC_TT_CLASS:
   case MRBC_TT_OBJECT:
   case MRBC_TT_PROC:
-    return -1 + (v1->proc == v2->proc) + (v1->proc > v2->proc)*2;
+    return (v1->cls > v2->cls) * 2 - (v1->cls != v2->cls);
 
   case MRBC_TT_ARRAY:
     return mrbc_array_compare( v1, v2 );

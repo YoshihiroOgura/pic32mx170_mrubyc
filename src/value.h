@@ -333,7 +333,7 @@ typedef struct RObject mrbc_value;
 /**
   @def MRBC_KW_ARG(keyword1,...)
   Get keyword arguments and define mrbc_value with same name.
-  Up to 32 arguments can be specified.
+  Up to 30 arguments can be specified.
 
   @def MRBC_KW_DICT(dict_var)
   Get remaining keyword arguments as hash.
@@ -351,11 +351,17 @@ typedef struct RObject mrbc_value;
 
   @def MRBC_KW_DELETE(mrbc_value1,...)
   Delete retrieved keyword arguments.
+
+  @def MRBC_KW_NARGC()
+  Get the number of arguments without keyword arguments.
 */
 #define MRBC_KW_ARG(...) \
-  MRBC_KW_join( MRBC_KW_nest, MRBC_KW_n_args(__VA_ARGS__) )( MRBC_KW_ARG_decl, __VA_ARGS__ )
-#define MRBC_KW_ARG_decl(kw) \
-  mrbc_value kw = (v[argc].tt == MRBC_TT_HASH) ? mrbc_hash_remove_by_id(&v[argc], mrbc_str_to_symid(#kw)) : (mrbc_value){.tt = MRBC_TT_EMPTY};
+  MRBC_each(__VA_ARGS__)( MRBC_KW_ARG_decl1, __VA_ARGS__ ) \
+  if( v[argc].tt == MRBC_TT_HASH ) { \
+    MRBC_each(__VA_ARGS__)( MRBC_KW_ARG_decl2, __VA_ARGS__ ) \
+  }
+#define MRBC_KW_ARG_decl1(kw) mrbc_value kw = {.tt = MRBC_TT_EMPTY};
+#define MRBC_KW_ARG_decl2(kw) kw = mrbc_hash_remove_by_id(&v[argc], mrbc_str_to_symid(#kw));
 
 #define MRBC_KW_DICT(dict) \
   mrbc_value dict; \
@@ -365,9 +371,8 @@ typedef struct RObject mrbc_value;
 #define MRBC_KW_ISVALID(kw) (kw.tt != MRBC_TT_EMPTY)
 
 #define MRBC_KW_MANDATORY(...) \
-  (MRBC_KW_join( MRBC_KW_nest, MRBC_KW_n_args(__VA_ARGS__) ) \
-   ( MRBC_KW_MANDATORY_decl, __VA_ARGS__ ) 1)
-#define MRBC_KW_MANDATORY_decl(kw) (MRBC_KW_ISVALID(kw)? 1 : \
+  (MRBC_each(__VA_ARGS__)( MRBC_KW_MANDATORY_decl1, __VA_ARGS__ ) 1)
+#define MRBC_KW_MANDATORY_decl1(kw) (MRBC_KW_ISVALID(kw)? 1 : \
   (mrbc_raisef(vm, MRBC_CLASS(ArgumentError), "missing keyword: %s", #kw), 0))&&
 
 #define MRBC_KW_END() \
@@ -375,47 +380,50 @@ typedef struct RObject mrbc_value;
    (mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unknown keyword."), 0) : 1)
 
 #define MRBC_KW_DELETE(...) \
-  MRBC_KW_join( MRBC_KW_nest, MRBC_KW_n_args(__VA_ARGS__) )( MRBC_KW_DELETE_decl, __VA_ARGS__ )
+  MRBC_each(__VA_ARGS__)( MRBC_KW_DELETE_decl, __VA_ARGS__ )
 #define MRBC_KW_DELETE_decl(kw) mrbc_decref(&kw);
 
+#define MRBC_KW_NARGC() \
+  ((v[argc].tt == MRBC_TT_HASH || v[argc].tt == MRBC_TT_EMPTY) ? argc-1 : argc)
 
-#define MRBC_KW_n_args(...) MRBC_KW_n_args_sub(__VA_ARGS__, 32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)
-#define MRBC_KW_n_args_sub(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32, N, ...) N
-#define MRBC_KW_join(a1,a2) MRBC_KW_join_sub(a1,a2)
-#define MRBC_KW_join_sub(a1,a2) a1##a2
-#define MRBC_KW_nest1(func,arg) func(arg)
-#define MRBC_KW_nest2(func,arg, ...) func(arg) MRBC_KW_nest1(func,__VA_ARGS__)
-#define MRBC_KW_nest3(func,arg, ...) func(arg) MRBC_KW_nest2(func,__VA_ARGS__)
-#define MRBC_KW_nest4(func,arg, ...) func(arg) MRBC_KW_nest3(func,__VA_ARGS__)
-#define MRBC_KW_nest5(func,arg, ...) func(arg) MRBC_KW_nest4(func,__VA_ARGS__)
-#define MRBC_KW_nest6(func,arg, ...) func(arg) MRBC_KW_nest5(func,__VA_ARGS__)
-#define MRBC_KW_nest7(func,arg, ...) func(arg) MRBC_KW_nest6(func,__VA_ARGS__)
-#define MRBC_KW_nest8(func,arg, ...) func(arg) MRBC_KW_nest7(func,__VA_ARGS__)
-#define MRBC_KW_nest9(func,arg, ...) func(arg) MRBC_KW_nest8(func,__VA_ARGS__)
-#define MRBC_KW_nest10(func,arg, ...) func(arg) MRBC_KW_nest9(func,__VA_ARGS__)
-#define MRBC_KW_nest11(func,arg, ...) func(arg) MRBC_KW_nest10(func,__VA_ARGS__)
-#define MRBC_KW_nest12(func,arg, ...) func(arg) MRBC_KW_nest11(func,__VA_ARGS__)
-#define MRBC_KW_nest13(func,arg, ...) func(arg) MRBC_KW_nest12(func,__VA_ARGS__)
-#define MRBC_KW_nest14(func,arg, ...) func(arg) MRBC_KW_nest13(func,__VA_ARGS__)
-#define MRBC_KW_nest15(func,arg, ...) func(arg) MRBC_KW_nest14(func,__VA_ARGS__)
-#define MRBC_KW_nest16(func,arg, ...) func(arg) MRBC_KW_nest15(func,__VA_ARGS__)
-#define MRBC_KW_nest17(func,arg, ...) func(arg) MRBC_KW_nest16(func,__VA_ARGS__)
-#define MRBC_KW_nest18(func,arg, ...) func(arg) MRBC_KW_nest17(func,__VA_ARGS__)
-#define MRBC_KW_nest19(func,arg, ...) func(arg) MRBC_KW_nest18(func,__VA_ARGS__)
-#define MRBC_KW_nest20(func,arg, ...) func(arg) MRBC_KW_nest19(func,__VA_ARGS__)
-#define MRBC_KW_nest21(func,arg, ...) func(arg) MRBC_KW_nest20(func,__VA_ARGS__)
-#define MRBC_KW_nest22(func,arg, ...) func(arg) MRBC_KW_nest21(func,__VA_ARGS__)
-#define MRBC_KW_nest23(func,arg, ...) func(arg) MRBC_KW_nest22(func,__VA_ARGS__)
-#define MRBC_KW_nest24(func,arg, ...) func(arg) MRBC_KW_nest23(func,__VA_ARGS__)
-#define MRBC_KW_nest25(func,arg, ...) func(arg) MRBC_KW_nest24(func,__VA_ARGS__)
-#define MRBC_KW_nest26(func,arg, ...) func(arg) MRBC_KW_nest25(func,__VA_ARGS__)
-#define MRBC_KW_nest27(func,arg, ...) func(arg) MRBC_KW_nest26(func,__VA_ARGS__)
-#define MRBC_KW_nest28(func,arg, ...) func(arg) MRBC_KW_nest27(func,__VA_ARGS__)
-#define MRBC_KW_nest29(func,arg, ...) func(arg) MRBC_KW_nest28(func,__VA_ARGS__)
-#define MRBC_KW_nest30(func,arg, ...) func(arg) MRBC_KW_nest29(func,__VA_ARGS__)
-#define MRBC_KW_nest31(func,arg, ...) func(arg) MRBC_KW_nest30(func,__VA_ARGS__)
-#define MRBC_KW_nest32(func,arg, ...) func(arg) MRBC_KW_nest31(func,__VA_ARGS__)
-
+#define MRBC_each(...) MRBC_each_sel(__VA_ARGS__, \
+  MRBC_each30,MRBC_each29,MRBC_each28,MRBC_each27,MRBC_each26, \
+  MRBC_each25,MRBC_each24,MRBC_each23,MRBC_each22,MRBC_each21, \
+  MRBC_each20,MRBC_each19,MRBC_each18,MRBC_each17,MRBC_each16, \
+  MRBC_each15,MRBC_each14,MRBC_each13,MRBC_each12,MRBC_each11, \
+  MRBC_each10,MRBC_each9, MRBC_each8, MRBC_each7, MRBC_each6,  \
+  MRBC_each5, MRBC_each4, MRBC_each3, MRBC_each2, MRBC_each1)
+#define MRBC_each_sel(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30, a31, ...) a31
+#define MRBC_each1(func,arg) func(arg)
+#define MRBC_each2(func,arg, ...) func(arg) MRBC_each1(func,__VA_ARGS__)
+#define MRBC_each3(func,arg, ...) func(arg) MRBC_each2(func,__VA_ARGS__)
+#define MRBC_each4(func,arg, ...) func(arg) MRBC_each3(func,__VA_ARGS__)
+#define MRBC_each5(func,arg, ...) func(arg) MRBC_each4(func,__VA_ARGS__)
+#define MRBC_each6(func,arg, ...) func(arg) MRBC_each5(func,__VA_ARGS__)
+#define MRBC_each7(func,arg, ...) func(arg) MRBC_each6(func,__VA_ARGS__)
+#define MRBC_each8(func,arg, ...) func(arg) MRBC_each7(func,__VA_ARGS__)
+#define MRBC_each9(func,arg, ...) func(arg) MRBC_each8(func,__VA_ARGS__)
+#define MRBC_each10(func,arg, ...) func(arg) MRBC_each9(func,__VA_ARGS__)
+#define MRBC_each11(func,arg, ...) func(arg) MRBC_each10(func,__VA_ARGS__)
+#define MRBC_each12(func,arg, ...) func(arg) MRBC_each11(func,__VA_ARGS__)
+#define MRBC_each13(func,arg, ...) func(arg) MRBC_each12(func,__VA_ARGS__)
+#define MRBC_each14(func,arg, ...) func(arg) MRBC_each13(func,__VA_ARGS__)
+#define MRBC_each15(func,arg, ...) func(arg) MRBC_each14(func,__VA_ARGS__)
+#define MRBC_each16(func,arg, ...) func(arg) MRBC_each15(func,__VA_ARGS__)
+#define MRBC_each17(func,arg, ...) func(arg) MRBC_each16(func,__VA_ARGS__)
+#define MRBC_each18(func,arg, ...) func(arg) MRBC_each17(func,__VA_ARGS__)
+#define MRBC_each19(func,arg, ...) func(arg) MRBC_each18(func,__VA_ARGS__)
+#define MRBC_each20(func,arg, ...) func(arg) MRBC_each19(func,__VA_ARGS__)
+#define MRBC_each21(func,arg, ...) func(arg) MRBC_each20(func,__VA_ARGS__)
+#define MRBC_each22(func,arg, ...) func(arg) MRBC_each21(func,__VA_ARGS__)
+#define MRBC_each23(func,arg, ...) func(arg) MRBC_each22(func,__VA_ARGS__)
+#define MRBC_each24(func,arg, ...) func(arg) MRBC_each23(func,__VA_ARGS__)
+#define MRBC_each25(func,arg, ...) func(arg) MRBC_each24(func,__VA_ARGS__)
+#define MRBC_each26(func,arg, ...) func(arg) MRBC_each25(func,__VA_ARGS__)
+#define MRBC_each27(func,arg, ...) func(arg) MRBC_each26(func,__VA_ARGS__)
+#define MRBC_each28(func,arg, ...) func(arg) MRBC_each27(func,__VA_ARGS__)
+#define MRBC_each29(func,arg, ...) func(arg) MRBC_each28(func,__VA_ARGS__)
+#define MRBC_each30(func,arg, ...) func(arg) MRBC_each29(func,__VA_ARGS__)
 
 
 /***** Global variables *****************************************************/

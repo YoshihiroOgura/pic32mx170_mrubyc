@@ -3,8 +3,8 @@
   mruby/c Integer and Float class
 
   <pre>
-  Copyright (C) 2015-2021 Kyushu Institute of Technology.
-  Copyright (C) 2015-2021 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2023 Kyushu Institute of Technology.
+  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -50,8 +50,8 @@ static void c_integer_bitref(struct VM *vm, mrbc_value v[], int argc)
   if( mrbc_integer(v[1]) < 0 ) {
     SET_INT_RETURN( 0 );
   } else {
-    mrbc_int_t mask = (argc == 1) ? 1 : (1 << mrbc_fixnum(v[2])) - 1;
-    SET_INT_RETURN( (mrbc_fixnum(v[0]) >> mrbc_fixnum(v[1])) & mask );
+    mrbc_int_t mask = (argc == 1) ? 1 : (1 << mrbc_integer(v[2])) - 1;
+    SET_INT_RETURN( (mrbc_integer(v[0]) >> mrbc_integer(v[1])) & mask );
   }
 }
 

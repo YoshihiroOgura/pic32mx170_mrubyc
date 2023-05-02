@@ -117,6 +117,16 @@ static void c_object_compare(struct VM *vm, mrbc_value v[], int argc)
 
 
 //================================================================
+/*! (operator) ==
+ */
+static void c_object_equal2(struct VM *vm, mrbc_value v[], int argc)
+{
+  int result = mrbc_compare( &v[0], &v[1] );
+  SET_BOOL_RETURN( result == 0 );
+}
+
+
+//================================================================
 /*! (operator) ===
  */
 static void c_object_equal3(struct VM *vm, mrbc_value v[], int argc)
@@ -689,6 +699,7 @@ static void c_object_to_s(struct VM *vm, mrbc_value v[], int argc)
   METHOD( "!",		c_object_not )
   METHOD( "!=",		c_object_neq )
   METHOD( "<=>",	c_object_compare )
+  METHOD( "==",		c_object_equal2 )
   METHOD( "===",	c_object_equal3 )
   METHOD( "class",	c_object_class )
   METHOD( "dup",	c_object_dup )

@@ -754,6 +754,11 @@ static void c_string_ord(struct VM *vm, mrbc_value v[], int argc)
 {
   int i = ((uint8_t *)mrbc_string_cstr(v))[0];
 
+  if (i == 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "empty string");
+    return;
+  }
+
   SET_INT_RETURN( i );
 }
 
