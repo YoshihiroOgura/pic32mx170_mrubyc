@@ -15,25 +15,20 @@
  */
 /* ************************************************************************** */
 
-#ifndef _I2C_H
-#define _I2C_H
-
-#include "mrubyc.h"
+#ifndef RBOARD_I2C_H
+#define RBOARD_I2C_H
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* C codes */
-void i2c_init(void);
-
 /* mruby/c codes */
-void mrbc_init_class_i2c(struct VM *vm);
+void mrbc_init_class_i2c(void);
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _I2C_H */
+#endif /* RBOARD_I2C_H */
