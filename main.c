@@ -16,149 +16,29 @@
  */
 /* ************************************************************************** */
 
+#include "pic32mx.h"
+
 #include <xc.h>
 #include <sys/attribs.h>
 #include <string.h>
 
-#include "common.h"
-#include "mrbc_firm.h"
+#include "pic32mx.h"
 #include "gpio.h"
-#include "adc.h"
-#include "pwm.h"
 #include "uart.h"
-#include "i2c.h"
-#include "spi.h"
-
-
-
-// TODO refactoring
-
-#include <stdio.h>
-#include <stdlib.h>
-//#include <math.h>
-
 #include "mrubyc.h"
 
-// /TODO refactoring
-
+#include "model_dependent.c"  // include system (CPU) related functions.
 
 
 #define MEMORY_SIZE (1024*40)
 uint8_t memory_pool[MEMORY_SIZE];
 
 
-
-#include "pic32mx.c"	// include system (CPU) related functions.
-
-/*
-  system common functions
-*/
-//================================================================
-/*! spin lock delay functions.
-*/
-static void delay_ticks( uint32_t ticks )
-{
-  uint32_t t_start = _CP0_GET_COUNT();
-
-  while( (_CP0_GET_COUNT() - t_start) < ticks )
-    ;
-}
-
-// emulate PIC16/24 delay function.
-void __delay_us( uint32_t us )
-{
-  delay_ticks( us * (_XTAL_FREQ/2/1000000) );
-}
-
-void __delay_ms( uint32_t ms )
-{
-  delay_ticks( ms * (_XTAL_FREQ/2/1000) );
-}
-
-
-//================================================================
-/*! lock system register
-*/
-void system_register_lock(void)
-{
-  SYSKEY = 0x0;
-}
-
-
-//================================================================
-/*! unlock system register
-*/
-void system_register_unlock(void)
-{
-  unsigned int status;
-
-  // Suspend or Disable all Interrupts
-  asm volatile ("di %0" : "=r" (status));
-
-  // starting critical sequence
-  SYSKEY = 0x00000000; // write invalid key to force lock
-  SYSKEY = 0xAA996655; // write key1 to SYSKEY
-  SYSKEY = 0x556699AA; // write key2 to SYSKEY
-
-  // Restore Interrupts
-  if (status & 0x00000001) {
-    asm volatile ("ei");
-  } else {
-    asm volatile ("di");
-  }
-}
-
-
-//================================================================
-/*! software reset	DS60001118H
-*/
-void system_reset(void)
-{
-  system_register_unlock();
-
-  RSWRSTSET = 1;
-
-  // read RSWRST register to trigger reset
-  uint32_t dummy = RSWRST;
-  (void)dummy;
-
-  while(1)
-    ;
-}
-
-
-#if 0
-//================================================================
-/*! general exception handler
-
-    Referred to the MCC auto generated code.
-*/
-void _general_exception_handler()
-{
-  static const char *cause[] = {
-    "Interrupt", "Undefined", "Undefined", "Undefined",
-    "Load/fetch address error", "Store address error",
-    "Instruction bus error", "Data bus error", "Syscall",
-    "Breakpoint", "Reserved instruction", "Coprocessor unusable",
-    "Arithmetic overflow", "Trap", "Reserved", "Reserved",
-    "Reserved", "Reserved", "Reserved"
-  };
-
-  /* Mask off the ExcCode Field from the Cause Register
-     Refer to the MIPs Software User's manual */
-
-  uint8_t excep_code = (_CP0_GET_CAUSE() & 0x0000007C) >> 2;
-  uint8_t excep_addr = _CP0_GET_EPC();
-  const uint8_t *cause_str = cause[excep_code];
-
-  uart1_write( cause_str, strlen(cause_str) );
-  uart1_write( "\r\n", 2 );
-
-  while(1) {
-  }
-}
-#endif
-
+void mrbc_init_class_adc(void);
+void mrbc_init_class_pwm(void);
+void mrbc_init_class_i2c(void);
+void mrbc_init_class_spi(void);
+void add_code(void);
 
 //================================================================
 /*
@@ -169,7 +49,7 @@ int hal_write(int fd, const void *buf, int nbytes) {
 }
 
 int hal_flush(int fd) {
-    return 0;
+  return 0;
 }
 
 void hal_abort( const char *s )
@@ -198,7 +78,8 @@ void _mon_putc( char c )
 */
 int set_pin_handle( PIN_HANDLE *pin_handle, const mrbc_value *val )
 {
-  if( val->tt == MRBC_TT_INTEGER ) {
+  switch( val->tt ) {
+  case MRBC_TT_INTEGER: {
     int ch = mrbc_integer(*val);
     if( ch <= 4 ) {		// Rboard J9,J10,J11 mapping.
       pin_handle->port = 1;
@@ -207,8 +88,9 @@ int set_pin_handle( PIN_HANDLE *pin_handle, const mrbc_value *val )
       pin_handle->port = 2;
       pin_handle->num = ch-5;
     }
+  } break;
 
-  } else if( val->tt == MRBC_TT_STRING ) {
+  case MRBC_TT_STRING: {
     const char *s = mrbc_string_cstr(val);
     if( 'A' <= s[0] && s[0] <= 'G' ) {
       pin_handle->port = s[0] - 'A' + 1;
@@ -219,8 +101,9 @@ int set_pin_handle( PIN_HANDLE *pin_handle, const mrbc_value *val )
     }
 
     pin_handle->num = mrbc_atoi( s+1, 10 );
+  } break;
 
-  } else {
+  default:
     return -1;
   }
 
@@ -274,21 +157,21 @@ static int check_timeout( void )
 }
 
 
-
+/*!
+  main function
+*/
 int main(void)
 {
   /* module init */
   system_init();
   uart_init();
 
-  __delay_ms( 1000 );
-  printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v3.2 start.\n");
-
   if( check_timeout() ) {
     /* IDE code */
     add_code();
     memset( memory_pool, 0, sizeof(memory_pool) );
-  };
+  }
+  mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v3.2 start.\n");
 
   /* start mruby/c */
   mrbc_init(memory_pool, MEMORY_SIZE);
@@ -302,7 +185,7 @@ int main(void)
 
   tick_timer_init();
 
-#if 0
+#if 1
   const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
   static const char RITE[4] = "RITE";
   while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {

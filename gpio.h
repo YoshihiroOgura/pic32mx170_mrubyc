@@ -18,7 +18,6 @@
 #ifndef RBOARD_GPIO_H
 #define RBOARD_GPIO_H
 
-
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 extern "C" {
@@ -33,8 +32,8 @@ extern "C" {
 #define GPIO_PULL_DOWN		0x20
 #define GPIO_OPEN_DRAIN		0x40
 
-
-int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode );
+struct PIN_HANDLE;
+int gpio_setmode( const struct PIN_HANDLE *pin, unsigned int mode );
 void mrbc_init_class_gpio( void );
 
 

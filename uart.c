@@ -18,9 +18,10 @@
 #include <xc.h>
 #include <sys/attribs.h>
 
-#include "common.h"
+#include "pic32mx.h"
 #include "gpio.h"
 #include "uart.h"
+#include "mrubyc.h"
 
 
 /* ================================ C codes ================================ */

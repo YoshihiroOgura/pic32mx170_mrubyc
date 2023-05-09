@@ -15,11 +15,9 @@
  */
 /* ************************************************************************** */
 
-#include <xc.h>
-
-#include "common.h"
+#include "pic32mx.h"
 #include "gpio.h"
-#include "adc.h"
+#include "mrubyc.h"
 
 
 typedef struct ADC_HANDLE {

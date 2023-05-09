@@ -1,10 +1,10 @@
 /*
-  system initialize for PIC32MX170F256B
-  CPU related params.
+  MPU and board model related params.
+
+  PIC32MX170F256B
 
   CPU clock 40MHz
    internal oscillator + PLL
-
   Peripheral clock 10MHz
 */
 
@@ -12,8 +12,8 @@
 # error "Change the project property, xc32-gcc Include directories to the MPU you want to use."
 #endif
 
-#ifndef PIC32MX_H
-#define PIC32MX_H
+#ifndef MODEL_DEPENDENT_H
+#define MODEL_DEPENDENT_H
 
 #include <xc.h>
 #include <stdint.h>
@@ -82,13 +82,12 @@ extern volatile uint32_t *TBL_RPxnR[];
 #define UART2_TXD_PIN	2,9	// B9
 #define UART2_RXD_PIN	2,8	// B8
 
-
-
 // flash memory address and parameter.
 #define FLASH_SAVE_ADDR 0xBD03A000
 #define FLASH_END_ADDR  0xBD03EFFF
 #define FLASH_PAGE_SIZE 1024
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE / 8)
+#define FLASH_ALIGN_ROW_SIZE(byte_size) ((byte_size) + (((byte_size) % FLASH_ROW_SIZE) == 0 ? 0 : (FLASH_ROW_SIZE - ((byte_size) % FLASH_ROW_SIZE))))
 
 // System clock.
 #if !defined(_XTAL_FREQ)
@@ -108,4 +107,4 @@ int onboard_sw(int num);
 #ifdef __cplusplus
 }
 #endif
-#endif  /* PIC32MX_H */
+#endif  /* MODEL_DEPENDENT_H */

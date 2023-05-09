@@ -15,8 +15,10 @@
  */
 /* ************************************************************************** */
 
-#include "common.h"
+#include "pic32mx.h"
 #include "gpio.h"
+#include "mrubyc.h"
+
 
 /* ================================ C codes ================================ */
 int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode )

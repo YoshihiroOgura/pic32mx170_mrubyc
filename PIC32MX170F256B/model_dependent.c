@@ -1,14 +1,15 @@
 /*
-  system initialize for PIC32MX170F256B
+  MPU and board model related params.
+
+  PIC32MX170F256B
 
   CPU clock 40MHz
    internal oscillator + PLL
-
   Peripheral clock 10MHz
 */
 
 #include <xc.h>
-#include "pic32mx.h"
+#include "model_dependent.h"
 
 
 // DEVCFG3

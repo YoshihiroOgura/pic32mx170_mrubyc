@@ -19,7 +19,8 @@
 #define RBOARD_UART_H
 
 #include <stdint.h>
-#include "common.h"
+#include <string.h>
+#include "pic32mx.h"
 
 
 /* Provide C++ Compatibility */

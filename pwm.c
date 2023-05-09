@@ -15,12 +15,11 @@
  */
 /* ************************************************************************** */
 
-#include <xc.h>
 #include <limits.h>
 
-#include "common.h"
+#include "pic32mx.h"
 #include "gpio.h"
-#include "pwm.h"
+#include "mrubyc.h"
 
 #if !defined(UINT16_MAX)
 #define UINT16_MAX 65535U
@@ -31,7 +30,7 @@
 static const struct {
   unsigned int port : 4;
   unsigned int num : 4;
-  unsigned int oc_unit : 4;
+  unsigned int unit_num : 4;
 } PWM_PIN_ASSIGN[] = {
 		// OC1 group
   { 1, 0, 1 },	// RPA0
@@ -69,7 +68,7 @@ static const int NUM_PWM_PIN_ASSIGN = sizeof(PWM_PIN_ASSIGN) / sizeof(PWM_PIN_AS
 typedef struct PWM_HANDLE {
   PIN_HANDLE pin;
   uint8_t flag_in_use;
-  uint8_t oc_unit;	// 1..4
+  uint8_t unit_num;	// 1..4
   uint16_t period;	// PRx set count value.
   uint16_t duty;	// percent but stretch 100% to UINT16_MAX
 } PWM_HANDLE;
@@ -90,7 +89,7 @@ static int pwm_set_frequency( PWM_HANDLE *pwm_h, double freq )
   }
 
   PR2 = pwm_h->period;
-  OCxRS(pwm_h->oc_unit) = (uint32_t)pwm_h->period * pwm_h->duty / UINT16_MAX;
+  OCxRS(pwm_h->unit_num) = (uint32_t)pwm_h->period * pwm_h->duty / UINT16_MAX;
   TMR2 = 0;
 
   return 0;
@@ -103,7 +102,7 @@ static int pwm_set_period_us( PWM_HANDLE *pwm_h, unsigned int us )
   pwm_h->period = (uint64_t)us * (PBCLK/4) / 1000000;
 
   PR2 = pwm_h->period;
-  OCxRS(pwm_h->oc_unit) = (uint32_t)pwm_h->period * pwm_h->duty / UINT16_MAX;
+  OCxRS(pwm_h->unit_num) = (uint32_t)pwm_h->period * pwm_h->duty / UINT16_MAX;
   TMR2 = 0;
 
   return 0;
@@ -116,7 +115,7 @@ static int pwm_set_duty( PWM_HANDLE *pwm_h, double duty )
 {
   pwm_h->duty = duty / 100 * UINT16_MAX;
 
-  OCxRS(pwm_h->oc_unit) = pwm_h->period * duty / 100;
+  OCxRS(pwm_h->unit_num) = pwm_h->period * duty / 100;
 
   return 0;
 }
@@ -126,7 +125,7 @@ static int pwm_set_duty( PWM_HANDLE *pwm_h, double duty )
 */
 static int pwm_set_pulse_width_us( PWM_HANDLE *pwm_h, unsigned int us )
 {
-  OCxRS(pwm_h->oc_unit) = (uint64_t)us * (PBCLK/4) / 1000000;
+  OCxRS(pwm_h->unit_num) = (uint64_t)us * (PBCLK/4) / 1000000;
 
   return 0;
 }
@@ -161,39 +160,39 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   if( i == NUM_PWM_PIN_ASSIGN ) goto ERROR_RETURN;
 
-  int oc_unit = PWM_PIN_ASSIGN[i].oc_unit;
+  int unit_num = PWM_PIN_ASSIGN[i].unit_num;
 
   // check already in use OC unit.
-  if( pwm_handle_[oc_unit-1].flag_in_use ) {
+  if( pwm_handle_[unit_num-1].flag_in_use ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "PWM already in use.");
     goto RETURN;
   }
 
-  pwm_handle_[oc_unit-1].pin = pin_h;
-  pwm_handle_[oc_unit-1].flag_in_use = 1;
-  *(const PWM_HANDLE **)(val.instance->data) = &pwm_handle_[oc_unit-1];
+  pwm_handle_[unit_num-1].pin = pin_h;
+  pwm_handle_[unit_num-1].flag_in_use = 1;
+  *(const PWM_HANDLE **)(val.instance->data) = &pwm_handle_[unit_num-1];
 
   // set pin to digital output
   gpio_setmode( &pin_h, GPIO_OUT );
   RPxnR( pin_h.port, pin_h.num ) = 0x05;  // 0x05: TABLE 11-2
 
   // set OC module
-  OCxCON(oc_unit) = 0x0006;	// PWM mode, use Timer2.
-  OCxR(oc_unit) = 0;
-  OCxRS(oc_unit) = 0;
+  OCxCON(unit_num) = 0x0006;	// PWM mode, use Timer2.
+  OCxR(unit_num) = 0;
+  OCxRS(unit_num) = 0;
 
   // set frequency and duty
   if( MRBC_ISNUMERIC(frequency) ) {
-    pwm_set_frequency( &pwm_handle_[oc_unit-1], MRBC_TO_FLOAT(frequency));
+    pwm_set_frequency( &pwm_handle_[unit_num-1], MRBC_TO_FLOAT(frequency));
   }
   if( MRBC_ISNUMERIC(freq) ) {
-    pwm_set_frequency( &pwm_handle_[oc_unit-1], MRBC_TO_FLOAT(freq));
+    pwm_set_frequency( &pwm_handle_[unit_num-1], MRBC_TO_FLOAT(freq));
   }
   if( MRBC_ISNUMERIC(duty) ) {
-    pwm_set_duty( &pwm_handle_[oc_unit-1], MRBC_TO_FLOAT(duty));
+    pwm_set_duty( &pwm_handle_[unit_num-1], MRBC_TO_FLOAT(duty));
   }
 
-  OCxCON(oc_unit) |= 0x8000;	// OC module ON
+  OCxCON(unit_num) |= 0x8000;	// OC module ON
   goto RETURN;
 
  ERROR_RETURN:
@@ -265,7 +264,7 @@ static void c_pwm_pulse_width_us(mrbc_vm *vm, mrbc_value v[], int argc)
 void mrbc_init_class_pwm(void)
 {
   for( int i = 0; i < NUM_PWM_OC_UNIT; i++ ) {
-    pwm_handle_[i].oc_unit = i + 1;
+    pwm_handle_[i].unit_num = i + 1;
     pwm_handle_[i].duty = UINT16_MAX / 2;
   }
 

@@ -19,8 +19,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "common.h"
-#include "mrbc_firm.h"
+#include "pic32mx.h"
 #include "uart.h"
 
 #define MRUBYC_VERSION_STRING   "mruby/c v2.1 PIC32MX"
@@ -61,7 +60,7 @@ struct monitor_commands {
   @param nvmop	NVM Operation bits. (see: DS60001121G, Sect 5.2.1)
   @return	not zero if errors.
 */
-static unsigned int NVMUnlock(unsigned int nvmop)
+unsigned int NVMUnlock(unsigned int nvmop)
 {
   unsigned int status;
 
