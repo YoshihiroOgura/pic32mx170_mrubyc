@@ -15,25 +15,20 @@
  */
 /* ************************************************************************** */
 
-#ifndef _SPI_H
-#define _SPI_H
-
-#include "mrubyc.h"
+#ifndef RBOARD_SPI_H
+#define RBOARD_SPI_H
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
-/* C codes */
-void spi_init(void);
 
 /* mruby/c codes */
-void mrbc_init_class_spi(struct VM *vm);
+void mrbc_init_class_spi(void);
 
     /* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _I2C_H */
+#endif /* RBOARD_SPI_H */
