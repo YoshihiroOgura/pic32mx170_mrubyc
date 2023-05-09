@@ -104,19 +104,6 @@ mrbc_value mrbc_string_new(struct VM *vm, const void *src, int len)
 
 
 //================================================================
-/*! constructor by c string
-
-  @param  vm	pointer to VM.
-  @param  src	source string or NULL
-  @return 	string object
-*/
-mrbc_value mrbc_string_new_cstr(struct VM *vm, const char *src)
-{
-  return mrbc_string_new(vm, src, (src ? strlen(src) : 0));
-}
-
-
-//================================================================
 /*! constructor by allocated buffer
 
   @param  vm	pointer to VM.
@@ -252,21 +239,26 @@ int mrbc_string_append(mrbc_value *s1, const mrbc_value *s2)
 
 
 //================================================================
-/*! append c string (s1 += s2)
+/*! append c buffer (s1 += s2)
 
   @param  s1	pointer to target value 1
-  @param  s2	pointer to char (c_str)
+  @param  s2	pointer to buffer
+  @param  len2	buffer size
   @return	mrbc_error_code
 */
-int mrbc_string_append_cstr(mrbc_value *s1, const char *s2)
+int mrbc_string_append_cbuf(mrbc_value *s1, const void *s2, int len2)
 {
   int len1 = s1->string->size;
-  int len2 = strlen(s2);
 
   uint8_t *str = mrbc_raw_realloc(s1->string->data, len1+len2+1);
   if( !str ) return E_NOMEMORY_ERROR;
 
-  memcpy(str + len1, s2, len2 + 1);
+  if( s2 ) {
+    memcpy(str + len1, s2, len2);
+    str[len1 + len2] = 0;
+  } else {
+    memset(str + len1, 0, len2 + 1);
+  }
 
   s1->string->size = len1 + len2;
   s1->string->data = str;
