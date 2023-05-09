@@ -21,11 +21,13 @@
 #include <string.h>
 
 #include "common.h"
-#include "uart.h"
 #include "mrbc_firm.h"
 #include "gpio.h"
 #include "adc.h"
 #include "pwm.h"
+#include "uart.h"
+#include "i2c.h"
+#include "spi.h"
 
 
 
@@ -36,10 +38,6 @@
 //#include <math.h>
 
 #include "mrubyc.h"
-//#include "digital.h"
-//#include "i2c.h"
-//#include "spi.h"
-//#include "uart.h"
 
 // /TODO refactoring
 
@@ -283,11 +281,6 @@ int main(void)
   system_init();
   uart_init();
 
-
-
-
-  //    i2c_init();
-
   __delay_ms( 1000 );
   printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v3.2 start.\n");
 
@@ -299,23 +292,17 @@ int main(void)
 
   /* start mruby/c */
   mrbc_init(memory_pool, MEMORY_SIZE);
-  mrbc_define_method(0, mrbc_class_object, "pinInit", (mrbc_func_t)pin_init);
 
   mrbc_init_class_gpio();
+  mrbc_init_class_uart();
   mrbc_init_class_adc();
   mrbc_init_class_pwm();
+  mrbc_init_class_i2c();
+  mrbc_init_class_spi();
 
+  tick_timer_init();
 
-    //    mrbc_init_class_i2c(0);
-    //    mrbc_init_class_uart(0);
-    //    mrbc_init_class_digital(0);
-    //    mrbc_init_class_pwm(0);
-    //    mrbc_init_class_onboard(0);
-    //    mrbc_init_class_spi(0);
-
-  tick_timer_init();	// TODO: mrbc_initのあとが良いのでは？
-
-#if 1
+#if 0
   const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
   static const char RITE[4] = "RITE";
   while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {

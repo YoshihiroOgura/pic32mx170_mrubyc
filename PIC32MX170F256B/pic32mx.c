@@ -53,30 +53,12 @@ volatile uint32_t *TBL_RPxnR[] = { &RPA0R, &RPB0R, &RPC0R };
 */
 void system_init()
 {
-  pin_init();
-
   /*
-    Oscillator
+    Pin settings.
+
+    方針: ハード的に用途が決定しているもの (LED, SW2, UART1) 以外は、
+    最も安全と思われる、全デジタル入力、内部プルダウンとしておく。
   */
-  // set this if you need.
-
-  /*
-    Interrupt
-  */
-  // Enable the multi vector
-  INTCONbits.MVEC = 1;
-  // Enable Global Interrupts
-  __builtin_mtc0(12,0,(__builtin_mfc0(12,0) | 0x0001));
-}
-
-
-/*! initialize I/O settings.
-
-  方針: ハード的に用途が決定しているもの (LED, SW2, UART1) 以外は、
-  　　　最も安全と思われる、全デジタル入力、内部プルダウンとしておく。
-*/
-void pin_init( void )
-{
   // Setting the Output Latch SFR(s)
   LATA = 0x0000;
   LATB = 0x0000;
@@ -99,6 +81,19 @@ void pin_init( void )
   // Setting the Analog/Digital Configuration SFR(s)
   ANSELA = 0x0000;	// all digital.
   ANSELB = 0x0000;
+
+  /*
+    Oscillator
+  */
+  // set this if you need.
+
+  /*
+    Interrupt
+  */
+  // Enable the multi vector
+  INTCONbits.MVEC = 1;
+  // Enable Global Interrupts
+  __builtin_mtc0(12,0,(__builtin_mfc0(12,0) | 0x0001));
 }
 
 

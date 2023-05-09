@@ -51,6 +51,7 @@ extern "C" {
 
 // SPI
 #define SPIxCON(x)	*(&SPI1CON   + (0x200 / sizeof(uint32_t)) * ((x)-1))
+#define SPIxCONSET(x)	*(&SPI1CONSET+ (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxSTAT(x)	*(&SPI1STAT  + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxBUF(x)	*(&SPI1BUF   + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxBRG(x)	*(&SPI1BRG   + (0x200 / sizeof(uint32_t)) * ((x)-1))
@@ -84,7 +85,7 @@ extern volatile uint32_t *TBL_RPxnR[];
 
 
 // flash memory address and parameter.
-#define FLASH_SAVE_ADDR 0xBD034000
+#define FLASH_SAVE_ADDR 0xBD03A000
 #define FLASH_END_ADDR  0xBD03EFFF
 #define FLASH_PAGE_SIZE 1024
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE / 8)
@@ -100,7 +101,6 @@ extern volatile uint32_t *TBL_RPxnR[];
 
 
 void system_init(void);
-void pin_init(void);
 void onboard_led(int num, int on_off);
 int onboard_sw(int num);
 
