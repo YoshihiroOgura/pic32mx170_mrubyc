@@ -464,7 +464,7 @@ static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
 //================================================================
 /*! set mode
 
-  s = uart1.setmode( params )
+  uart1.setmode( *params )
 */
 static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 {

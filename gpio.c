@@ -19,10 +19,6 @@
 #include "gpio.h"
 
 /* ================================ C codes ================================ */
-
-
-/* ============================= mruby/c codes ============================= */
-
 int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode )
 {
   if( mode & (GPIO_IN|GPIO_OUT|GPIO_ANALOG|GPIO_HIGH_Z) ) {
@@ -46,7 +42,7 @@ int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode )
 }
 
 
-
+/* ============================= mruby/c codes ============================= */
 /*! constructor
 
   gpio1 = GPIO.new( num )  # num = pin number of Rboard.
