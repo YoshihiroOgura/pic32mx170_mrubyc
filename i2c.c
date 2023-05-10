@@ -70,7 +70,7 @@ void i2c_init(void)
   @memberof I2C_HANDLE
   @return	not zero if error.
 */
-static int i2c_send_start( I2C_HANDLE *i2c_h )
+static int i2c_send_start( I2C_HANDLE *hndl )
 {
   I2C2CONSET = (1 << _I2C2CON_SEN_POSITION);
 
@@ -89,7 +89,7 @@ static int i2c_send_start( I2C_HANDLE *i2c_h )
   @memberof I2C_HANDLE
   @return	not zero if error.
 */
-static int i2c_send_restart( I2C_HANDLE *i2c_h )
+static int i2c_send_restart( I2C_HANDLE *hndl )
 {
   I2C2CONSET = (1 << _I2C2CON_RSEN_POSITION);
 
@@ -106,7 +106,7 @@ static int i2c_send_restart( I2C_HANDLE *i2c_h )
   @memberof I2C_HANDLE
   @return	not zero if error.
 */
-static int i2c_send_stop( I2C_HANDLE *i2c_h )
+static int i2c_send_stop( I2C_HANDLE *hndl )
 {
   I2C2CONSET = (1 << _I2C2CON_PEN_POSITION);
 
@@ -124,7 +124,7 @@ static int i2c_send_stop( I2C_HANDLE *i2c_h )
   @param  data	data byte.
   @return	0: ACK / 1: NACK / Other: error.
 */
-static int i2c_write_byte( I2C_HANDLE *i2c_h, uint8_t data )
+static int i2c_write_byte( I2C_HANDLE *hndl, uint8_t data )
 {
   I2C2TRN = data;
 
@@ -148,7 +148,7 @@ static int i2c_write_byte( I2C_HANDLE *i2c_h, uint8_t data )
   @param  ack_nack	I2C_ACK | I2C_NACK
   @return		received data byte. or minus value if error.
 */
-static int i2c_read_byte( I2C_HANDLE *i2c_h, int ack_nack )
+static int i2c_read_byte( I2C_HANDLE *hndl, int ack_nack )
 {
   I2C2CONbits.RCEN = 1;
 
@@ -179,11 +179,12 @@ static int i2c_read_byte( I2C_HANDLE *i2c_h, int ack_nack )
  */
 static int i2c_write_mrbc_value( const mrbc_value *v, int *n_of_out_bytes )
 {
+  I2C_HANDLE *hndl = &i2c_handle_;
   int ret;
 
   switch( v->tt ) {
   case MRBC_TT_INTEGER: {
-    ret = i2c_write_byte( &i2c_handle_, mrbc_fixnum(*v) );
+    ret = i2c_write_byte( hndl, mrbc_fixnum(*v) );
     if( ret == 0 ) (*n_of_out_bytes)++;
   } break;
 
@@ -197,7 +198,7 @@ static int i2c_write_mrbc_value( const mrbc_value *v, int *n_of_out_bytes )
   case MRBC_TT_STRING: {
     const char *p = mrbc_string_cstr(v);
     for( int i = 0; i < mrbc_string_size(v); i++ ) {
-      ret = i2c_write_byte( &i2c_handle_, *p++ );
+      ret = i2c_write_byte( hndl, *p++ );
       if( ret != 0 ) break;
       (*n_of_out_bytes)++;
     }
@@ -234,7 +235,9 @@ static int i2c_write_mrbc_value( const mrbc_value *v, int *n_of_out_bytes )
 */
 static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
 {
-  i2c_handle_.status = 0;
+  I2C_HANDLE *hndl = &i2c_handle_;
+
+  hndl->status = 0;
 
   /*
     Get parameter
@@ -253,7 +256,7 @@ static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
     Start I2C communication
   */
   // start condition
-  if( i2c_send_start(&i2c_handle_) != 0 ) {
+  if( i2c_send_start(hndl) != 0 ) {
     mrbc_raise(vm, 0, "i2c#read: start condition failed.");
     goto STOP;
   }
@@ -261,7 +264,7 @@ static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
   // send output data if specified.
   if( argc > 2 ) {
     // send I2C address.  address + r/w bit=0 (write).
-    if( i2c_write_byte( &i2c_handle_, i2c_adrs_7 << 1 ) != 0 ) {
+    if( i2c_write_byte( hndl, i2c_adrs_7 << 1 ) != 0 ) {
       mrbc_raise(vm, 0, "i2c#read: write address failed.");
       goto STOP;
     }
@@ -272,7 +275,7 @@ static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
       switch( i2c_write_mrbc_value( &v[i], &n_of_out_bytes ) ) {
       case I2C_NACK:
 	if( i == argc ) {
-	  i2c_handle_.status = i2c_handle_.status & 0xfffe | I2C_NACK;
+	  hndl->status = (hndl->status & 0xfffe) | I2C_NACK;
 	  break;
 	} else {
 	  mrbc_raise(vm, 0, "i2c#read: NACK received.");
@@ -290,14 +293,14 @@ static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
     }
 
     // send repeated start
-    if( i2c_send_restart(&i2c_handle_) != 0 ) {
+    if( i2c_send_restart(hndl) != 0 ) {
       mrbc_raise(vm, 0, "i2c#read: repeated start condition failed.");
       goto STOP;
     }
   }
 
   // send I2C address.  address + r/w bit=1 (read).
-  if( i2c_write_byte( &i2c_handle_, (i2c_adrs_7 << 1) | 1 ) != 0 ) {
+  if( i2c_write_byte( hndl, (i2c_adrs_7 << 1) | 1 ) != 0 ) {
     mrbc_raise(vm, 0, "i2c#read: write address failed.");
     goto STOP;
   }
@@ -305,7 +308,7 @@ static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
   // receive data.
   uint8_t *p = mrbc_string_cstr(&ret);
   for( int i = read_bytes-1; i >= 0; i-- ) {
-    int res = i2c_read_byte( &i2c_handle_, i == 0 );
+    int res = i2c_read_byte( hndl, i == 0 );
     if( res < 0 ) {
       mrbc_raise(vm, 0, "i2c#read: read data failed.");
       goto STOP;
@@ -316,7 +319,7 @@ static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
 
   // send stop condition.
  STOP:
-  i2c_send_stop(&i2c_handle_);
+  i2c_send_stop(hndl);
   goto RETURN;
 
 
@@ -346,7 +349,9 @@ static void c_i2c_read(mrb_vm *vm, mrb_value v[], int argc)
 */
 static void c_i2c_write(mrb_vm *vm, mrb_value v[], int argc)
 {
-  i2c_handle_.status = 0;
+  I2C_HANDLE *hndl = &i2c_handle_;
+
+  hndl->status = 0;
 
   /*
     Get parameter
@@ -359,13 +364,13 @@ static void c_i2c_write(mrb_vm *vm, mrb_value v[], int argc)
     Start I2C communication
   */
   // start condition
-  if( i2c_send_start(&i2c_handle_) != 0 ) {
+  if( i2c_send_start(hndl) != 0 ) {
     mrbc_raise(vm, 0, "i2c#write: start condition failed.");
     goto STOP;
   }
 
   // send I2C address.  address + r/w bit=0 (write).
-  if( i2c_write_byte( &i2c_handle_, i2c_adrs_7 << 1 ) != 0 ) {
+  if( i2c_write_byte( hndl, i2c_adrs_7 << 1 ) != 0 ) {
     mrbc_raise(vm, 0, "i2c#write: write address failed.");
     goto STOP;
   }
@@ -376,7 +381,7 @@ static void c_i2c_write(mrb_vm *vm, mrb_value v[], int argc)
     switch( i2c_write_mrbc_value( &v[i], &n_of_out_bytes ) ) {
     case I2C_NACK:
       if( i == argc ) {
-	i2c_handle_.status = i2c_handle_.status & 0xfffe | I2C_NACK;
+	hndl->status = (hndl->status & 0xfffe) | I2C_NACK;
 	break;
       } else {
 	mrbc_raise(vm, 0, "i2c#write: NACK received.");
@@ -395,7 +400,7 @@ static void c_i2c_write(mrb_vm *vm, mrb_value v[], int argc)
 
   // send stop condition.
  STOP:
-  i2c_send_stop(&i2c_handle_);
+  i2c_send_stop(hndl);
   goto RETURN;
 
 
@@ -417,7 +422,9 @@ static void c_i2c_write(mrb_vm *vm, mrb_value v[], int argc)
 */
 static void c_i2c_send_start(mrb_vm *vm, mrb_value v[], int argc)
 {
-  if( i2c_send_start(&i2c_handle_) != 0 ) {
+  I2C_HANDLE *hndl = &i2c_handle_;
+
+  if( i2c_send_start(hndl) != 0 ) {
     mrbc_raise(vm, 0, "start condition failed.");
   }
 }
@@ -433,7 +440,9 @@ static void c_i2c_send_start(mrb_vm *vm, mrb_value v[], int argc)
 */
 static void c_i2c_send_restart(mrb_vm *vm, mrb_value v[], int argc)
 {
-  if( i2c_send_restart(&i2c_handle_) != 0 ) {
+  I2C_HANDLE *hndl = &i2c_handle_;
+
+  if( i2c_send_restart(hndl) != 0 ) {
     mrbc_raise(vm, 0, "repeated start condition failed.");
   }
 }
@@ -449,7 +458,9 @@ static void c_i2c_send_restart(mrb_vm *vm, mrb_value v[], int argc)
 */
 static void c_i2c_send_stop(mrb_vm *vm, mrb_value v[], int argc)
 {
-  if( i2c_send_stop(&i2c_handle_) != 0 ) {
+  I2C_HANDLE *hndl = &i2c_handle_;
+
+  if( i2c_send_stop(hndl) != 0 ) {
     mrbc_raise(vm, 0, "stop condition failed.");
   }
 }
@@ -465,7 +476,9 @@ static void c_i2c_send_stop(mrb_vm *vm, mrb_value v[], int argc)
 */
 static void c_i2c_raw_read(mrb_vm *vm, mrb_value v[], int argc)
 {
-  i2c_handle_.status = 0;
+  I2C_HANDLE *hndl = &i2c_handle_;
+
+  hndl->status = 0;
 
   /*
     Get parameter
@@ -486,7 +499,7 @@ static void c_i2c_raw_read(mrb_vm *vm, mrb_value v[], int argc)
   // receive data.
   uint8_t *p = mrbc_string_cstr(&ret);
   for( int i = read_bytes-1; i >= 0; i-- ) {
-    int res = i2c_read_byte( &i2c_handle_, i == 0 && send_nack == 1);
+    int res = i2c_read_byte( hndl, i == 0 && send_nack == 1);
     if( res < 0 ) {
       mrbc_raise(vm, 0, "read data failed.");
       goto RETURN;
@@ -513,7 +526,9 @@ static void c_i2c_raw_read(mrb_vm *vm, mrb_value v[], int argc)
 */
 static void c_i2c_raw_write(mrb_vm *vm, mrb_value v[], int argc)
 {
-  i2c_handle_.status = 0;
+  I2C_HANDLE *hndl = &i2c_handle_;
+
+  hndl->status = 0;
 
   // send data
   int n_of_out_bytes = 0;
@@ -521,7 +536,7 @@ static void c_i2c_raw_write(mrb_vm *vm, mrb_value v[], int argc)
     switch( i2c_write_mrbc_value( &v[i], &n_of_out_bytes ) ) {
     case I2C_NACK:
       if( i == argc ) {
-	i2c_handle_.status = i2c_handle_.status & 0xfffe | I2C_NACK;
+	hndl->status = (hndl->status & 0xfffe) | I2C_NACK;
 	break;
       } else {
 	mrbc_raise(vm, 0, "NACK received.");
@@ -537,11 +552,6 @@ static void c_i2c_raw_write(mrb_vm *vm, mrb_value v[], int argc)
       goto RETURN;
     }
   }
-  goto RETURN;
-
-
- ERROR_PARAM:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "parameter error.");
 
  RETURN:
   SET_RETURN( mrbc_integer_value(n_of_out_bytes) );
