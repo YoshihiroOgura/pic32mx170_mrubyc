@@ -16,11 +16,11 @@
 /* ************************************************************************** */
 
 #include <xc.h>
-#include <stdio.h>
 #include <stdint.h>
 
 #include "pic32mx.h"
 #include "uart.h"
+#include "mrubyc.h"
 
 #define MRUBYC_VERSION_STRING   "mruby/c v2.1 PIC32MX"
 
@@ -55,86 +55,14 @@ struct monitor_commands {
 
 
 //================================================================
-/*! NVM unlock and execute nvm operation.
-
-  @param nvmop	NVM Operation bits. (see: DS60001121G, Sect 5.2.1)
-  @return	not zero if errors.
-*/
-unsigned int NVMUnlock(unsigned int nvmop)
-{
-  unsigned int status;
-
-  // Suspend or Disable all Interrupts
-  asm volatile ("di %0" : "=r" (status));
-
-  // clearing error bits before performing an NVM operation
-  NVMCONCLR = 0x0f;
-
-  // Enable Flash Write/Erase Operations and Select
-  // Flash operation to perform
-  NVMCON = (0x4000 | nvmop);
-
-  // Write Keys
-  NVMKEY = 0xAA996655;
-  NVMKEY = 0x556699AA;
-
-  // Start the operation using the Set Register
-  NVMCONSET = 0x8000;
-
-  // Wait for operation to complete
-  while (NVMCON & 0x8000);
-
-  // Restore Interrupts
-  if (status & 0x00000001) {
-    asm volatile ("ei");
-  } else {
-    asm volatile ("di");
-  }
-
-  // Disable NVM write enable
-  NVMCONCLR = 0x4000;
-
-  // Return WRERR and LVDERR Error Status Bits
-  return (NVMCON & 0x3000);
-}
-
-
-//================================================================
-/*! Erase one *PAGE* of FLASH ROM
-
-  @param  address	flash rom address
-  @return		not zero if errors.
-*/
-static unsigned int flash_erase_page(void *address)
-{
-  NVMADDR = ((uintptr_t)address & 0x1FFFFFFF);
-  return NVMUnlock( 0x4 );	// 0x4 = Page Erase Operation
-}
-
-
-//================================================================
-/*! Write one *ROW* of FLASH ROM
-
-  @param  address	flash rom address
-  @return		not zero if errors.
-*/
-static unsigned int flash_write_row(void *address, void *data)
-{
-  NVMADDR = ((uintptr_t)address & 0x1FFFFFFF);
-  NVMSRCADDR = ((uintptr_t)data & 0x1FFFFFFF);
-  return NVMUnlock( 0x3 );	// 0x3 = Row Program Operation
-}
-
-
-//================================================================
 /*! put string sub-routine.
 
   @param  s		pointer to string.
 */
 static void u_puts( const void *s )
 {
-  uart_puts(UART_CONSOLE, s);
-  uart_puts(UART_CONSOLE, "\r\n");
+  mrbc_print(s);
+  mrbc_print("\r\n");
 }
 
 
@@ -145,9 +73,8 @@ static int cmd_help(void)
 {
   u_puts("+OK\r\nCommands:");
 
-  int i;
-  for( i = 0; i < sizeof(monitor_commands)/sizeof(struct monitor_commands); i++ ) {
-    uart_puts(UART_CONSOLE, "  ");
+  for( int i = 0; i < sizeof(monitor_commands)/sizeof(struct monitor_commands); i++ ) {
+    mrbc_print("  ");
     u_puts(monitor_commands[i].command);
   }
   u_puts("+DONE");
@@ -194,10 +121,10 @@ static int cmd_clear(void)
 {
   p_irep_write = (uint8_t*)FLASH_SAVE_ADDR;
   flag_clear = 1;
-  if( flash_erase_page( (uint8_t*)FLASH_SAVE_ADDR ) == 0 ) {
+  if( flash_erase_page( p_irep_write ) == 0 ) {
     u_puts("+OK");
   } else {
-    u_puts("+ERR");
+    u_puts("-ERR");
   }
   return 0;
 }
@@ -233,6 +160,14 @@ static int cmd_write(void)
     n -= readed_size;
   }
 
+  // check 'RITE'
+  static const char RITE[4] = "RITE";
+  p = memory_pool;
+  if( strncmp( p, RITE, sizeof(RITE)) != 0 ) {
+    u_puts("-ERR No RITE code received.");
+    goto DONE;
+  }
+
   // erase required amount of PAGE
   uint8_t *page_top = p_irep_write - ((uintptr_t)p_irep_write % FLASH_PAGE_SIZE);
   uint8_t *next_page_top = page_top + FLASH_PAGE_SIZE;
@@ -243,7 +178,7 @@ static int cmd_write(void)
     goto DONE;
   }
 
-  while( prog_end_addr >= next_page_top ) {
+  while( prog_end_addr > next_page_top ) {
     if( flash_erase_page( next_page_top ) != 0 ) {
       u_puts("-ERR Flash erase error.");
       goto DONE;
@@ -252,7 +187,6 @@ static int cmd_write(void)
   }
 
   // Write data to FLASH. segmentad by ROW size.
-  p = memory_pool;
   while( p_irep_write < prog_end_addr ) {
     if( flash_write_row( p_irep_write, p ) != 0 ) {
       u_puts("-ERR Flash write error.");
@@ -278,27 +212,23 @@ static int cmd_showprog(void)
   const uint8_t *fl_addr = (const uint8_t *)FLASH_SAVE_ADDR;
   uint32_t used_size = 0;
   int n = 0;
-  char buf[32];
 
-  u_puts("idx   size");
+  u_puts("idx size");
   while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
     uint32_t size = 0;
-    int i;
-    for( i = 0; i < 4; i++ ) {
+    for( int i = 0; i < 4; i++ ) {
       size = (size << 8) | fl_addr[8 + i];
     }
     size = FLASH_ALIGN_ROW_SIZE( size );
     used_size += size;
     fl_addr += size;
 
-    sprintf(buf, " %d  %d", n++, size );
-    u_puts( buf );
+    mrbc_printf(" %d  %d\r\n", n++, size );
   }
 
   int total_size = (FLASH_END_ADDR - FLASH_SAVE_ADDR + 1);
   int percent = 100 * used_size / total_size;
-  sprintf(buf, "total %d / %d (%d%%)", used_size, total_size, percent);
-  u_puts( buf );
+  mrbc_printf("total %d / %d (%d%%)\r\n", used_size, total_size, percent);
   u_puts("+DONE");
 
   return 0;
@@ -332,16 +262,15 @@ void add_code(void)
     }
 
     // execute command.
-    int i;
-    for( i = 0; i < sizeof(monitor_commands)/sizeof(struct monitor_commands); i++ ) {
-      if( strcmp( token, monitor_commands[i].command ) == 0 ) {
-	int ret = (monitor_commands[i].function)();
-	switch( ret ) {
-	case 0:
-	  goto DONE;
-	case 1:
-	  return;
-	}
+    for( int i = 0; i < sizeof(monitor_commands)/sizeof(struct monitor_commands); i++ ) {
+      if( strcmp( token, monitor_commands[i].command ) != 0 ) continue;
+
+      int ret = (monitor_commands[i].function)();
+      switch( ret ) {
+      case 0:
+	goto DONE;
+      case 1:
+	return;
       }
     }
 

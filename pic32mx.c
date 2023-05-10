@@ -109,3 +109,73 @@ void _general_exception_handler()
   }
 }
 #endif
+
+
+
+//================================================================
+/*! NVM unlock and execute nvm operation.
+
+  @param nvmop	NVM Operation bits. (see: DS60001121G, Sect 5.2.1)
+  @return	not zero if errors.
+*/
+unsigned int NVMUnlock(unsigned int nvmop)
+{
+  unsigned int status;
+
+  // Suspend or Disable all Interrupts
+  asm volatile ("di %0" : "=r" (status));
+
+  // Enable Flash Write/Erase Operations and Select
+  // Flash operation to perform
+  NVMCON = (0x4000 | nvmop);
+
+  // Write Keys
+  NVMKEY = 0xAA996655;
+  NVMKEY = 0x556699AA;
+
+  // Start the operation using the Set Register
+  NVMCONSET = 0x8000;
+
+  // Wait for operation to complete
+  while (NVMCON & 0x8000);
+
+  // Restore Interrupts
+  if (status & 0x00000001) {
+    asm volatile ("ei");
+  } else {
+    asm volatile ("di");
+  }
+
+  // Disable NVM write enable
+  NVMCONCLR = 0x4000;
+
+  // Return WRERR and LVDERR Error Status Bits
+  return (NVMCON & 0x3000);
+}
+
+
+//================================================================
+/*! Erase one *PAGE* of FLASH ROM
+
+  @param  address	flash rom address
+  @return		not zero if errors.
+*/
+unsigned int flash_erase_page(void *address)
+{
+  NVMADDR = ((uintptr_t)address & 0x1FFFFFFF);
+  return NVMUnlock( 0x4 );	// 0x4 = Page Erase Operation
+}
+
+
+//================================================================
+/*! Write one *ROW* of FLASH ROM
+
+  @param  address	flash rom address
+  @return		not zero if errors.
+*/
+unsigned int flash_write_row(void *address, void *data)
+{
+  NVMADDR = ((uintptr_t)address & 0x1FFFFFFF);
+  NVMSRCADDR = ((uintptr_t)data & 0x1FFFFFFF);
+  return NVMUnlock( 0x3 );	// 0x3 = Row Program Operation
+}

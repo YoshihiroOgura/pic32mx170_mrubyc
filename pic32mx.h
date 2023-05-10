@@ -28,6 +28,9 @@ void __delay_ms(uint32_t ms);
 void system_register_lock(void);
 void system_register_unlock(void);
 void system_reset(void);
+unsigned int NVMUnlock(unsigned int nvmop);
+unsigned int flash_erase_page(void *address);
+unsigned int flash_write_row(void *address, void *data);
 
 struct RObject;
 int set_pin_handle( PIN_HANDLE *pin_handle, const struct RObject *val );
