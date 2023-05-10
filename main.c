@@ -68,6 +68,34 @@ void _mon_putc( char c )
 
 
 //================================================================
+/*
+  on board devices
+*/
+/*! control the onboard LEDs
+
+  leds_write( n )  # n = 0 to 0b1111 (bit mapped)
+*/
+static void c_leds_write(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int led = GET_INT_ARG(1);
+
+  onboard_led( 1, led & 0x01 );
+  onboard_led( 2, led & 0x02 );
+  onboard_led( 3, led & 0x04 );
+  onboard_led( 4, led & 0x08 );
+}
+
+/*! read the onboard switch
+
+  x = sw()
+*/
+static void c_sw(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN( onboard_sw(1) );
+}
+
+
+//================================================================
 /*! PIN handle setter
 
   valが、ピン番号（数字）でもポート番号（e.g."B3"）でも受け付ける。
@@ -182,6 +210,9 @@ int main(void)
   mrbc_init_class_pwm();
   mrbc_init_class_i2c();
   mrbc_init_class_spi();
+
+  mrbc_define_method(0, 0, "leds_write", c_leds_write);
+  mrbc_define_method(0, 0, "sw", c_sw);
 
   tick_timer_init();
 
