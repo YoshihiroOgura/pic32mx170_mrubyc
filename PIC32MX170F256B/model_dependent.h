@@ -81,6 +81,7 @@ extern volatile uint32_t *TBL_RPxnR[];
 #define UART1_RXD_PIN	1,4     // A4
 #define UART2_TXD_PIN	2,9	// B9
 #define UART2_RXD_PIN	2,8	// B8
+#define UART_CONSOLE	1
 
 // flash memory address and parameter.
 #define FLASH_SAVE_ADDR 0xBD03A000

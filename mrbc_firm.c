@@ -155,7 +155,7 @@ static int cmd_write(void)
   uint8_t *p = memory_pool;
   int n = size;
   while (n > 0) {
-    int readed_size = uart_read( UART_CONSOLE, p, size );
+    int readed_size = uart_read( UART_HANDLE_CONSOLE, p, size );
     p += readed_size;
     n -= readed_size;
   }
@@ -244,14 +244,14 @@ void add_code(void)
 
   while( 1 ) {
     // get the command string.
-    int len = uart_can_read_line(UART_CONSOLE);
+    int len = uart_can_read_line(UART_HANDLE_CONSOLE);
     if( !len ) continue;
 
     if( len >= sizeof(buf) ) {
-      uart_clear_rx_buffer(UART_CONSOLE);
+      uart_clear_rx_buffer(UART_HANDLE_CONSOLE);
       continue;
     }
-    uart_read(UART_CONSOLE, buf, len);
+    uart_read(UART_HANDLE_CONSOLE, buf, len);
     buf[len] = 0;
 
     // split tokens.

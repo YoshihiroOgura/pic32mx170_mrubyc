@@ -51,7 +51,7 @@ typedef struct UART_HANDLE {
 } UART_HANDLE;
 
 extern UART_HANDLE uart_handle_[];
-#define UART_CONSOLE (&uart_handle_[0])
+#define UART_HANDLE_CONSOLE (&uart_handle_[UART_CONSOLE-1])
 
 /*
   function prototypes.
