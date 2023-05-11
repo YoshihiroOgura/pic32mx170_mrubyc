@@ -36,8 +36,15 @@ int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode )
   if( mode & GPIO_IN ) TRISxSET(pin->port) = (1 << pin->num);
   if( mode & GPIO_OUT ) TRISxCLR(pin->port) = (1 << pin->num);
   if( mode & GPIO_HIGH_Z ) return -1;
-  if( mode & GPIO_PULL_UP ) CNPUxSET(pin->port) = (1 << pin->num);
-  if( mode & GPIO_PULL_DOWN ) CNPDxSET(pin->port) = (1 << pin->num);
+
+  if( mode & GPIO_PULL_UP ) {
+    CNPDxCLR(pin->port) = (1 << pin->num);
+    CNPUxSET(pin->port) = (1 << pin->num);
+  }
+  if( mode & GPIO_PULL_DOWN ) {
+    CNPUxCLR(pin->port) = (1 << pin->num);
+    CNPDxSET(pin->port) = (1 << pin->num);
+  }
   if( mode & GPIO_OPEN_DRAIN ) ODCxSET(pin->port) = (1 << pin->num);
 
   return 0;
@@ -45,28 +52,41 @@ int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode )
 
 
 /* ============================= mruby/c codes ============================= */
-/*! constructor
+/*! constructor / setmode
 
-  gpio1 = GPIO.new( num )  # num = pin number of Rboard.
-  gpio1 = GPIO.new("A0")   # PIC origined pin assignment.
+  gpio1 = GPIO.new(pin, GPIO::IN )
+
+  GPIO.setmode( num, GPIO::IN )
+  gpio1.setmode( GPIO::PULL_UP )
 */
 static void c_gpio_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  if( argc != 2 ) goto ERROR_RETURN;
+  if( v[0].tt == MRBC_TT_CLASS ) {
+    // called Class method.
+    if( argc != 2 ) goto ERROR_RETURN;
 
-  mrbc_value val = mrbc_instance_new( vm, v[0].cls, sizeof(PIN_HANDLE) );
-  PIN_HANDLE *pin = (PIN_HANDLE*)val.instance->data;
+    mrbc_value val = mrbc_instance_new( vm, v[0].cls, sizeof(PIN_HANDLE) );
+    PIN_HANDLE *pin = (PIN_HANDLE*)val.instance->data;
 
-  if( set_pin_handle( pin, &v[1] ) != 0 ) goto ERROR_RETURN;
-  if( v[2].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
-  if( (mrbc_integer(v[2]) & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
-  if( gpio_setmode( pin, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
+    if( set_pin_handle( pin, &v[1] ) != 0 ) goto ERROR_RETURN;
+    if( v[2].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
+    if( (mrbc_integer(v[2]) & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
+    if( gpio_setmode( pin, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
 
-  SET_RETURN( val );
-  return;
+    SET_RETURN( val );
+    return;
+
+  } else {
+    // called instance method.
+    PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
+
+    if( v[1].tt != MRBC_TT_INTEGER ) return;
+    if( gpio_setmode( pin, mrbc_integer(v[1]) ) < 0 ) goto ERROR_RETURN;
+    return;
+  }
 
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "GPIO initialize.");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "GPIO Can't setup");
 }
 
 
@@ -195,19 +215,6 @@ static void c_gpio_write(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 
-/*! setmode
-
-  gpio1.setmode( GPIO::PULL_UP )
-*/
-static void c_gpio_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
-
-  if( v[1].tt != MRBC_TT_INTEGER ) return;
-  gpio_setmode( pin, mrbc_integer(v[1]) );
-}
-
-
 /*! Initializer
 */
 void mrbc_init_class_gpio( void )
@@ -215,6 +222,7 @@ void mrbc_init_class_gpio( void )
   mrbc_class *gpio = mrbc_define_class(0, "GPIO", 0);
 
   mrbc_define_method(0, gpio, "new", c_gpio_new);
+  mrbc_define_method(0, gpio, "setmode", c_gpio_new);
   mrbc_define_method(0, gpio, "read_at", c_gpio_read_at);
   mrbc_define_method(0, gpio, "high_at?", c_gpio_high_at);
   mrbc_define_method(0, gpio, "low_at?", c_gpio_low_at);
@@ -224,7 +232,6 @@ void mrbc_init_class_gpio( void )
   mrbc_define_method(0, gpio, "high?", c_gpio_high);
   mrbc_define_method(0, gpio, "low?", c_gpio_low);
   mrbc_define_method(0, gpio, "write", c_gpio_write);
-  mrbc_define_method(0, gpio, "setmode", c_gpio_setmode);
 
   mrbc_set_class_const(gpio, mrbc_str_to_symid("IN"),         &mrbc_integer_value(GPIO_IN));
   mrbc_set_class_const(gpio, mrbc_str_to_symid("OUT"),        &mrbc_integer_value(GPIO_OUT));
