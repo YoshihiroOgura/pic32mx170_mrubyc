@@ -55,12 +55,12 @@ static void c_gpio_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( argc != 2 ) goto ERROR_RETURN;
 
   mrbc_value val = mrbc_instance_new( vm, v[0].cls, sizeof(PIN_HANDLE) );
-  PIN_HANDLE *h = (PIN_HANDLE*)val.instance->data;
+  PIN_HANDLE *pin = (PIN_HANDLE*)val.instance->data;
 
-  if( set_pin_handle( h, &v[1] ) != 0 ) goto ERROR_RETURN;
+  if( set_pin_handle( pin, &v[1] ) != 0 ) goto ERROR_RETURN;
   if( v[2].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
   if( (mrbc_integer(v[2]) & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
-  if( gpio_setmode( h, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
+  if( gpio_setmode( pin, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
 
   SET_RETURN( val );
   return;
@@ -76,10 +76,10 @@ static void c_gpio_new(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_read_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE h;
+  PIN_HANDLE pin;
 
-  if( set_pin_handle( &h, &v[1] ) == 0 ) {
-    SET_INT_RETURN( (PORTx(h.port) >> h.num) & 1 );
+  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
+    SET_INT_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
   } else {
     SET_NIL_RETURN();
   }
@@ -92,10 +92,10 @@ static void c_gpio_read_at(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_high_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE h;
+  PIN_HANDLE pin;
 
-  if( set_pin_handle( &h, &v[1] ) == 0 ) {
-    SET_BOOL_RETURN( (PORTx(h.port) >> h.num) & 1 );
+  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
+    SET_BOOL_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
   } else {
     SET_NIL_RETURN();
   }
@@ -108,10 +108,10 @@ static void c_gpio_high_at(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_low_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE h;
+  PIN_HANDLE pin;
 
-  if( set_pin_handle( &h, &v[1] ) == 0 ) {
-    SET_BOOL_RETURN( ~(PORTx(h.port) >> h.num) & 1 );
+  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
+    SET_BOOL_RETURN( ~(PORTx(pin.port) >> pin.num) & 1 );
   } else {
     SET_NIL_RETURN();
   }
@@ -124,18 +124,18 @@ static void c_gpio_low_at(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_write_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE h;
+  PIN_HANDLE pin;
 
-  if( (set_pin_handle( &h, &v[1] ) != 0) ||
+  if( (set_pin_handle( &pin, &v[1] ) != 0) ||
       (v[2].tt != MRBC_TT_INTEGER) ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
     return;
   }
 
   if( mrbc_integer(v[2]) == 0 ) {
-    LATxCLR(h.port) = (1 << h.num);
+    LATxCLR(pin.port) = (1 << pin.num);
   } else if( mrbc_integer(v[2]) == 1 ) {
-    LATxSET(h.port) = (1 << h.num);
+    LATxSET(pin.port) = (1 << pin.num);
   } else {
     mrbc_raise(vm, MRBC_CLASS(RangeError), 0);
   }
@@ -148,9 +148,9 @@ static void c_gpio_write_at(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *h = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
 
-  SET_INT_RETURN( (PORTx(h->port) >> h->num) & 1 );
+  SET_INT_RETURN( (PORTx(pin->port) >> pin->num) & 1 );
 }
 
 
@@ -160,9 +160,9 @@ static void c_gpio_read(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_high(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *h = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
 
-  SET_BOOL_RETURN( (PORTx(h->port) >> h->num) & 1 );
+  SET_BOOL_RETURN( (PORTx(pin->port) >> pin->num) & 1 );
 }
 
 
@@ -172,9 +172,9 @@ static void c_gpio_high(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_low(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *h = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
 
-  SET_BOOL_RETURN( ~(PORTx(h->port) >> h->num) & 1 );
+  SET_BOOL_RETURN( ~(PORTx(pin->port) >> pin->num) & 1 );
 }
 
 
@@ -184,13 +184,13 @@ static void c_gpio_low(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *h = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
 
   if( v[1].tt != MRBC_TT_INTEGER ) return;
   if( mrbc_integer(v[1]) == 0 ) {
-    LATxCLR(h->port) = (1 << h->num);
+    LATxCLR(pin->port) = (1 << pin->num);
   } else {
-    LATxSET(h->port) = (1 << h->num);
+    LATxSET(pin->port) = (1 << pin->num);
   }
 }
 
@@ -201,10 +201,10 @@ static void c_gpio_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *h = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
 
   if( v[1].tt != MRBC_TT_INTEGER ) return;
-  gpio_setmode( h, mrbc_integer(v[1]) );
+  gpio_setmode( pin, mrbc_integer(v[1]) );
 }
 
 

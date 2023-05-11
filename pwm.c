@@ -80,16 +80,16 @@ static PWM_HANDLE pwm_handle_[NUM_PWM_OC_UNIT];
 
 /*! PWM set frequency
 */
-static int pwm_set_frequency( PWM_HANDLE *pwm_h, double freq )
+static int pwm_set_frequency( PWM_HANDLE *hndl, double freq )
 {
   if( freq == 0 ) {
-    pwm_h->period = 0;
+    hndl->period = 0;
   } else {
-    pwm_h->period = (PBCLK/4) / freq;
+    hndl->period = (PBCLK/4) / freq;
   }
 
-  PR2 = pwm_h->period;
-  OCxRS(pwm_h->unit_num) = (uint32_t)pwm_h->period * pwm_h->duty / UINT16_MAX;
+  PR2 = hndl->period;
+  OCxRS(hndl->unit_num) = (uint32_t)hndl->period * hndl->duty / UINT16_MAX;
   TMR2 = 0;
 
   return 0;
@@ -97,12 +97,12 @@ static int pwm_set_frequency( PWM_HANDLE *pwm_h, double freq )
 
 /*! PWM set period (us)
 */
-static int pwm_set_period_us( PWM_HANDLE *pwm_h, unsigned int us )
+static int pwm_set_period_us( PWM_HANDLE *hndl, unsigned int us )
 {
-  pwm_h->period = (uint64_t)us * (PBCLK/4) / 1000000;
+  hndl->period = (uint64_t)us * (PBCLK/4) / 1000000;
 
-  PR2 = pwm_h->period;
-  OCxRS(pwm_h->unit_num) = (uint32_t)pwm_h->period * pwm_h->duty / UINT16_MAX;
+  PR2 = hndl->period;
+  OCxRS(hndl->unit_num) = (uint32_t)hndl->period * hndl->duty / UINT16_MAX;
   TMR2 = 0;
 
   return 0;
@@ -111,11 +111,11 @@ static int pwm_set_period_us( PWM_HANDLE *pwm_h, unsigned int us )
 
 /*! PWM set duty cycle as percentage.
 */
-static int pwm_set_duty( PWM_HANDLE *pwm_h, double duty )
+static int pwm_set_duty( PWM_HANDLE *hndl, double duty )
 {
-  pwm_h->duty = duty / 100 * UINT16_MAX;
+  hndl->duty = duty / 100 * UINT16_MAX;
 
-  OCxRS(pwm_h->unit_num) = pwm_h->period * duty / 100;
+  OCxRS(hndl->unit_num) = hndl->period * duty / 100;
 
   return 0;
 }
@@ -123,9 +123,9 @@ static int pwm_set_duty( PWM_HANDLE *pwm_h, double duty )
 
 /*! PWM set pulse width.
 */
-static int pwm_set_pulse_width_us( PWM_HANDLE *pwm_h, unsigned int us )
+static int pwm_set_pulse_width_us( PWM_HANDLE *hndl, unsigned int us )
 {
-  OCxRS(pwm_h->unit_num) = (uint64_t)us * (PBCLK/4) / 1000000;
+  OCxRS(hndl->unit_num) = (uint64_t)us * (PBCLK/4) / 1000000;
 
   return 0;
 }
@@ -149,32 +149,33 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(PWM_HANDLE *));
   SET_RETURN( val );
 
-  PIN_HANDLE pin_h;
-  if( set_pin_handle( &pin_h, &v[1] ) != 0 ) goto ERROR_RETURN;
+  PIN_HANDLE pin;
+  if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
 
   // find PWM(OC) unit from PWM_PIN_ASSIGN table.
   int i;
   for( i = 0; i < NUM_PWM_PIN_ASSIGN; i++ ) {
-    if( (PWM_PIN_ASSIGN[i].port == pin_h.port) &&
-	(PWM_PIN_ASSIGN[i].num == pin_h.num )) break;
+    if( (PWM_PIN_ASSIGN[i].port == pin.port) &&
+	(PWM_PIN_ASSIGN[i].num == pin.num )) break;
   }
   if( i == NUM_PWM_PIN_ASSIGN ) goto ERROR_RETURN;
 
   int unit_num = PWM_PIN_ASSIGN[i].unit_num;
+  PWM_HANDLE *hndl = &pwm_handle_[unit_num-1];
 
   // check already in use OC unit.
-  if( pwm_handle_[unit_num-1].flag_in_use ) {
+  if( hndl->flag_in_use ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "PWM already in use.");
     goto RETURN;
   }
 
-  pwm_handle_[unit_num-1].pin = pin_h;
-  pwm_handle_[unit_num-1].flag_in_use = 1;
-  *(const PWM_HANDLE **)(val.instance->data) = &pwm_handle_[unit_num-1];
+  hndl->pin = pin;
+  hndl->flag_in_use = 1;
+  *(const PWM_HANDLE **)(val.instance->data) = hndl;
 
   // set pin to digital output
-  gpio_setmode( &pin_h, GPIO_OUT );
-  RPxnR( pin_h.port, pin_h.num ) = 0x05;  // 0x05: TABLE 11-2
+  gpio_setmode( &pin, GPIO_OUT );
+  RPxnR( pin.port, pin.num ) = 0x05;  // 0x05: TABLE 11-2
 
   // set OC module
   OCxCON(unit_num) = 0x0006;	// PWM mode, use Timer2.
@@ -183,13 +184,13 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
   // set frequency and duty
   if( MRBC_ISNUMERIC(frequency) ) {
-    pwm_set_frequency( &pwm_handle_[unit_num-1], MRBC_TO_FLOAT(frequency));
+    pwm_set_frequency( hndl, MRBC_TO_FLOAT(frequency));
   }
   if( MRBC_ISNUMERIC(freq) ) {
-    pwm_set_frequency( &pwm_handle_[unit_num-1], MRBC_TO_FLOAT(freq));
+    pwm_set_frequency( hndl, MRBC_TO_FLOAT(freq));
   }
   if( MRBC_ISNUMERIC(duty) ) {
-    pwm_set_duty( &pwm_handle_[unit_num-1], MRBC_TO_FLOAT(duty));
+    pwm_set_duty( hndl, MRBC_TO_FLOAT(duty));
   }
 
   OCxCON(unit_num) |= 0x8000;	// OC module ON
@@ -209,10 +210,10 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_frequency(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *h = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
 
   if( MRBC_ISNUMERIC(v[1]) ) {
-    pwm_set_frequency( h, MRBC_TO_FLOAT(v[1]));
+    pwm_set_frequency( hndl, MRBC_TO_FLOAT(v[1]));
   }
 }
 
@@ -223,10 +224,10 @@ static void c_pwm_frequency(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_period_us(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *h = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
 
   if( MRBC_ISNUMERIC(v[1]) ) {
-    pwm_set_period_us( h, MRBC_TO_INT(v[1]));
+    pwm_set_period_us( hndl, MRBC_TO_INT(v[1]));
   }
 }
 
@@ -237,10 +238,10 @@ static void c_pwm_period_us(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_duty(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *h = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
 
   if( MRBC_ISNUMERIC(v[1]) ) {
-    pwm_set_duty( h, MRBC_TO_FLOAT(v[1]));
+    pwm_set_duty( hndl, MRBC_TO_FLOAT(v[1]));
   }
 }
 
@@ -251,10 +252,10 @@ static void c_pwm_duty(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_pulse_width_us(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *h = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
 
   if( MRBC_ISNUMERIC(v[1]) ) {
-    pwm_set_pulse_width_us( h, MRBC_TO_INT(v[1]));
+    pwm_set_pulse_width_us( hndl, MRBC_TO_INT(v[1]));
   }
 }
 

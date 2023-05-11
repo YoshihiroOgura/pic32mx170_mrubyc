@@ -55,20 +55,20 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
   // allocate instance with ADC_HANDLE table pointer.
   mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));
 
-  ADC_HANDLE adc_h;
-  if( set_pin_handle( &adc_h.pin, &v[1] ) != 0 ) goto ERROR_RETURN;
+  ADC_HANDLE hndl;
+  if( set_pin_handle( &hndl.pin, &v[1] ) != 0 ) goto ERROR_RETURN;
 
   // find ADC channel from adc_handle_ table.
   int i;
   for( i = 0; i < sizeof(adc_handle_)/sizeof(ADC_HANDLE); i++ ) {
-    if( (adc_handle_[i].pin.port == adc_h.pin.port) &&
-	(adc_handle_[i].pin.num == adc_h.pin.num )) break;
+    if( (adc_handle_[i].pin.port == hndl.pin.port) &&
+	(adc_handle_[i].pin.num == hndl.pin.num )) break;
   }
   if( i == sizeof(adc_handle_)/sizeof(ADC_HANDLE) ) goto ERROR_RETURN;
   *(const ADC_HANDLE **)(val.instance->data) = &adc_handle_[i];
 
   // set pin to analog input
-  gpio_setmode( &adc_h.pin, GPIO_ANALOG|GPIO_IN );
+  gpio_setmode( &hndl.pin, GPIO_ANALOG|GPIO_IN );
 
   SET_RETURN( val );
   return;
@@ -83,9 +83,9 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_adc_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  ADC_HANDLE *h = *(ADC_HANDLE **)v[0].instance->data;
+  ADC_HANDLE *hndl = *(ADC_HANDLE **)v[0].instance->data;
 
-  AD1CHSbits.CH0SA = h->channel;
+  AD1CHSbits.CH0SA = hndl->channel;
   AD1CON1bits.SAMP = 1;
   while( !AD1CON1bits.DONE )
     ;

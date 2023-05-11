@@ -35,7 +35,7 @@
 UART_HANDLE uart_handle_[2];
 
 // function prototypes.
-static void uart_push_rxfifo( UART_HANDLE *uh, uint8_t ch );
+static void uart_push_rxfifo( UART_HANDLE *hndl, uint8_t ch );
 
 
 //================================================================
@@ -79,24 +79,24 @@ void __ISR(_UART_2_VECTOR, IPL4AUTO) uart2_isr( void )
   }
 }
 
-static void uart_push_rxfifo( UART_HANDLE *uh, uint8_t ch )
+static void uart_push_rxfifo( UART_HANDLE *hndl, uint8_t ch )
 {
-  uh->rxfifo[uh->rx_wr++] = ch;
+  hndl->rxfifo[hndl->rx_wr++] = ch;
 
   // check rollover write index.
-  if( uh->rx_wr < sizeof(uh->rxfifo)) {
-    if( uh->rx_wr == uh->rx_rd ) {
-      --uh->rx_wr;   // buffer full
-      uh->rx_overflow = 1;
+  if( hndl->rx_wr < sizeof(hndl->rxfifo)) {
+    if( hndl->rx_wr == hndl->rx_rd ) {
+      --hndl->rx_wr;   // buffer full
+      hndl->rx_overflow = 1;
     }
   }
   else {
-    if( uh->rx_rd == 0 ) {
-      --uh->rx_wr;   // buffer full
-      uh->rx_overflow = 1;
+    if( hndl->rx_rd == 0 ) {
+      --hndl->rx_wr;   // buffer full
+      hndl->rx_overflow = 1;
     }
     else {
-      uh->rx_wr = 0; // roll over.
+      hndl->rx_wr = 0; // roll over.
     }
   }
 }
@@ -105,56 +105,56 @@ static void uart_push_rxfifo( UART_HANDLE *uh, uint8_t ch )
 //================================================================
 /*! UART enable or disable interrupt.
 */
-static void uart_interrupt_en_dis( const UART_HANDLE *uh, int en_dis )
+static void uart_interrupt_en_dis( const UART_HANDLE *hndl, int en_dis )
 {
-  switch( uh->unit_num ) {
+  switch( hndl->unit_num ) {
   case 1: IEC1bits.U1RXIE = en_dis;
   case 2: IEC1bits.U2RXIE = en_dis;
   }
 }
 
-static inline void uart_interrupt_enable( const UART_HANDLE *uh )
+static inline void uart_interrupt_enable( const UART_HANDLE *hndl )
 {
-  uart_interrupt_en_dis( uh, 1 );
+  uart_interrupt_en_dis( hndl, 1 );
 }
 
-static inline void uart_interrupt_disable( const UART_HANDLE *uh )
+static inline void uart_interrupt_disable( const UART_HANDLE *hndl )
 {
-  uart_interrupt_en_dis( uh, 0 );
+  uart_interrupt_en_dis( hndl, 0 );
 }
 
 
 //================================================================
 /*! assign the pin to UART
 
-  @param  uh	UART HANDLE
+  @param  hndl	UART HANDLE
   @return	if error, returns minus value.
 */
-static int set_pin_to_uart( const UART_HANDLE *uh )
+static int set_pin_to_uart( const UART_HANDLE *hndl )
 {
-  if( uh->unit_num < 1 || uh->unit_num > 2 ) return -1;	// error return.
+  if( hndl->unit_num < 1 || hndl->unit_num > 2 ) return -1;	// error return.
 
   /* set output (TxD) pin.
      Defaults to high level to keep high level when pin assignment is changed.
      Pin assign: DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
   */
-  gpio_setmode( &uh->txd_pin, GPIO_OUT );
-  LATxSET(uh->txd_pin.port) = (1 << uh->txd_pin.num);	// set high level
-  RPxnR(uh->txd_pin.port, uh->txd_pin.num) = uh->unit_num; // pin assign
+  gpio_setmode( &hndl->txd_pin, GPIO_OUT );
+  LATxSET(hndl->txd_pin.port) = (1 << hndl->txd_pin.num);  // set high level
+  RPxnR(hndl->txd_pin.port, hndl->txd_pin.num) = hndl->unit_num; // pin assign
 
   /* set input (RxD) pin.
      Pin assign: DS60001168L  TABLE 11-1: INPUT PIN SELECTION
   */
-  gpio_setmode( &uh->rxd_pin, GPIO_IN );
+  gpio_setmode( &hndl->rxd_pin, GPIO_IN );
 
   static const uint8_t UxRX_PINS[2][5] = {
     {0x12, 0x26, 0x14, 0x2d, 0x22},	// U1RX: A2, B6, A4, B13, B2
     {0x11, 0x25, 0x21, 0x2b, 0x28},	// U2RX: A1, B5, B1, B11, B8
   };
   for( int i = 0; i < 5; i++ ) {
-    if( UxRX_PINS[uh->unit_num-1][i] ==
-	(uh->rxd_pin.port << 4 | uh->rxd_pin.num) ) {
-      UxRXR(uh->unit_num) = i;			// pin assign.
+    if( UxRX_PINS[hndl->unit_num-1][i] ==
+	(hndl->rxd_pin.port << 4 | hndl->rxd_pin.num) ) {
+      UxRXR(hndl->unit_num) = i;			// pin assign.
       return 0;
     }
   }
@@ -219,11 +219,11 @@ void uart_init(void)
 
   @memberof UART_HANDLE
 */
-void uart_enable( const UART_HANDLE *uh )
+void uart_enable( const UART_HANDLE *hndl )
 {
-  uart_interrupt_enable( uh );
-  UxSTASET(uh->unit_num) = (_U1STA_UTXEN_MASK | _U1STA_URXEN_MASK);
-  UxMODESET(uh->unit_num) = _U1MODE_ON_MASK;
+  uart_interrupt_enable( hndl );
+  UxSTASET(hndl->unit_num) = (_U1STA_UTXEN_MASK | _U1STA_URXEN_MASK);
+  UxMODESET(hndl->unit_num) = _U1MODE_ON_MASK;
 }
 
 
@@ -232,13 +232,13 @@ void uart_enable( const UART_HANDLE *uh )
 
   @memberof UART_HANDLE
 */
-void uart_disable( const UART_HANDLE *uh )
+void uart_disable( const UART_HANDLE *hndl )
 {
-  while( (UxSTA(uh->unit_num) & _U1STA_TRMT_MASK) == 0 )
+  while( (UxSTA(hndl->unit_num) & _U1STA_TRMT_MASK) == 0 )
     ;
-  uart_interrupt_disable( uh );
-  UxMODECLR(uh->unit_num) = _U1MODE_ON_MASK;
-  UxSTACLR(uh->unit_num) = (_U1STA_UTXEN_MASK | _U1STA_URXEN_MASK);
+  uart_interrupt_disable( hndl );
+  UxMODECLR(hndl->unit_num) = _U1MODE_ON_MASK;
+  UxSTACLR(hndl->unit_num) = (_U1STA_UTXEN_MASK | _U1STA_URXEN_MASK);
 }
 
 
@@ -251,7 +251,7 @@ void uart_disable( const UART_HANDLE *uh )
   @param  stop_bits	1 or 2
   @note いずれも設定変更しないパラメータは、-1 を渡す。
 */
-int uart_setmode( const UART_HANDLE *uh, int baud, int parity, int stop_bits )
+int uart_setmode( const UART_HANDLE *hndl, int baud, int parity, int stop_bits )
 {
   if( baud >= 0 ) {
     /* データシート掲載計算式
@@ -262,22 +262,22 @@ int uart_setmode( const UART_HANDLE *uh, int baud, int parity, int stop_bits )
     */
     uint32_t brg_x16 = ((uint32_t)PBCLK << 2) / baud;
     uint16_t brg = (brg_x16 >> 4) + ((brg_x16 & 0xf) >> 3) - 1;
-    UxBRG(uh->unit_num) = brg;
+    UxBRG(hndl->unit_num) = brg;
   }
 
   if( 0 <= parity && parity <= 2 ) {
     static const uint8_t pdsel[] = { 0, 2, 1 };
 
-    UxMODECLR(uh->unit_num) = _U1MODE_PDSEL_MASK;
-    UxMODESET(uh->unit_num) = (pdsel[parity] << _U1MODE_PDSEL_POSITION);
+    UxMODECLR(hndl->unit_num) = _U1MODE_PDSEL_MASK;
+    UxMODESET(hndl->unit_num) = (pdsel[parity] << _U1MODE_PDSEL_POSITION);
   }
 
   switch(stop_bits) {
   case 1:
-    UxMODECLR(uh->unit_num) = (1 << _U1MODE_STSEL_POSITION);
+    UxMODECLR(hndl->unit_num) = (1 << _U1MODE_STSEL_POSITION);
     break;
   case 2:
-    UxMODESET(uh->unit_num) = (1 << _U1MODE_STSEL_POSITION);
+    UxMODESET(hndl->unit_num) = (1 << _U1MODE_STSEL_POSITION);
     break;
   }
 
@@ -289,20 +289,20 @@ int uart_setmode( const UART_HANDLE *uh, int baud, int parity, int stop_bits )
 /*! Clear receive buffer.
 
   @memberof UART_HANDLE
-  @param  uh		Pointer of UART_HANDLE.
+  @param  hndl		Pointer of UART_HANDLE.
 */
-void uart_clear_rx_buffer( UART_HANDLE *uh )
+void uart_clear_rx_buffer( UART_HANDLE *hndl )
 {
-  uart_interrupt_disable( uh );
+  uart_interrupt_disable( hndl );
 
-  while( UxSTA(uh->unit_num) & _U1STA_URXDA_MASK ) {
-    volatile uint8_t ch = UxRXREG(uh->unit_num); (void)ch;
+  while( UxSTA(hndl->unit_num) & _U1STA_URXDA_MASK ) {
+    volatile uint8_t ch = UxRXREG(hndl->unit_num); (void)ch;
   }
-  uh->rx_rd = 0;
-  uh->rx_wr = 0;
-  uh->rx_overflow = 0;
+  hndl->rx_rd = 0;
+  hndl->rx_wr = 0;
+  hndl->rx_overflow = 0;
 
-  uart_interrupt_enable( uh );
+  uart_interrupt_enable( hndl );
 }
 
 
@@ -310,19 +310,19 @@ void uart_clear_rx_buffer( UART_HANDLE *uh )
 /*! Receive binary data.
 
   @memberof UART_HANDLE
-  @param  uh		Pointer of UART_HANDLE.
+  @param  hndl		Pointer of UART_HANDLE.
   @param  buffer	Pointer of buffer.
   @param  size		Size of buffer.
   @return int		Num of received bytes.
 
   @note			If no data received, it blocks execution.
 */
-int uart_read( UART_HANDLE *uh, void *buffer, int size )
+int uart_read( UART_HANDLE *hndl, void *buffer, int size )
 {
   if( size == 0 ) return 0;
 
   // wait for data.
-  while( !uart_is_readable(uh) ) {
+  while( !uart_is_readable(hndl) ) {
     Nop(); Nop(); Nop(); Nop();
   }
 
@@ -332,11 +332,11 @@ int uart_read( UART_HANDLE *uh, void *buffer, int size )
   uint16_t rx_rd;
 
   do {
-    rx_rd = uh->rx_rd;
-    *buf++ = uh->rxfifo[rx_rd++];
-    if( rx_rd >= sizeof(uh->rxfifo) ) rx_rd = 0;
-    uh->rx_rd = rx_rd;
-  } while( --cnt != 0 && rx_rd != uh->rx_wr );
+    rx_rd = hndl->rx_rd;
+    *buf++ = hndl->rxfifo[rx_rd++];
+    if( rx_rd >= sizeof(hndl->rxfifo) ) rx_rd = 0;
+    hndl->rx_rd = rx_rd;
+  } while( --cnt != 0 && rx_rd != hndl->rx_wr );
 
   return size - cnt;
 }
@@ -346,22 +346,22 @@ int uart_read( UART_HANDLE *uh, void *buffer, int size )
 /*! Send out binary data.
 
   @memberof UART_HANDLE
-  @param  uh            Pointer of UART_HANDLE.
+  @param  hndl            Pointer of UART_HANDLE.
   @param  buffer        Pointer of buffer.
   @param  size          Size of buffer.
   @return               Size of transmitted.
 */
-int uart_write( UART_HANDLE *uh, const void *buffer, int size )
+int uart_write( UART_HANDLE *hndl, const void *buffer, int size )
 {
   const uint8_t *p = (const uint8_t *)buffer;
   int n = size;
 
   while( n > 0 ) {
     // TX-FIFOに空きができるまで待つ。
-    while( UxSTA(uh->unit_num) & _U1STA_UTXBF_MASK ) {
+    while( UxSTA(hndl->unit_num) & _U1STA_UTXBF_MASK ) {
       Nop(); Nop(); Nop(); Nop();
     }
-    UxTXREG(uh->unit_num) = *p++;
+    UxTXREG(hndl->unit_num) = *p++;
     n--;
   }
 
@@ -373,18 +373,18 @@ int uart_write( UART_HANDLE *uh, const void *buffer, int size )
 /*! check data length can be read.
 
   @memberof UART_HANDLE
-  @param  uh		Pointer of UART_HANDLE.
+  @param  hndl		Pointer of UART_HANDLE.
   @return int		result (bytes)
 */
-int uart_bytes_available( const UART_HANDLE *uh )
+int uart_bytes_available( const UART_HANDLE *hndl )
 {
-  uint16_t rx_wr = uh->rx_wr;
+  uint16_t rx_wr = hndl->rx_wr;
 
-  if( uh->rx_rd <= rx_wr ) {
-    return rx_wr - uh->rx_rd;
+  if( hndl->rx_rd <= rx_wr ) {
+    return rx_wr - hndl->rx_rd;
   }
   else {
-    return sizeof(uh->rxfifo) - uh->rx_rd + rx_wr;
+    return sizeof(hndl->rxfifo) - hndl->rx_rd + rx_wr;
   }
 }
 
@@ -393,27 +393,27 @@ int uart_bytes_available( const UART_HANDLE *uh )
 /*! check data can be read a line.
 
   @memberof UART_HANDLE
-  @param  uh		Pointer of UART_HANDLE.
+  @param  hndl		Pointer of UART_HANDLE.
   @return int		string length.
   @note
    If RX-FIFO buffer is full, return -1.
 */
-int uart_can_read_line( const UART_HANDLE *uh )
+int uart_can_read_line( const UART_HANDLE *hndl )
 {
-  uint16_t idx   = uh->rx_rd;
-  uint16_t rx_wr = uh->rx_wr;
+  uint16_t idx   = hndl->rx_rd;
+  uint16_t rx_wr = hndl->rx_wr;
 
-  if( uh->rx_overflow ) return -1;
+  if( hndl->rx_overflow ) return -1;
 
   while( idx != rx_wr ) {
-    if( uh->rxfifo[idx++] == uh->delimiter ) {
-      if( uh->rx_rd < idx ) {
-	return idx - uh->rx_rd;
+    if( hndl->rxfifo[idx++] == hndl->delimiter ) {
+      if( hndl->rx_rd < idx ) {
+	return idx - hndl->rx_rd;
       } else {
-	return sizeof(uh->rxfifo) - uh->rx_rd + idx;
+	return sizeof(hndl->rxfifo) - hndl->rx_rd + idx;
       }
     }
-    if( idx >= sizeof(uh->rxfifo)) idx = 0;
+    if( idx >= sizeof(hndl->rxfifo)) idx = 0;
   }
 
   return 0;
@@ -472,10 +472,10 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   MRBC_KW_ARG( baudrate, baud, data_bits, stop_bits, parity, flow_control, txd_pin, rxd_pin, rts_pin, cts_pin );
   if( !MRBC_KW_END() ) goto RETURN;
 
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
   int baud_rate = -1;
   int flag_pin_change = 0;
-  PIN_HANDLE now_txd_pin = uh->txd_pin;
+  PIN_HANDLE now_txd_pin = hndl->txd_pin;
 
   if( MRBC_KW_ISVALID(baudrate) ) baud_rate = mrbc_integer(baudrate);
   if( MRBC_KW_ISVALID(baud) ) baud_rate = mrbc_integer(baud);
@@ -484,23 +484,23 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   if( !MRBC_KW_ISVALID(parity) ) parity = mrbc_integer_value(-1);
   if( MRBC_KW_ISVALID(flow_control) ) goto ERROR_NOT_IMPLEMENTED;
   if( MRBC_KW_ISVALID(txd_pin) ) {
-    if( set_pin_handle( &(uh->txd_pin), &txd_pin ) != 0 ) goto ERROR_ARGUMENT;
+    if( set_pin_handle( &(hndl->txd_pin), &txd_pin ) != 0 ) goto ERROR_ARGUMENT;
     flag_pin_change = 1;
   }
   if( MRBC_KW_ISVALID(rxd_pin) ) {
-    if( set_pin_handle( &(uh->rxd_pin), &rxd_pin ) != 0 ) goto ERROR_ARGUMENT;
+    if( set_pin_handle( &(hndl->rxd_pin), &rxd_pin ) != 0 ) goto ERROR_ARGUMENT;
   }
   if( MRBC_KW_ISVALID(rts_pin) ) goto ERROR_NOT_IMPLEMENTED;
   if( MRBC_KW_ISVALID(cts_pin) ) goto ERROR_NOT_IMPLEMENTED;
 
   // set to UART
-  uart_disable( uh );
-  uart_setmode( uh, baud_rate, parity.i, stop_bits.i );
+  uart_disable( hndl );
+  uart_setmode( hndl, baud_rate, parity.i, stop_bits.i );
   if( flag_pin_change ) {
     RPxnR( now_txd_pin.port, now_txd_pin.num ) = 0;	// release TxD pin.
-    if( set_pin_to_uart( uh ) < 0 ) goto ERROR_ARGUMENT;
+    if( set_pin_to_uart( hndl ) < 0 ) goto ERROR_ARGUMENT;
   }
-  uart_enable( uh );
+  uart_enable( hndl );
   goto RETURN;
 
 
@@ -526,7 +526,7 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
   mrbc_int_t read_bytes;
 
   if( mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
@@ -536,9 +536,9 @@ static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
 
-  if( uart_is_rx_overflow( uh ) ) {
+  if( uart_is_rx_overflow( hndl ) ) {
     mrbc_raise(vm, 0, "UART Rx buffer overflow. resetting.");
-    uart_clear_rx_buffer( uh );
+    uart_clear_rx_buffer( hndl );
     return;
   }
 
@@ -550,14 +550,14 @@ static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 
   while( read_bytes > 0 ) {
-    mrbc_int_t n = uart_bytes_available(uh);
+    mrbc_int_t n = uart_bytes_available(hndl);
     if( n == 0 ) {
       Nop(); Nop(); Nop(); Nop();
       continue;
     }
 
     if( n > read_bytes ) n = read_bytes;
-    uart_read( uh, buf, n );
+    uart_read( hndl, buf, n );
 
     buf += n;
     read_bytes -= n;
@@ -577,10 +577,10 @@ static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
 
   if( v[1].tt == MRBC_TT_STRING ) {
-    int n = uart_write( uh, mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
+    int n = uart_write( hndl, mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
     SET_INT_RETURN(n);
   }
   else {
@@ -598,15 +598,15 @@ static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
 
   int len;
   while( 1 ) {
-    len = uart_can_read_line(uh);
+    len = uart_can_read_line(hndl);
     if( len > 0 ) break;
     if( len < 0 ) {
       mrbc_raise(vm, 0, "UART Rx buffer overflow. resetting.");
-      uart_clear_rx_buffer( uh );
+      uart_clear_rx_buffer( hndl );
       return;
     }
 
@@ -620,7 +620,7 @@ static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
 
-  uart_read( uh, buf, len );
+  uart_read( hndl, buf, len );
   *(buf + len) = 0;
 
   SET_RETURN(ret);
@@ -636,16 +636,16 @@ static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
 
   if( v[1].tt == MRBC_TT_STRING ) {
     const char *s = mrbc_string_cstr(&v[1]);
     int len = mrbc_string_size(&v[1]);
 
-    uart_write( uh, s, len );
+    uart_write( hndl, s, len );
     if( len == 0 || s[len-1] != UART_NL ) {
       const char nl[1] = {UART_NL};
-      uart_write( uh, nl, 1 );
+      uart_write( hndl, nl, 1 );
     }
     SET_NIL_RETURN();
   }
@@ -664,9 +664,9 @@ static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
 
-  SET_INT_RETURN( uart_bytes_available( uh ) );
+  SET_INT_RETURN( uart_bytes_available( hndl ) );
 }
 
 
@@ -693,12 +693,12 @@ static void c_uart_bytes_to_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_can_read_line(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
 
-  int len = uart_can_read_line(uh);
+  int len = uart_can_read_line(hndl);
   if( len < 0 ) {
     mrbc_raise(vm, 0, "UART Rx buffer overflow. resetting.");
-    uart_clear_rx_buffer( uh );
+    uart_clear_rx_buffer( hndl );
     return;
   }
 
@@ -735,8 +735,8 @@ static void c_uart_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
-  uart_clear_rx_buffer( uh );
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  uart_clear_rx_buffer( hndl );
 }
 
 
@@ -747,14 +747,14 @@ static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *uh = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
 
-  while( (UxSTA(uh->unit_num) & _U1STA_TRMT_MASK) == 0 )
+  while( (UxSTA(hndl->unit_num) & _U1STA_TRMT_MASK) == 0 )
     ;
-  UxSTASET(uh->unit_num) = _U1STA_UTXBRK_MASK;
-  UxTXREG(uh->unit_num) = 0x00;		// dummy data.
+  UxSTASET(hndl->unit_num) = _U1STA_UTXBRK_MASK;
+  UxTXREG(hndl->unit_num) = 0x00;		// dummy data.
 
-  while( (UxSTA(uh->unit_num) & _U1STA_UTXBRK_MASK) )
+  while( (UxSTA(hndl->unit_num) & _U1STA_UTXBRK_MASK) )
     ;
 }
 
