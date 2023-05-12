@@ -27,7 +27,7 @@
 
 
 // DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
-static const struct {
+static const struct PWM_PIN_ASSIGN {
   unsigned int port : 4;
   unsigned int num : 4;
   unsigned int unit_num : 4;
@@ -60,7 +60,7 @@ static const struct {
   { 2,10, 3 },	// RPB10
   { 2, 9, 3 },	// RPB9
 };
-static const int NUM_PWM_PIN_ASSIGN = sizeof(PWM_PIN_ASSIGN) / sizeof(PWM_PIN_ASSIGN[0]);
+static const int NUM_PWM_PIN_ASSIGN = sizeof(PWM_PIN_ASSIGN) / sizeof(struct PWM_PIN_ASSIGN);
 
 /*
   PWM (OC) management data
@@ -77,7 +77,6 @@ typedef struct PWM_HANDLE {
 static PWM_HANDLE pwm_handle_[NUM_PWM_OC_UNIT];
 
 
-
 /*! PWM set frequency
 */
 static int pwm_set_frequency( PWM_HANDLE *hndl, double freq )
@@ -88,9 +87,9 @@ static int pwm_set_frequency( PWM_HANDLE *hndl, double freq )
     hndl->period = (PBCLK/4) / freq;
   }
 
-  PR2 = hndl->period;
   OCxRS(hndl->unit_num) = (uint32_t)hndl->period * hndl->duty / UINT16_MAX;
-  TMR2 = 0;
+  PR2 = hndl->period;
+  if( hndl->period <= TMR2 ) TMR2 = 0;
 
   return 0;
 }
@@ -101,9 +100,9 @@ static int pwm_set_period_us( PWM_HANDLE *hndl, unsigned int us )
 {
   hndl->period = (uint64_t)us * (PBCLK/4) / 1000000;
 
-  PR2 = hndl->period;
   OCxRS(hndl->unit_num) = (uint32_t)hndl->period * hndl->duty / UINT16_MAX;
-  TMR2 = 0;
+  PR2 = hndl->period;
+  if( hndl->period <= TMR2 ) TMR2 = 0;
 
   return 0;
 }
@@ -162,6 +161,7 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
   int unit_num = PWM_PIN_ASSIGN[i].unit_num;
   PWM_HANDLE *hndl = &pwm_handle_[unit_num-1];
+  *(const PWM_HANDLE **)(val.instance->data) = hndl;
 
   // check already in use OC unit.
   if( hndl->flag_in_use ) {
@@ -171,7 +171,6 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
   hndl->pin = pin;
   hndl->flag_in_use = 1;
-  *(const PWM_HANDLE **)(val.instance->data) = hndl;
 
   // set pin to digital output
   gpio_setmode( &pin, GPIO_OUT );
