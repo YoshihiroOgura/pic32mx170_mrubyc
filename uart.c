@@ -29,7 +29,11 @@
 #define UART_ODD	1
 #define UART_EVEN	2
 #define UART_RTSCTS	4
-#define UART_NL		'\n'
+#if defined(MRBC_CONVERT_CRLF)
+#define UART_NL		"\r\n"
+#else
+#define UART_NL		"\n"
+#endif
 
 // handle table.
 UART_HANDLE uart_handle_[2];
@@ -643,9 +647,8 @@ static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
     int len = mrbc_string_size(&v[1]);
 
     uart_write( hndl, s, len );
-    if( len == 0 || s[len-1] != UART_NL ) {
-      const char nl[1] = {UART_NL};
-      uart_write( hndl, nl, 1 );
+    if( len == 0 || s[len-1] != '\n' ) {
+      uart_write( hndl, UART_NL, strlen(UART_NL) );
     }
     SET_NIL_RETURN();
   }
