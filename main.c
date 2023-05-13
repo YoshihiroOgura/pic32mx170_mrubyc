@@ -16,8 +16,6 @@
  */
 /* ************************************************************************** */
 
-#include "pic32mx.h"
-
 #include <xc.h>
 #include <sys/attribs.h>
 #include <string.h>
@@ -45,7 +43,7 @@ void add_code(void);
   HAL functions.
 */
 int hal_write(int fd, const void *buf, int nbytes) {
-  return uart_write( UART_CONSOLE, buf, nbytes );
+  return uart_write( UART_HANDLE_CONSOLE, buf, nbytes );
 }
 
 int hal_flush(int fd) {
@@ -63,7 +61,7 @@ void hal_abort( const char *s )
 
 void _mon_putc( char c )
 {
-  uart_write( UART_CONSOLE, &c, 1 );
+  uart_write( UART_HANDLE_CONSOLE, &c, 1 );
 }
 
 
@@ -179,7 +177,7 @@ static int check_timeout( void )
     __delay_ms( 30 );
     onboard_led( 1, 0 );
     __delay_ms( 30 );
-    if( uart_can_read_line( UART_CONSOLE ) ) return 1;
+    if( uart_can_read_line( UART_HANDLE_CONSOLE ) ) return 1;
   }
   return 0;
 }
@@ -199,7 +197,7 @@ int main(void)
     add_code();
     memset( memory_pool, 0, sizeof(memory_pool) );
   }
-  mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v*.*, mruby/c v3.2 start.\n");
+  mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v2.1.0, mruby/c v3.2 start.\n");
 
   /* start mruby/c */
   mrbc_init(memory_pool, MEMORY_SIZE);
@@ -237,6 +235,7 @@ int main(void)
        mrbc --remove-lv -B bytecode -o prepared_bytecode.c *.rb
   */
   #include "prepared_bytecode.c"
+  mrbc_printf("prepared bytecode executing.\n");
   mrbc_create_task(bytecode, 0);
 #endif
 
