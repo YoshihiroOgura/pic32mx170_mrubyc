@@ -65,7 +65,8 @@ static int spi_setmode( const SPI_HANDLE *hndl, int mode, int32_t freq )
 
   if( mode > 0 ) {
     if( mode > 3 ) return -1;
-    SPIxCON(hndl->unit_num) = SPIxCON(hndl->unit_num) & 0xfffffebf | SPIxCON_CKE_CKP[ mode ];
+    SPIxCONCLR(hndl->unit_num) = 0x140;
+    SPIxCONSET(hndl->unit_num) = SPIxCON_CKE_CKP[mode];
   }
 
   if( freq > 0 ) {
@@ -111,7 +112,7 @@ static int spi_assign_sdo_pin( const SPI_HANDLE *hndl )
 {
   gpio_setmode( &hndl->sdo_pin, GPIO_OUT );
 
-  // set value SDO1 = 0011 = 0x3, SDO2 = 0100 = 0x4;
+  // set value SDO1 = 0b0011, SDO2 = 0b0100
   RPxnR( hndl->sdo_pin.port, hndl->sdo_pin.num ) = hndl->unit_num + 2;
 
   return 0;
@@ -226,7 +227,7 @@ static int spi_trans_mrbc_value( const SPI_HANDLE *hndl, const mrbc_value *v,
 
   case MRBC_TT_STRING: {
     int len1 = mrbc_string_size(v);
-    uint8_t *recv = NULL;
+    char *recv = NULL;
     if( ret ) {
       int len2 = mrbc_string_size(ret);
       if( mrbc_string_append_cbuf( ret, NULL, len1 ) != 0 ) break;
@@ -245,7 +246,7 @@ static int spi_trans_mrbc_value( const SPI_HANDLE *hndl, const mrbc_value *v,
 
 /*! SPI constructor
 
-  spi = SPI.new()  # all default.
+  spi = SPI.new()   # all default.
                     # mode0 1MHz SPI1 SDI=B5 SDO=B6 SCK=B14
 
   spi = SPI.new( params )
@@ -331,9 +332,9 @@ static void c_spi_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 
   // set SPI hardware settings.
   if( spi_setmode( hndl, spi_mode, freq ) != 0 ) goto ERROR_ARGUMENT;
-  if( MRBC_KW_ISVALID(sdi_pin) ) {
-    spi_assign_sdi_pin( hndl );
-  }
+  if( MRBC_KW_ISVALID(sdi_pin) &&
+      !spi_assign_sdi_pin( hndl ) ) goto ERROR_ARGUMENT;
+
   if( MRBC_KW_ISVALID(sdo_pin) ) {
     RPxnR( now_sdo_pin.port, now_sdo_pin.num ) = 0;	// release SDO pin.
     spi_assign_sdo_pin( hndl );
@@ -410,7 +411,7 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
   if( read_bytes > 0 ) {
     int len = mrbc_string_size(&ret);
     if( mrbc_string_append_cbuf( &ret, NULL, read_bytes ) != 0 ) goto RETURN;
-    uint8_t *recv = mrbc_string_cstr(&ret) + len;
+    char *recv = mrbc_string_cstr(&ret) + len;
 
     spi_transfer( hndl, 0, 0, recv, read_bytes, 0 );
   }
@@ -425,6 +426,7 @@ void mrbc_init_class_spi(struct VM *vm)
   mrbc_class *spi = mrbc_define_class(0, "SPI", 0);
 
   mrbc_define_method(0, spi, "new", c_spi_new);
+  mrbc_define_method(0, spi, "setmode", c_spi_setmode);
   mrbc_define_method(0, spi, "read", c_spi_read);
   mrbc_define_method(0, spi, "write", c_spi_write);
   mrbc_define_method(0, spi, "transfer", c_spi_transfer);

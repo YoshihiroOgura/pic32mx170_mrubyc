@@ -52,6 +52,7 @@ extern "C" {
 // SPI
 #define SPIxCON(x)	*(&SPI1CON   + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxCONSET(x)	*(&SPI1CONSET+ (0x200 / sizeof(uint32_t)) * ((x)-1))
+#define SPIxCONCLR(x)	*(&SPI1CONCLR+ (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxSTAT(x)	*(&SPI1STAT  + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxBUF(x)	*(&SPI1BUF   + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxBRG(x)	*(&SPI1BRG   + (0x200 / sizeof(uint32_t)) * ((x)-1))
