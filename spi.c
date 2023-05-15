@@ -387,7 +387,7 @@ static void c_spi_write(mrbc_vm *vm, mrbc_value v[], int argc)
   SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
 
   for( int i = 1; i <= argc; i++ ) {
-    spi_trans_mrbc_value( hndl, &v[i], 0 );
+    spi_trans_mrbc_value( hndl, &v[i], NULL );
   }
 
   SET_NIL_RETURN();
