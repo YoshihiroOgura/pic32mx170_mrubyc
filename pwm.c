@@ -144,10 +144,6 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( !MRBC_KW_END() ) goto RETURN;
   if( argc == 0 ) goto ERROR_RETURN;
 
-  // allocate instance with PWM_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(PWM_HANDLE *));
-  SET_RETURN( val );
-
   PIN_HANDLE pin;
   if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
 
@@ -161,7 +157,10 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
   int unit_num = PWM_PIN_ASSIGN[i].unit_num;
   PWM_HANDLE *hndl = &pwm_handle_[unit_num-1];
-  *(const PWM_HANDLE **)(val.instance->data) = hndl;
+
+  // allocate instance with PWM_HANDLE table pointer.
+  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(PWM_HANDLE *));
+  *(PWM_HANDLE **)(val.instance->data) = hndl;
 
   // check already in use OC unit.
   if( hndl->flag_in_use ) {
@@ -193,6 +192,7 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 
   OCxCON(unit_num) |= 0x8000;	// OC module ON
+  v[0] = val;
   goto RETURN;
 
  ERROR_RETURN:

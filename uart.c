@@ -206,7 +206,7 @@ void uart_init(void)
   // UART2 parameter.
   U2MODE = 0x0008;
   U2STA = 0x0;
-  uart_setmode( &uart_handle_[1], 19200, 0, 1 );
+  uart_setmode( &uart_handle_[1], 9600, 0, 1 );	// I/O API standard baudrate.
   set_pin_to_uart( &uart_handle_[1] );
 
   // interrupt level.
@@ -437,10 +437,6 @@ static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   MRBC_KW_ARG( unit );
 
-  // allocate instance with UART_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
-  SET_RETURN( val );
-
   // get UART unit num.
   int ch = 2;
   if( argc >= 1 && mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
@@ -452,8 +448,12 @@ static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   if( ch < 1 || ch > 2 ) goto ERROR_RETURN;
 
+  // allocate instance with UART_HANDLE table pointer.
+  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
   *(UART_HANDLE**)(val.instance->data) = &uart_handle_[ch-1];
 
+  // process other parameters
+  v[0] = val;
   c_uart_setmode( vm, v, argc );
   goto RETURN;
 

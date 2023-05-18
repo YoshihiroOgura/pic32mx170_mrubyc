@@ -37,6 +37,7 @@ static const ADC_HANDLE adc_handle_[] = {
   {{2,13}, 11},	// AN11=RB13
   {{2,12}, 12},	// AN12=RB12
 };
+static const int NUM_ADC_HANDLE_TBL = sizeof(adc_handle_)/sizeof(ADC_HANDLE);
 
 
 /* ================================ C codes ================================ */
@@ -47,30 +48,34 @@ static const ADC_HANDLE adc_handle_[] = {
 
   adc1 = ADC.new( num )	# num: pin number of Rboard
   adc1 = ADC.new("A0")	# PIC origined pin assingment.
+
+  # Rboard grove ADC terminal
+  adc1 = ADC.new("B14")
+  adc2 = ADC.new("B15")
 */
 static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   if( argc != 1 ) goto ERROR_RETURN;
 
-  // allocate instance with ADC_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));
-
-  ADC_HANDLE hndl;
-  if( set_pin_handle( &hndl.pin, &v[1] ) != 0 ) goto ERROR_RETURN;
+  PIN_HANDLE pin;
+  if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
 
   // find ADC channel from adc_handle_ table.
   int i;
-  for( i = 0; i < sizeof(adc_handle_)/sizeof(ADC_HANDLE); i++ ) {
-    if( (adc_handle_[i].pin.port == hndl.pin.port) &&
-	(adc_handle_[i].pin.num == hndl.pin.num )) break;
+  for( i = 0; i < NUM_ADC_HANDLE_TBL; i++ ) {
+    if( (adc_handle_[i].pin.port == pin.port) &&
+	(adc_handle_[i].pin.num == pin.num) ) break;
   }
-  if( i == sizeof(adc_handle_)/sizeof(ADC_HANDLE) ) goto ERROR_RETURN;
+  if( i == NUM_ADC_HANDLE_TBL ) goto ERROR_RETURN;
+
+  // allocate instance with ADC_HANDLE table pointer.
+  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));
   *(const ADC_HANDLE **)(val.instance->data) = &adc_handle_[i];
 
   // set pin to analog input
-  gpio_setmode( &hndl.pin, GPIO_ANALOG|GPIO_IN );
+  gpio_setmode( &pin, GPIO_ANALOG|GPIO_IN );
 
-  SET_RETURN( val );
+  v[0] = val;
   return;
 
  ERROR_RETURN:

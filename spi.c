@@ -264,10 +264,6 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   MRBC_KW_ARG( unit );
 
-  // allocate instance with SPI_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(SPI_HANDLE *));
-  SET_RETURN( val );
-
   // get unit num.
   int unit_num = 1;
   if( argc >= 1 && mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
@@ -279,6 +275,8 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   if( unit_num < 1 || unit_num > 2 ) goto ERROR_RETURN;
 
+  // allocate instance with SPI_HANDLE table pointer.
+  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(SPI_HANDLE *));
   *(SPI_HANDLE**)(val.instance->data) = &spi_handle_[unit_num-1];
 
   if( !spi_handle_[unit_num-1].flag_in_use ) {
@@ -292,6 +290,7 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
     spi_assign_sck_pin( &spi_handle_[unit_num-1] );
   }
 
+  v[0] = val;
   c_spi_setmode( vm, v, argc );
 
   if( !spi_handle_[unit_num-1].flag_in_use ) {
@@ -300,6 +299,7 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
     SPIxCONSET(unit_num) = 0x8000;	// ON
   }
   goto RETURN;
+
 
  ERROR_RETURN:
   mrbc_raise(vm, MRBC_CLASS(ArgumentError), "SPI initialize.");

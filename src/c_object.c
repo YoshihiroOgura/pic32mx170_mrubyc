@@ -28,6 +28,7 @@
 #include "symbol.h"
 #include "error.h"
 #include "class.h"
+#include "c_object.h"
 #include "c_string.h"
 #include "c_array.h"
 #include "c_hash.h"
@@ -58,25 +59,29 @@ static int set_sym_name_by_id( char *buf, int bufsiz, mrbc_sym sym_id )
 }
 
 
-/***** Object class *********************************************************/
+/***** global functions *****************************************************/
 //================================================================
-/*! (method) new
+/*! call initializer
  */
-static void c_object_new(struct VM *vm, mrbc_value v[], int argc)
+void mrbc_instance_call_initialize( struct VM *vm, mrbc_value v[], int argc )
 {
-  mrbc_class *cls = v->cls;
-  mrbc_value new_obj = mrbc_instance_new(vm, cls, 0);
-  if( new_obj.instance == NULL ) return;	// ENOMEM
-
-  mrbc_decref(&v[0]);
-  v[0] = new_obj;
-
   // call the initialize method.
   mrbc_method method;
-  if( mrbc_find_method( &method, cls, MRBC_SYM(initialize) ) == NULL ) return;
+  if( !mrbc_find_method(&method, v[0].instance->cls, MRBC_SYM(initialize))) {
+    return;
+  }
 
   mrbc_decref(&v[argc+1]);
   mrbc_set_nil(&v[argc+1]);
+
+  if( method.c_func ) {
+    method.func(vm, v, argc);
+    for( int i = 1; i <= argc; i++ ) {
+      mrbc_decref_empty( v + i );
+    }
+    return;
+  }
+
   mrbc_callinfo *callinfo = mrbc_push_callinfo(vm, MRBC_SYM(initialize),
 					       (v - vm->cur_regs), argc);
   callinfo->own_class = method.cls;
@@ -84,6 +89,17 @@ static void c_object_new(struct VM *vm, mrbc_value v[], int argc)
   vm->cur_irep = method.irep;
   vm->inst = vm->cur_irep->inst;
   vm->cur_regs = v;
+}
+
+
+/***** Object class *********************************************************/
+//================================================================
+/*! (method) new
+ */
+static void c_object_new(struct VM *vm, mrbc_value v[], int argc)
+{
+  v[0] = mrbc_instance_new(vm, v[0].cls, 0);
+  mrbc_instance_call_initialize( vm, v, argc );
 }
 
 

@@ -1286,8 +1286,11 @@ static inline void op_super( mrbc_vm *vm, mrbc_value *regs EXT )
     return;
   }
 
-  if( method.c_func ) {	// TODO?
-    mrbc_raise( vm, MRBC_CLASS(NotImplementedError), "Not supported!" );
+  if( method.c_func ) {
+    method.func(vm, regs+a, b);
+    for( int i = a+1; i <= a+b+1; i++ ) {
+      mrbc_decref_empty( regs + i );
+    }
     return;
   }
 
