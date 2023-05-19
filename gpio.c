@@ -108,6 +108,7 @@ static void c_gpio_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 
   if( v[1].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
   if( gpio_setmode( &pin, mrbc_integer(v[1]) ) < 0 ) goto ERROR_RETURN;
+  SET_NIL_RETURN();
   return;
 
  ERROR_RETURN:
