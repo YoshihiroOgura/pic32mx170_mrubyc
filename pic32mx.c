@@ -2,6 +2,7 @@
   PIC32MX Related functions.
 */
 
+#include <sys/kmem.h>
 #include "pic32mx.h"
 
 //================================================================
@@ -125,6 +126,9 @@ unsigned int NVMUnlock(unsigned int nvmop)
   // Suspend or Disable all Interrupts
   asm volatile ("di %0" : "=r" (status));
 
+  // clearing error bits before performing an NVM operation
+  NVMCONCLR = 0x0f;
+
   // Enable Flash Write/Erase Operations and Select
   // Flash operation to perform
   NVMCON = (0x4000 | nvmop);
@@ -140,7 +144,7 @@ unsigned int NVMUnlock(unsigned int nvmop)
   while (NVMCON & 0x8000);
 
   // Restore Interrupts
-  if (status & 0x00000001) {
+  if( status & 0x00000001 ) {
     asm volatile ("ei");
   } else {
     asm volatile ("di");
@@ -162,7 +166,10 @@ unsigned int NVMUnlock(unsigned int nvmop)
 */
 unsigned int flash_erase_page(void *address)
 {
-  NVMADDR = ((uintptr_t)address & 0x1FFFFFFF);
+  // Set NVMADDR to the Start Address of page to erase
+  NVMADDR = KVA_TO_PA(address);
+
+  // Unlock and Erase Page
   return NVMUnlock( 0x4 );	// 0x4 = Page Erase Operation
 }
 
@@ -171,11 +178,17 @@ unsigned int flash_erase_page(void *address)
 /*! Write one *ROW* of FLASH ROM
 
   @param  address	flash rom address
+  @param  data		write data address
   @return		not zero if errors.
 */
 unsigned int flash_write_row(void *address, void *data)
 {
-  NVMADDR = ((uintptr_t)address & 0x1FFFFFFF);
-  NVMSRCADDR = ((uintptr_t)data & 0x1FFFFFFF);
+  // Set NVMADDR to Start Address of row to program
+  NVMADDR = KVA_TO_PA(address);
+
+  // Set NVMSRCADDR to the SRAM data buffer Address
+  NVMSRCADDR = KVA_TO_PA(data);
+
+  // Unlock and Write Row
   return NVMUnlock( 0x3 );	// 0x3 = Row Program Operation
 }
