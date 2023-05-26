@@ -97,7 +97,7 @@ static int pwm_set_pulse_width_us( PWM_HANDLE *hndl, unsigned int us )
 */
 static int pwm_assign_pin( const PIN_HANDLE *pin )
 {
-// DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
+  // DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
   static const struct PWM_PIN_ASSIGN {
     unsigned int port : 4;
     unsigned int num : 4;
