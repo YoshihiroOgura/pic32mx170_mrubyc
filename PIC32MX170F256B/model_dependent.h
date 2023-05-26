@@ -45,11 +45,13 @@ extern "C" {
 #define CNPDxCLR(x)	*(&CNPDACLR  + (0x100 / sizeof(uint32_t)) * ((x)-1))
 
 // Output comparator
+#define NUM_PWM_OC_UNIT 5
 #define OCxCON(x)	*(&OC1CON    + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define OCxR(x)		*(&OC1R      + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define OCxRS(x)	*(&OC1RS     + (0x200 / sizeof(uint32_t)) * ((x)-1))
 
 // SPI
+#define NUM_SPI_UNIT 2
 #define SPIxCON(x)	*(&SPI1CON   + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxCONSET(x)	*(&SPI1CONSET+ (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define SPIxCONCLR(x)	*(&SPI1CONCLR+ (0x200 / sizeof(uint32_t)) * ((x)-1))
@@ -60,6 +62,7 @@ extern "C" {
 #define SDIxR(x)	*(&SDI1R     + (0x00c / sizeof(uint32_t)) * ((x)-1))
 
 // UART
+#define NUM_UART_UNIT 2
 #define UxMODE(x)	*(&U1MODE    + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define UxMODESET(x)	*(&U1MODESET + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define UxMODECLR(x)	*(&U1MODECLR + (0x200 / sizeof(uint32_t)) * ((x)-1))
@@ -89,7 +92,9 @@ extern volatile uint32_t *TBL_RPxnR[];
 #define FLASH_END_ADDR  0xBD03EFFF
 #define FLASH_PAGE_SIZE 1024
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE / 8)
-#define FLASH_ALIGN_ROW_SIZE(byte_size) ((byte_size) + (((byte_size) % FLASH_ROW_SIZE) == 0 ? 0 : (FLASH_ROW_SIZE - ((byte_size) % FLASH_ROW_SIZE))))
+#define FLASH_ALIGN_ROW_SIZE(bytes) \
+  ((((bytes)-1) / FLASH_ROW_SIZE + 1) * FLASH_ROW_SIZE)
+
 
 // System clock.
 #if !defined(_XTAL_FREQ)

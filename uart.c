@@ -36,7 +36,7 @@
 #endif
 
 // handle table.
-UART_HANDLE uart_handle_[2];
+UART_HANDLE uart_handle_[NUM_UART_UNIT];
 
 // function prototypes.
 static void uart_push_rxfifo( UART_HANDLE *hndl, uint8_t ch );
@@ -134,9 +134,9 @@ static inline void uart_interrupt_disable( const UART_HANDLE *hndl )
   @param  hndl	UART HANDLE
   @return	if error, returns minus value.
 */
-static int set_pin_to_uart( const UART_HANDLE *hndl )
+static int uart_assign_pin( const UART_HANDLE *hndl )
 {
-  if( hndl->unit_num < 1 || hndl->unit_num > 2 ) return -1;	// error return.
+  if( hndl->unit_num < 1 || hndl->unit_num > NUM_UART_UNIT ) return -1;
 
   /* set output (TxD) pin.
      Defaults to high level to keep high level when pin assignment is changed.
@@ -144,21 +144,25 @@ static int set_pin_to_uart( const UART_HANDLE *hndl )
   */
   gpio_setmode( &hndl->txd_pin, GPIO_OUT );
   LATxSET(hndl->txd_pin.port) = (1 << hndl->txd_pin.num);  // set high level
-  RPxnR(hndl->txd_pin.port, hndl->txd_pin.num) = hndl->unit_num; // pin assign
+  RPxnR(hndl->txd_pin.port, hndl->txd_pin.num) = hndl->unit_num;
 
   /* set input (RxD) pin.
      Pin assign: DS60001168L  TABLE 11-1: INPUT PIN SELECTION
   */
   gpio_setmode( &hndl->rxd_pin, GPIO_IN );
 
-  static const uint8_t UxRX_PINS[2][5] = {
-    {0x12, 0x26, 0x14, 0x2d, 0x22},	// U1RX: A2, B6, A4, B13, B2
-    {0x11, 0x25, 0x21, 0x2b, 0x28},	// U2RX: A1, B5, B1, B11, B8
+  static const uint8_t UxRX_PINS[NUM_UART_UNIT][5] = {
+    // U1RX
+    // A2    B6    A4    B13   B2
+    {0x12, 0x26, 0x14, 0x2d, 0x22},
+    // U2RX
+    // A1    B   , B1    B11   B8
+    {0x11, 0x25, 0x21, 0x2b, 0x28},
   };
-  for( int i = 0; i < 5; i++ ) {
+  for( int i = 0; i < sizeof(UxRX_PINS)/NUM_UART_UNIT; i++ ) {
     if( UxRX_PINS[hndl->unit_num-1][i] ==
 	(hndl->rxd_pin.port << 4 | hndl->rxd_pin.num) ) {
-      UxRXR(hndl->unit_num) = i;			// pin assign.
+      UxRXR(hndl->unit_num) = i;
       return 0;
     }
   }
@@ -172,9 +176,8 @@ static int set_pin_to_uart( const UART_HANDLE *hndl )
 */
 void uart_init(void)
 {
-  /* UART1
-      TxD: RPB4(11pin) = Pin9
-      RxD: RPA4(12pin) = none
+  /*
+    UART1
   */
   uart_handle_[0].txd_pin = (PIN_HANDLE){UART1_TXD_PIN};
   uart_handle_[0].rxd_pin = (PIN_HANDLE){UART1_RXD_PIN};
@@ -185,7 +188,7 @@ void uart_init(void)
   U1MODE = 0x0008;
   U1STA = 0x0;
   uart_setmode( &uart_handle_[0], 19200, 0, 1 );
-  set_pin_to_uart( &uart_handle_[0] );
+  uart_assign_pin( &uart_handle_[0] );
 
   // interrupt level.
   IPC8bits.U1IP = 4;
@@ -194,9 +197,8 @@ void uart_init(void)
   // Enabling UART1
   uart_enable( &uart_handle_[0] );
 
-  /* UART2
-      TxD: RPB9(18pin) = Pin14
-      RxD: RPB8(17pin) = Pin13
+  /*
+    UART2
   */
   uart_handle_[1].txd_pin = (PIN_HANDLE){UART2_TXD_PIN};
   uart_handle_[1].rxd_pin = (PIN_HANDLE){UART2_RXD_PIN};
@@ -207,7 +209,7 @@ void uart_init(void)
   U2MODE = 0x0008;
   U2STA = 0x0;
   uart_setmode( &uart_handle_[1], 9600, 0, 1 );	// I/O API standard baudrate.
-  set_pin_to_uart( &uart_handle_[1] );
+  uart_assign_pin( &uart_handle_[1] );
 
   // interrupt level.
   IPC9bits.U2IP = 4;
@@ -446,7 +448,7 @@ static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
     if( mrbc_type(unit) != MRBC_TT_INTEGER ) goto ERROR_RETURN;
     ch = mrbc_integer(unit);
   }
-  if( ch < 1 || ch > 2 ) goto ERROR_RETURN;
+  if( ch < 1 || ch > NUM_UART_UNIT ) goto ERROR_RETURN;
 
   // allocate instance with UART_HANDLE table pointer.
   mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
@@ -502,7 +504,7 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   uart_setmode( hndl, baud_rate, parity.i, stop_bits.i );
   if( flag_pin_change ) {
     RPxnR( now_txd_pin.port, now_txd_pin.num ) = 0;	// release TxD pin.
-    if( set_pin_to_uart( hndl ) < 0 ) goto ERROR_ARGUMENT;
+    if( uart_assign_pin( hndl ) < 0 ) goto ERROR_ARGUMENT;
   }
   uart_enable( hndl );
   goto RETURN;

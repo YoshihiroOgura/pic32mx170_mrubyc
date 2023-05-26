@@ -26,54 +26,17 @@
 #endif
 
 
-// DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
-static const struct PWM_PIN_ASSIGN {
-  unsigned int port : 4;
-  unsigned int num : 4;
-  unsigned int unit_num : 4;
-} PWM_PIN_ASSIGN[] = {
-		// OC1 group
-  { 1, 0, 1 },	// RPA0
-  { 2, 3, 1 },	// RPB3
-  { 2, 4, 1 },	// RPB4
-  { 2,15, 1 },	// RPB15
-  { 2, 7, 1 },	// RPB7
-
-		// OC2 group
-  { 1, 1, 2 },	// RPA1
-  { 2, 5, 2 },	// RPB5
-  { 2, 1, 2 },	// RPB1
-  { 2,11, 2 },	// RPB11
-  { 2, 8, 2 },	// RPB8
-
-		// OC4 group
-  { 1, 2, 4 },	// RPA2
-  { 2, 6, 4 },	// RPB6
-  { 1, 4, 4 },	// RPA4
-  { 2,13, 4 },	// RPB13
-  { 2, 2, 4 },	// RPB2
-
-		// OC3 group
-  { 1, 3, 3 },	// RPA3
-  { 2,14, 3 },	// RPB14
-  { 2, 0, 3 },	// RPB0
-  { 2,10, 3 },	// RPB10
-  { 2, 9, 3 },	// RPB9
-};
-static const int NUM_PWM_PIN_ASSIGN = sizeof(PWM_PIN_ASSIGN) / sizeof(struct PWM_PIN_ASSIGN);
-
 /*
   PWM (OC) management data
  */
 typedef struct PWM_HANDLE {
   PIN_HANDLE pin;
   uint8_t flag_in_use;
-  uint8_t unit_num;	// 1..4
+  uint8_t unit_num;
   uint16_t period;	// PRx set count value.
   uint16_t duty;	// percent but stretch 100% to UINT16_MAX
 } PWM_HANDLE;
 
-#define NUM_PWM_OC_UNIT 4
 static PWM_HANDLE pwm_handle_[NUM_PWM_OC_UNIT];
 
 
@@ -130,6 +93,72 @@ static int pwm_set_pulse_width_us( PWM_HANDLE *hndl, unsigned int us )
 }
 
 
+/*! assign pin.
+*/
+static int pwm_assign_pin( const PIN_HANDLE *pin )
+{
+// DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
+  static const struct PWM_PIN_ASSIGN {
+    unsigned int port : 4;
+    unsigned int num : 4;
+    unsigned int unit_num : 4;
+    unsigned int rpnr_value : 4;
+  } PWM_PIN_ASSIGN[] = {
+    // OC1 group
+    { 1, 0, 1, 0x5 },	// RPA0
+    { 2, 3, 1, 0x5 },	// RPB3
+    { 2, 4, 1, 0x5 },	// RPB4
+    { 2,15, 1, 0x5 },	// RPB15
+    { 2, 7, 1, 0x5 },	// RPB7
+
+    // OC2 group
+    { 1, 1, 2, 0x5 },	// RPA1
+    { 2, 5, 2, 0x5 },	// RPB5
+    { 2, 1, 2, 0x5 },	// RPB1
+    { 2,11, 2, 0x5 },	// RPB11
+    { 2, 8, 2, 0x5 },	// RPB8
+
+    // OC4 group
+    { 1, 2, 4, 0x5 },	// RPA2
+    { 2, 6, 4, 0x5 },	// RPB6
+    { 1, 4, 4, 0x5 },	// RPA4
+    { 2,13, 4, 0x5 },	// RPB13
+    { 2, 2, 4, 0x5 },	// RPB2
+
+    // OC3 group
+    { 1, 3, 3, 0x5 },	// RPA3
+    { 2,14, 3, 0x5 },	// RPB14
+    { 2, 0, 3, 0x5 },	// RPB0
+    { 2,10, 3, 0x5 },	// RPB10
+    { 2, 9, 3, 0x5 },	// RPB9
+  };
+  static const int NUM_PWM_PIN_ASSIGN = sizeof(PWM_PIN_ASSIGN) / sizeof(struct PWM_PIN_ASSIGN);
+
+  // find PWM(OC) unit from PWM_PIN_ASSIGN table.
+  int i;
+  for( i = 0; i < NUM_PWM_PIN_ASSIGN; i++ ) {
+    if( (PWM_PIN_ASSIGN[i].port == pin->port) &&
+	(PWM_PIN_ASSIGN[i].num == pin->num )) break;
+  }
+  if( i == NUM_PWM_PIN_ASSIGN ) return -1;
+
+  int unit_num = PWM_PIN_ASSIGN[i].unit_num;
+  PWM_HANDLE *hndl = &pwm_handle_[unit_num-1];
+
+  // check already in use OC unit.
+  if( hndl->flag_in_use ) return -1;
+
+  hndl->pin = *pin;
+  hndl->flag_in_use = 1;
+
+  // set pin to digital output
+  gpio_setmode( pin, GPIO_OUT );
+  RPxnR( pin->port, pin->num ) = PWM_PIN_ASSIGN[i].rpnr_value;
+
+  return unit_num;
+}
+
+
 /* ============================= mruby/c codes ============================= */
 
 /*! constructor
@@ -147,33 +176,13 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   PIN_HANDLE pin;
   if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
 
-  // find PWM(OC) unit from PWM_PIN_ASSIGN table.
-  int i;
-  for( i = 0; i < NUM_PWM_PIN_ASSIGN; i++ ) {
-    if( (PWM_PIN_ASSIGN[i].port == pin.port) &&
-	(PWM_PIN_ASSIGN[i].num == pin.num )) break;
-  }
-  if( i == NUM_PWM_PIN_ASSIGN ) goto ERROR_RETURN;
-
-  int unit_num = PWM_PIN_ASSIGN[i].unit_num;
+  int unit_num = pwm_assign_pin( &pin );
+  if( unit_num < 0 ) goto ERROR_RETURN;
   PWM_HANDLE *hndl = &pwm_handle_[unit_num-1];
 
   // allocate instance with PWM_HANDLE table pointer.
   mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(PWM_HANDLE *));
   *(PWM_HANDLE **)(val.instance->data) = hndl;
-
-  // check already in use OC unit.
-  if( hndl->flag_in_use ) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "PWM already in use.");
-    goto RETURN;
-  }
-
-  hndl->pin = pin;
-  hndl->flag_in_use = 1;
-
-  // set pin to digital output
-  gpio_setmode( &pin, GPIO_OUT );
-  RPxnR( pin.port, pin.num ) = 0x05;  // 0x05: TABLE 11-2
 
   // set OC module
   OCxCON(unit_num) = 0x0006;	// PWM mode, use Timer2.
