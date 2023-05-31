@@ -73,6 +73,8 @@ extern "C" {
 #define UxRXREG(x)	*(&U1RXREG   + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define UxBRG(x)	*(&U1BRG     + (0x200 / sizeof(uint32_t)) * ((x)-1))
 #define UxRXR(x)	*(&U1RXR     + (0x008 / sizeof(uint32_t)) * ((x)-1))
+#define IPC_U1IPIS(ip,is)	(IPC8bits.U1IP = (ip), IPC8bits.U1IS = (is))
+#define IPC_U2IPIS(ip,is)	(IPC9bits.U2IP = (ip), IPC9bits.U2IS = (is))
 
 // Output pin selection.
 #define RPxnR(x,n)	(TBL_RPxnR[(x)-1][n])

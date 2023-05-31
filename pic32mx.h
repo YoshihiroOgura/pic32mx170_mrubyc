@@ -14,14 +14,6 @@
 extern "C" {
 #endif
 
-/*! Pin handle struct.
-
-*/
-typedef struct PIN_HANDLE {
-  uint8_t port;		// A=1,B=2,..,G=7
-  uint8_t num;		// 0..15
-} PIN_HANDLE;
-
 
 void __delay_us(uint32_t us);
 void __delay_ms(uint32_t ms);
@@ -31,9 +23,6 @@ void system_reset(void);
 unsigned int NVMUnlock(unsigned int nvmop);
 unsigned int flash_erase_page(void *address);
 unsigned int flash_write_row(void *address, void *data);
-
-struct RObject;
-int set_pin_handle( PIN_HANDLE *pin_handle, const struct RObject *val );
 
 
 /* Provide C++ Compatibility */

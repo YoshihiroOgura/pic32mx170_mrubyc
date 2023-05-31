@@ -35,11 +35,50 @@
 #define UART_NL		"\n"
 #endif
 
+
 // handle table.
 UART_HANDLE uart_handle_[NUM_UART_UNIT];
 
-// function prototypes.
-static void uart_push_rxfifo( UART_HANDLE *hndl, uint8_t ch );
+// function prototypes for static function.
+static int uart_assign_pin( const UART_HANDLE *hndl );
+static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_bytes_to_write(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_can_read_line(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_flush(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc);
+static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc);
+
+
+#if defined(__32MX170F256B__) || defined(__PIC32MX170F256B__)
+/*! UART TxD pin setting table
+  Pin assign: DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
+*/
+static const uint8_t UART_TXD_RPxnR[NUM_UART_UNIT] = {
+  0x01,	// U1TX = 0001
+  0x02, // U2TX = 0002
+};
+
+/*! UART RxD pin settng table
+  Pin assign: DS60001168L  TABLE 11-1: INPUT PIN SELECTION
+*/
+static const uint8_t UART_RXD_PINS[NUM_SPI_UNIT][5] = {
+  // U1RX
+  // A2    B6    A4    B13   B2
+  {0x12, 0x26, 0x14, 0x2d, 0x22},
+  // U2RX
+  // A1    B   , B1    B11   B8
+  {0x11, 0x25, 0x21, 0x2b, 0x28},
+};
+#else
+#include "uart_dependent.h"
+#endif
 
 
 //================================================================
@@ -83,7 +122,7 @@ void __ISR(_UART_2_VECTOR, IPL4AUTO) uart2_isr( void )
   }
 }
 
-static void uart_push_rxfifo( UART_HANDLE *hndl, uint8_t ch )
+void uart_push_rxfifo( UART_HANDLE *hndl, uint8_t ch )
 {
   hndl->rxfifo[hndl->rx_wr++] = ch;
 
@@ -109,23 +148,15 @@ static void uart_push_rxfifo( UART_HANDLE *hndl, uint8_t ch )
 //================================================================
 /*! UART enable or disable interrupt.
 */
-static void uart_interrupt_en_dis( const UART_HANDLE *hndl, int en_dis )
+#if !defined(UART_INTERRUPT_EN_DIS)
+void uart_interrupt_en_dis( const UART_HANDLE *hndl, int en_dis )
 {
   switch( hndl->unit_num ) {
   case 1: IEC1bits.U1RXIE = en_dis;
   case 2: IEC1bits.U2RXIE = en_dis;
   }
 }
-
-static inline void uart_interrupt_enable( const UART_HANDLE *hndl )
-{
-  uart_interrupt_en_dis( hndl, 1 );
-}
-
-static inline void uart_interrupt_disable( const UART_HANDLE *hndl )
-{
-  uart_interrupt_en_dis( hndl, 0 );
-}
+#endif
 
 
 //================================================================
@@ -140,27 +171,16 @@ static int uart_assign_pin( const UART_HANDLE *hndl )
 
   /* set output (TxD) pin.
      Defaults to high level to keep high level when pin assignment is changed.
-     Pin assign: DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
   */
   gpio_setmode( &hndl->txd_pin, GPIO_OUT );
   LATxSET(hndl->txd_pin.port) = (1 << hndl->txd_pin.num);  // set high level
-  RPxnR(hndl->txd_pin.port, hndl->txd_pin.num) = hndl->unit_num;
+  RPxnR(hndl->txd_pin.port, hndl->txd_pin.num) = UART_TXD_RPxnR[hndl->unit_num - 1];
 
   /* set input (RxD) pin.
-     Pin assign: DS60001168L  TABLE 11-1: INPUT PIN SELECTION
   */
   gpio_setmode( &hndl->rxd_pin, GPIO_IN );
-
-  static const uint8_t UxRX_PINS[NUM_UART_UNIT][5] = {
-    // U1RX
-    // A2    B6    A4    B13   B2
-    {0x12, 0x26, 0x14, 0x2d, 0x22},
-    // U2RX
-    // A1    B   , B1    B11   B8
-    {0x11, 0x25, 0x21, 0x2b, 0x28},
-  };
-  for( int i = 0; i < sizeof(UxRX_PINS)/NUM_UART_UNIT; i++ ) {
-    if( UxRX_PINS[hndl->unit_num-1][i] ==
+  for( int i = 0; i < sizeof(UART_RXD_PINS)/NUM_UART_UNIT; i++ ) {
+    if( UART_RXD_PINS[hndl->unit_num-1][i] ==
 	(hndl->rxd_pin.port << 4 | hndl->rxd_pin.num) ) {
       UxRXR(hndl->unit_num) = i;
       return 0;
@@ -174,6 +194,7 @@ static int uart_assign_pin( const UART_HANDLE *hndl )
 //================================================================
 /*! initialize unit
 */
+#if !defined(UART_INIT)
 void uart_init(void)
 {
   /*
@@ -191,8 +212,7 @@ void uart_init(void)
   uart_assign_pin( &uart_handle_[0] );
 
   // interrupt level.
-  IPC8bits.U1IP = 4;
-  IPC8bits.U1IS = 3;
+  IPC_U1IPIS( 4, 3 );
 
   // Enabling UART1
   uart_enable( &uart_handle_[0] );
@@ -212,12 +232,12 @@ void uart_init(void)
   uart_assign_pin( &uart_handle_[1] );
 
   // interrupt level.
-  IPC9bits.U2IP = 4;
-  IPC9bits.U2IS = 3;
+  IPC_U2IPIS( 4, 3 );
 
   // Enabling UART2
   uart_enable( &uart_handle_[1] );
 }
+#endif
 
 
 //================================================================
@@ -428,7 +448,6 @@ int uart_can_read_line( const UART_HANDLE *hndl )
 
 
 /* ============================= mruby/c codes ============================= */
-static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc);
 
 //================================================================
 /*! UART constructor

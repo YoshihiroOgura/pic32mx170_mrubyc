@@ -25,6 +25,50 @@
 #define UINT16_MAX 65535U
 #endif
 
+/*! PWM pin assign table
+*/
+struct PWM_PIN_ASSIGN {
+  uint8_t port;
+  uint8_t num;
+  uint8_t unit_num;	// 1..NUM_PWM_OC_UNIT
+  uint8_t rpnr_value;
+};
+
+#if defined(__32MX170F256B__) || defined(__PIC32MX170F256B__)
+// DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
+static const struct PWM_PIN_ASSIGN PWM_PIN_ASSIGN[] =
+{
+  // OC1 group
+  { 1, 0, 1, 0x5 },	// RPA0
+  { 2, 3, 1, 0x5 },	// RPB3
+  { 2, 4, 1, 0x5 },	// RPB4
+  { 2,15, 1, 0x5 },	// RPB15
+  { 2, 7, 1, 0x5 },	// RPB7
+
+  // OC2 group
+  { 1, 1, 2, 0x5 },	// RPA1
+  { 2, 5, 2, 0x5 },	// RPB5
+  { 2, 1, 2, 0x5 },	// RPB1
+  { 2,11, 2, 0x5 },	// RPB11
+  { 2, 8, 2, 0x5 },	// RPB8
+
+  // OC4 group
+  { 1, 2, 4, 0x5 },	// RPA2
+  { 2, 6, 4, 0x5 },	// RPB6
+  { 1, 4, 4, 0x5 },	// RPA4
+  { 2,13, 4, 0x5 },	// RPB13
+  { 2, 2, 4, 0x5 },	// RPB2
+
+  // OC3 group
+  { 1, 3, 3, 0x5 },	// RPA3
+  { 2,14, 3, 0x5 },	// RPB14
+  { 2, 0, 3, 0x5 },	// RPB0
+  { 2,10, 3, 0x5 },	// RPB10
+  { 2, 9, 3, 0x5 },	// RPB9
+};
+#else
+#include "pwm_dependent.h"
+#endif
 
 /*
   PWM (OC) management data
@@ -97,50 +141,14 @@ static int pwm_set_pulse_width_us( PWM_HANDLE *hndl, unsigned int us )
 */
 static int pwm_assign_pin( const PIN_HANDLE *pin )
 {
-  // DS60001168L  TABLE 11-2: OUTPUT PIN SELECTION
-  static const struct PWM_PIN_ASSIGN {
-    unsigned int port : 4;
-    unsigned int num : 4;
-    unsigned int unit_num : 4;
-    unsigned int rpnr_value : 4;
-  } PWM_PIN_ASSIGN[] = {
-    // OC1 group
-    { 1, 0, 1, 0x5 },	// RPA0
-    { 2, 3, 1, 0x5 },	// RPB3
-    { 2, 4, 1, 0x5 },	// RPB4
-    { 2,15, 1, 0x5 },	// RPB15
-    { 2, 7, 1, 0x5 },	// RPB7
-
-    // OC2 group
-    { 1, 1, 2, 0x5 },	// RPA1
-    { 2, 5, 2, 0x5 },	// RPB5
-    { 2, 1, 2, 0x5 },	// RPB1
-    { 2,11, 2, 0x5 },	// RPB11
-    { 2, 8, 2, 0x5 },	// RPB8
-
-    // OC4 group
-    { 1, 2, 4, 0x5 },	// RPA2
-    { 2, 6, 4, 0x5 },	// RPB6
-    { 1, 4, 4, 0x5 },	// RPA4
-    { 2,13, 4, 0x5 },	// RPB13
-    { 2, 2, 4, 0x5 },	// RPB2
-
-    // OC3 group
-    { 1, 3, 3, 0x5 },	// RPA3
-    { 2,14, 3, 0x5 },	// RPB14
-    { 2, 0, 3, 0x5 },	// RPB0
-    { 2,10, 3, 0x5 },	// RPB10
-    { 2, 9, 3, 0x5 },	// RPB9
-  };
-  static const int NUM_PWM_PIN_ASSIGN = sizeof(PWM_PIN_ASSIGN) / sizeof(struct PWM_PIN_ASSIGN);
-
   // find PWM(OC) unit from PWM_PIN_ASSIGN table.
+  static const int NUM = sizeof(PWM_PIN_ASSIGN) / sizeof(struct PWM_PIN_ASSIGN);
   int i;
-  for( i = 0; i < NUM_PWM_PIN_ASSIGN; i++ ) {
+  for( i = 0; i < NUM; i++ ) {
     if( (PWM_PIN_ASSIGN[i].port == pin->port) &&
 	(PWM_PIN_ASSIGN[i].num == pin->num )) break;
   }
-  if( i == NUM_PWM_PIN_ASSIGN ) return -1;
+  if( i == NUM ) return -1;
 
   int unit_num = PWM_PIN_ASSIGN[i].unit_num;
   PWM_HANDLE *hndl = &pwm_handle_[unit_num-1];

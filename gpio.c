@@ -21,6 +21,56 @@
 
 
 /* ================================ C codes ================================ */
+
+/*! PIN handle setter
+
+  valが、ピン番号（数字）でもポート番号（e.g."B3"）でも受け付ける。
+
+  @param  pin_handle	dist.
+  @param  val		src.
+  @retval 0		No error.
+*/
+int set_pin_handle( PIN_HANDLE *pin_handle, const mrbc_value *val )
+{
+  switch( val->tt ) {
+  case MRBC_TT_INTEGER: {
+    int ch = mrbc_integer(*val);
+    if( ch <= 4 ) {		// Rboard J9,J10,J11 mapping.
+      pin_handle->port = 1;
+      pin_handle->num = ch;
+    } else {
+      pin_handle->port = 2;
+      pin_handle->num = ch-5;
+    }
+  } break;
+
+  case MRBC_TT_STRING: {
+    const char *s = mrbc_string_cstr(val);
+    if( 'A' <= s[0] && s[0] <= 'G' ) {
+      pin_handle->port = s[0] - 'A' + 1;
+    } else if( 'a' <= s[0] && s[0] <= 'g' ) {
+      pin_handle->port = s[0] - 'a' + 1;
+    } else {
+      return -1;
+    }
+
+    pin_handle->num = mrbc_atoi( s+1, 10 );
+  } break;
+
+  default:
+    return -1;
+  }
+
+  return -(pin_handle->num < 0 || pin_handle->num > 15);
+}
+
+
+/*! set (change) mode
+
+  @param  pin	target pin.
+  @param  mode	mode. Sepcified by GPIO_* constant.
+  @return int	zero is no error.
+*/
 int gpio_setmode( const PIN_HANDLE *pin, unsigned int mode )
 {
   if( mode & (GPIO_IN|GPIO_OUT|GPIO_ANALOG|GPIO_HIGH_Z) ) {

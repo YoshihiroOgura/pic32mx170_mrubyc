@@ -21,18 +21,20 @@
 
 /* ================================ C codes ================================ */
 
-/*
- SPI management data
+/*! SPI management data
 */
 typedef struct SPI_HANDLE {
   PIN_HANDLE sdi_pin;
   PIN_HANDLE sdo_pin;
   PIN_HANDLE sck_pin;
   uint8_t flag_in_use;
-  uint8_t unit_num;	// 1..2
+  uint8_t unit_num;	// 1..NUM_SPI_UNIT
 } SPI_HANDLE;
 
-// handle table
+#if defined(__32MX170F256B__) || defined(__PIC32MX170F256B__)
+/*!
+  SPI handle table with default pin assign.
+*/
 static SPI_HANDLE spi_handle_[NUM_SPI_UNIT] = {
   { .unit_num = 1,
     .sdi_pin = {2, 5},	// B5
@@ -45,6 +47,75 @@ static SPI_HANDLE spi_handle_[NUM_SPI_UNIT] = {
     .sck_pin = {2,15},	// B15
   },
 };
+
+/*!
+  SPI SDI pin setting table
+*/
+static const uint8_t SPI_SDI_PINS[NUM_SPI_UNIT][5] = {
+  {0x11, 0x25, 0x21, 0x2b, 0x28},     // SDI1: A1, B5, B1, B11, B8
+  {0x12, 0x26, 0x14, 0x2d, 0x22},     // SDI2: A2, B6, A4, B13, B2
+};
+
+/*!
+  SPI SDO pin setting table
+*/
+static const uint8_t SPI_SDO_RPxnR[NUM_SPI_UNIT] = {
+  // set value SDO1 = 0b0011, SDO2 = 0b0100
+  0x03, 0x04
+};
+#else
+#include "spi_dependent.h"
+#endif
+
+
+/*! assign SDI pin
+
+  @memberof SPI_HANDLE
+*/
+static int spi_assign_sdi_pin( const SPI_HANDLE *hndl )
+{
+  gpio_setmode( &hndl->sdi_pin, GPIO_IN );
+
+  for( int i = 0; i < sizeof(SPI_SDI_PINS)/NUM_SPI_UNIT; i++ ) {
+    if( SPI_SDI_PINS[hndl->unit_num-1][i] ==
+        (hndl->sdi_pin.port << 4 | hndl->sdi_pin.num) ) {
+      SDIxR(hndl->unit_num) = i;
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+
+/*! assign SDO pin
+
+  @memberof SPI_HANDLE
+*/
+static int spi_assign_sdo_pin( const SPI_HANDLE *hndl )
+{
+  gpio_setmode( &hndl->sdo_pin, GPIO_OUT );
+
+  // set value SDO1 = 0b0011, SDO2 = 0b0100
+  RPxnR( hndl->sdo_pin.port, hndl->sdo_pin.num ) = SPI_SDO_RPxnR[hndl->unit_num - 1];
+
+  return 0;
+}
+
+
+/*! assign SCK pin
+
+  @memberof SPI_HANDLE
+
+  (note)
+  SCKは、UNITごとに1カ所のみ
+*/
+static int spi_assign_sck_pin( const SPI_HANDLE *hndl )
+{
+  gpio_setmode( &hndl->sck_pin, GPIO_OUT );
+
+  return 0;
+}
 
 
 /*! set SPI mode and clock
@@ -74,61 +145,6 @@ static int spi_setmode( const SPI_HANDLE *hndl, int mode, int32_t freq )
     if( brg >= 0x2000 ) return -1;
     SPIxBRG(hndl->unit_num) = brg;
   }
-
-  return 0;
-}
-
-
-/*! assign SDI pin
-
-  @memberof SPI_HANDLE
-*/
-static int spi_assign_sdi_pin( const SPI_HANDLE *hndl )
-{
-  static const uint8_t SDI_PINS[NUM_SPI_UNIT][5] = {
-    {0x11, 0x25, 0x21, 0x2b, 0x28},     // SDI1: A1, B5, B1, B11, B8
-    {0x12, 0x26, 0x14, 0x2d, 0x22},     // SDI2: A2, B6, A4, B13, B2
-  };
-
-  gpio_setmode( &hndl->sdi_pin, GPIO_IN );
-
-  for( int i = 0; i < sizeof(SDI_PINS)/NUM_SPI_UNIT; i++ ) {
-    if( SDI_PINS[hndl->unit_num-1][i] ==
-        (hndl->sdi_pin.port << 4 | hndl->sdi_pin.num) ) {
-      SDIxR(hndl->unit_num) = i;
-      return 0;
-    }
-  }
-
-  return -1;
-}
-
-
-/*! assign SDO pin
-
-  @memberof SPI_HANDLE
-*/
-static int spi_assign_sdo_pin( const SPI_HANDLE *hndl )
-{
-  gpio_setmode( &hndl->sdo_pin, GPIO_OUT );
-
-  // set value SDO1 = 0b0011, SDO2 = 0b0100
-  RPxnR( hndl->sdo_pin.port, hndl->sdo_pin.num ) = hndl->unit_num + 2;
-
-  return 0;
-}
-
-
-/*! assign SCK pin
-
-  @memberof SPI_HANDLE
-
-  (note)
-  SCKは、UNITごとに1カ所のみ
-*/
-static int spi_assign_sck_pin( const SPI_HANDLE *hndl )
-{
-  gpio_setmode( &hndl->sck_pin, GPIO_OUT );
 
   return 0;
 }

@@ -19,12 +19,17 @@
 #include "gpio.h"
 #include "mrubyc.h"
 
-
+/*! ADC handle
+*/
 typedef struct ADC_HANDLE {
   PIN_HANDLE pin;
-  uint8_t channel;	// 0..12
+  uint8_t channel;
 } ADC_HANDLE;
 
+#if defined(__32MX170F256B__) || defined(__PIC32MX170F256B__)
+/*
+  Pin assign vs ADC channel table.
+*/
 static const ADC_HANDLE adc_handle_[] = {
   {{1, 0}, 0},	// AN0=RA0
   {{1, 1}, 1},	// AN1=RA1
@@ -37,7 +42,9 @@ static const ADC_HANDLE adc_handle_[] = {
   {{2,13}, 11},	// AN11=RB13
   {{2,12}, 12},	// AN12=RB12
 };
-static const int NUM_ADC_HANDLE_TBL = sizeof(adc_handle_)/sizeof(ADC_HANDLE);
+#else
+#include "adc_dependent.h"
+#endif
 
 
 /* ================================ C codes ================================ */
@@ -61,12 +68,13 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
 
   // find ADC channel from adc_handle_ table.
+  static const int NUM = sizeof(adc_handle_)/sizeof(ADC_HANDLE);
   int i;
-  for( i = 0; i < NUM_ADC_HANDLE_TBL; i++ ) {
+  for( i = 0; i < NUM; i++ ) {
     if( (adc_handle_[i].pin.port == pin.port) &&
 	(adc_handle_[i].pin.num == pin.num) ) break;
   }
-  if( i == NUM_ADC_HANDLE_TBL ) goto ERROR_RETURN;
+  if( i == NUM ) goto ERROR_RETURN;
 
   // allocate instance with ADC_HANDLE table pointer.
   mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));

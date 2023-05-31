@@ -28,15 +28,21 @@
 #include "model_dependent.c"  // include system (CPU) related functions.
 
 
-#define MEMORY_SIZE (1024*40)
-uint8_t memory_pool[MEMORY_SIZE];
+// mruby/c heap
+#if !defined(MRBC_MEMORY_SIZE)
+#define MRBC_MEMORY_SIZE (1024*40)
+#endif
+uint8_t memory_pool[MRBC_MEMORY_SIZE];
 
 
+// function prototypes.
+void tick_timer_init( void );
 void mrbc_init_class_adc(void);
 void mrbc_init_class_pwm(void);
 void mrbc_init_class_i2c(void);
 void mrbc_init_class_spi(void);
 void add_code(void);
+
 
 //================================================================
 /*
@@ -93,80 +99,6 @@ static void c_sw(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 
-//================================================================
-/*! PIN handle setter
-
-  valが、ピン番号（数字）でもポート番号（e.g."B3"）でも受け付ける。
-
-  @param  pin_handle	dist.
-  @param  val		src.
-  @retval 0		No error.
-*/
-int set_pin_handle( PIN_HANDLE *pin_handle, const mrbc_value *val )
-{
-  switch( val->tt ) {
-  case MRBC_TT_INTEGER: {
-    int ch = mrbc_integer(*val);
-    if( ch <= 4 ) {		// Rboard J9,J10,J11 mapping.
-      pin_handle->port = 1;
-      pin_handle->num = ch;
-    } else {
-      pin_handle->port = 2;
-      pin_handle->num = ch-5;
-    }
-  } break;
-
-  case MRBC_TT_STRING: {
-    const char *s = mrbc_string_cstr(val);
-    if( 'A' <= s[0] && s[0] <= 'G' ) {
-      pin_handle->port = s[0] - 'A' + 1;
-    } else if( 'a' <= s[0] && s[0] <= 'g' ) {
-      pin_handle->port = s[0] - 'a' + 1;
-    } else {
-      return -1;
-    }
-
-    pin_handle->num = mrbc_atoi( s+1, 10 );
-  } break;
-
-  default:
-    return -1;
-  }
-
-  return -(pin_handle->num < 0 || pin_handle->num > 15);
-}
-
-
-/*
-  Timer functions.
-
-  using Timer1
-        16bit mode.
-	1kHz (1ms/cycle)
-  see   DS60001105G
-        14.3.4.2 16-BIT SYNCHRONOUS COUNTER INITIALIZATION STEPS
-*/
-static void tick_timer_init( void )
-{
-  T1CON = 0;		// count PBCLK 1:1
-  TMR1 = 0;
-  PR1 = PBCLK / 1000;
-
-  IFS0CLR = (1 << _IFS0_T1IF_POSITION);
-  IPC1bits.T1IP = 1;	// Interrupt priority.
-  IPC1bits.T1IS = 0;
-  IEC0bits.T1IE = 1;	// Enable interrupt
-  T1CONbits.ON = 1;
-}
-
-// Timer1 interrupt handler.
-void __ISR(_TIMER_1_VECTOR, IPL1AUTO) timer1_isr( void )
-{
-  mrbc_tick();
-  IFS0CLR = (1 << _IFS0_T1IF_POSITION);
-}
-
-
 /*!
   Choose to enter programming mode or run mode.
 */
@@ -200,7 +132,7 @@ int main(void)
   mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v2.1.0, mruby/c v3.2 start.\n");
 
   /* start mruby/c */
-  mrbc_init(memory_pool, MEMORY_SIZE);
+  mrbc_init(memory_pool, MRBC_MEMORY_SIZE);
 
   mrbc_init_class_gpio();
   mrbc_init_class_uart();
