@@ -90,7 +90,7 @@ extern volatile uint32_t *TBL_RPxnR[];
 #define UART_CONSOLE	1
 
 // flash memory address and parameter.
-#define FLASH_SAVE_ADDR 0xBD03A000
+#define FLASH_SAVE_ADDR 0xBD035000
 #define FLASH_END_ADDR  0xBD03EFFF
 #define FLASH_PAGE_SIZE 1024
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE / 8)
