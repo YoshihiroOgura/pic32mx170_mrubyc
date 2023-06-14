@@ -132,26 +132,6 @@ void mrbc_putchar(char c)
 
 
 //================================================================
-/*! output C-string with LineFeed
-
-  @param  str	output string or NULL
-*/
-void mrbc_puts( const char *str )
-{
-  if( str == NULL ) goto OUTPUT_LF;
-
-  int len = strlen(str);
-  if( len == 0 ) goto OUTPUT_LF;
-
-  mrbc_nprint( str, len );
-  if( str[len-1] == '\n' ) return;
-
- OUTPUT_LF:
-  mrbc_putchar('\n');
-}
-
-
-//================================================================
 /*! display symbol name with nested.
 
   @param  sym_id	symbol ID to print.

@@ -744,12 +744,12 @@ static void c_string_inspect(struct VM *vm, mrbc_value v[], int argc)
 */
 static void c_string_ord(struct VM *vm, mrbc_value v[], int argc)
 {
-  int i = ((uint8_t *)mrbc_string_cstr(v))[0];
-
-  if (i == 0) {
+  if( mrbc_string_size(v) == 0 ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "empty string");
     return;
   }
+
+  int i = ((uint8_t *)mrbc_string_cstr(v))[0];
 
   SET_INT_RETURN( i );
 }

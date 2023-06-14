@@ -353,6 +353,13 @@ static void c_object_raise(struct VM *vm, mrbc_value v[], int argc)
     vm->exception = mrbc_exception_new( vm, MRBC_CLASS(ArgumentError), 0, 0 );
   }
 
+  // set raised method to exception instance.
+  if( vm->callinfo_tail != 0 &&
+      vm->exception.tt == MRBC_TT_EXCEPTION &&
+      vm->exception.exception->method_id == 0 ) {
+    vm->exception.exception->method_id = vm->callinfo_tail->method_id;
+  }
+
   vm->flag_preemption = 2;
 }
 

@@ -115,17 +115,23 @@ static void send_by_name( struct VM *vm, mrbc_sym sym_id, int a, int c )
     mrbc_raisef(vm, MRBC_CLASS(NoMethodError),
 		"undefined local variable or method '%s' for %s",
 		mrbc_symid_to_str(sym_id), mrbc_symid_to_str( cls->sym_id ));
+    if( vm->callinfo_tail != 0 ) {
+      vm->exception.exception->method_id = vm->callinfo_tail->method_id;
+    }
     return;
   }
 
   if( method.c_func ) {
     // call C method.
     method.func(vm, recv, narg);
+
+    if( mrbc_israised(vm) && vm->exception.exception->method_id == 0 ) {
+      vm->exception.exception->method_id = sym_id;
+    }
     if( sym_id == MRBC_SYM(call) ) return;
     if( sym_id == MRBC_SYM(new) ) return;
 
-    int i;
-    for( i = 1; i <= narg+1; i++ ) {
+    for( int i = 1; i <= narg+1; i++ ) {
       mrbc_decref_empty( recv + i );
     }
 
