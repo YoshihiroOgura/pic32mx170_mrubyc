@@ -3,8 +3,8 @@
   Object, Proc, Nil, True and False class.
 
   <pre>
-  Copyright (C) 2015-2022 Kyushu Institute of Technology.
-  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015-2023 Kyushu Institute of Technology.
+  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -28,11 +28,68 @@
 #include "symbol.h"
 #include "error.h"
 #include "class.h"
+#include "c_object.h"
 #include "c_string.h"
 #include "c_array.h"
 #include "c_hash.h"
+#include "global.h"
 #include "vm.h"
 #include "console.h"
+
+
+/***** Local functions ******************************************************/
+//================================================================
+/*! set symbol name by symbol ID
+ */
+static int set_sym_name_by_id( char *buf, int bufsiz, mrbc_sym sym_id )
+{
+  if( !mrbc_is_nested_symid(sym_id) ) {
+    return mrbc_strcpy( buf, bufsiz, mrbc_symid_to_str(sym_id) );
+  }
+
+  // nested case.
+  mrbc_sym id1, id2;
+  mrbc_separate_nested_symid( sym_id, &id1, &id2 );
+
+  int n = set_sym_name_by_id( buf, bufsiz, id1 );
+  n += mrbc_strcpy( buf+n, bufsiz-n, "::" );
+  n += set_sym_name_by_id( buf+n, bufsiz-n, id2 );
+
+  return n;
+}
+
+
+/***** global functions *****************************************************/
+//================================================================
+/*! call initializer
+ */
+void mrbc_instance_call_initialize( struct VM *vm, mrbc_value v[], int argc )
+{
+  // call the initialize method.
+  mrbc_method method;
+  if( !mrbc_find_method(&method, v[0].instance->cls, MRBC_SYM(initialize))) {
+    return;
+  }
+
+  mrbc_decref(&v[argc+1]);
+  mrbc_set_nil(&v[argc+1]);
+
+  if( method.c_func ) {
+    method.func(vm, v, argc);
+    for( int i = 1; i <= argc; i++ ) {
+      mrbc_decref_empty( v + i );
+    }
+    return;
+  }
+
+  mrbc_callinfo *callinfo = mrbc_push_callinfo(vm, MRBC_SYM(initialize),
+					       (v - vm->cur_regs), argc);
+  callinfo->own_class = method.cls;
+
+  vm->cur_irep = method.irep;
+  vm->inst = vm->cur_irep->inst;
+  vm->cur_regs = v;
+}
 
 
 /***** Object class *********************************************************/
@@ -41,26 +98,8 @@
  */
 static void c_object_new(struct VM *vm, mrbc_value v[], int argc)
 {
-  mrbc_class *cls = v->cls;
-  mrbc_value new_obj = mrbc_instance_new(vm, cls, 0);
-  if( new_obj.instance == NULL ) return;	// ENOMEM
-
-  mrbc_decref(&v[0]);
-  v[0] = new_obj;
-
-  // call the initialize method.
-  mrbc_method method;
-  if( mrbc_find_method( &method, cls, MRBC_SYM(initialize) ) == NULL ) return;
-
-  mrbc_decref(&v[argc+1]);
-  mrbc_set_nil(&v[argc+1]);
-  mrbc_callinfo *callinfo = mrbc_push_callinfo(vm, MRBC_SYM(initialize),
-					       (v - vm->cur_regs), argc);
-  callinfo->own_class = method.cls;
-
-  vm->cur_irep = method.irep;
-  vm->inst = vm->cur_irep->inst;
-  vm->cur_regs = v;
+  v[0] = mrbc_instance_new(vm, v[0].cls, 0);
+  mrbc_instance_call_initialize( vm, v, argc );
 }
 
 
@@ -90,6 +129,16 @@ static void c_object_compare(struct VM *vm, mrbc_value v[], int argc)
 {
   int result = mrbc_compare( &v[0], &v[1] );
   SET_INT_RETURN( result );
+}
+
+
+//================================================================
+/*! (operator) ==
+ */
+static void c_object_equal2(struct VM *vm, mrbc_value v[], int argc)
+{
+  int result = mrbc_compare( &v[0], &v[1] );
+  SET_BOOL_RETURN( result == 0 );
 }
 
 
@@ -302,6 +351,13 @@ static void c_object_raise(struct VM *vm, mrbc_value v[], int argc)
 
     // fail.
     vm->exception = mrbc_exception_new( vm, MRBC_CLASS(ArgumentError), 0, 0 );
+  }
+
+  // set raised method to exception instance.
+  if( vm->callinfo_tail != 0 &&
+      vm->exception.tt == MRBC_TT_EXCEPTION &&
+      vm->exception.exception->method_id == 0 ) {
+    vm->exception.exception->method_id = vm->callinfo_tail->method_id;
   }
 
   vm->flag_preemption = 2;
@@ -631,26 +687,27 @@ static void c_object_printf(struct VM *vm, mrbc_value v[], int argc)
  */
 static void c_object_to_s(struct VM *vm, mrbc_value v[], int argc)
 {
-  char buf[32];
-  const char *s;
+  char buf[64];
+  char *s = buf;
+  mrbc_sym sym_id = find_class_by_object(&v[0])->sym_id;
 
-  switch( mrbc_type(v[0]) ) {
-  case MRBC_TT_CLASS:
-    s = mrbc_symid_to_str( v->cls->sym_id );
-    break;
+  if( v[0].tt != MRBC_TT_CLASS ) {
+    buf[0] = '#'; buf[1] = '<';
+    s = buf + 2;
+  }
 
-  default:
-    mrbc_snprintf(buf, sizeof(buf), "#<%s:%08x>",
-	mrbc_symid_to_str(find_class_by_object(v)->sym_id), (uint32_t)
+  int bufsiz = sizeof(buf) - (s - buf);
+  int n = set_sym_name_by_id( s, bufsiz, sym_id );
+
+  if( v[0].tt != MRBC_TT_CLASS ) {
+    mrbc_snprintf(s+n, bufsiz-n, ":%08x>", (uint32_t)
 #if defined(UINTPTR_MAX)
 	(uintptr_t)
 #endif
 	v->instance );
-    s = buf;
-    break;
   }
 
-  SET_RETURN( mrbc_string_new_cstr( vm, s ) );
+  SET_RETURN( mrbc_string_new_cstr( vm, buf ));
 }
 #endif  // MRBC_USE_STRING
 
@@ -665,6 +722,7 @@ static void c_object_to_s(struct VM *vm, mrbc_value v[], int argc)
   METHOD( "!",		c_object_not )
   METHOD( "!=",		c_object_neq )
   METHOD( "<=>",	c_object_compare )
+  METHOD( "==",		c_object_equal2 )
   METHOD( "===",	c_object_equal3 )
   METHOD( "class",	c_object_class )
   METHOD( "dup",	c_object_dup )

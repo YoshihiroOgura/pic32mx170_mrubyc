@@ -15,10 +15,14 @@
  */
 /* ************************************************************************** */
 
-#ifndef _UART_H
-#define _UART_H
+#ifndef RBOARD_UART_H
+#define RBOARD_UART_H
 
-#include "mrubyc.h"
+#include <stdint.h>
+#include <string.h>
+#include "pic32mx.h"
+#include "gpio.h"
+
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
@@ -34,21 +38,37 @@ extern "C" {
   UART Handle
 */
 typedef struct UART_HANDLE {
-  uint8_t number;
+  PIN_HANDLE txd_pin;
+  PIN_HANDLE rxd_pin;
+
+  uint8_t unit_num;		// 1..
   uint8_t rx_overflow;		// buffer overflow flag.
   uint8_t delimiter;
-  uint8_t txd_pin;
 
   volatile uint16_t rx_rd;	// index of rxfifo for read.
   volatile uint16_t rx_wr;	// index of rxfifo for write.
   volatile uint8_t rxfifo[UART_SIZE_RXFIFO]; // FIFO for received data.
 
-  void (*clear_rx_buffer)();
-  int (*write)();
-
 } UART_HANDLE;
 
-extern UART_HANDLE uart1_handle, uart2_handle;
+extern UART_HANDLE uart_handle_[];
+#define UART_HANDLE_CONSOLE (&uart_handle_[UART_CONSOLE-1])
+
+/*
+  function prototypes.
+*/
+void uart_interrupt_en_dis(const UART_HANDLE *hndl, int en_dis);
+void uart_push_rxfifo(UART_HANDLE *hndl, uint8_t ch);
+void uart_init(void);
+void uart_enable(const UART_HANDLE *hndl);
+void uart_disable(const UART_HANDLE *hndl);
+int uart_setmode(const UART_HANDLE *hndl, int baud, int parity, int stop_bits);
+void uart_clear_rx_buffer(UART_HANDLE *hndl);
+int uart_read(UART_HANDLE *hndl, void *buffer, int size);
+int uart_write(UART_HANDLE *hndl, const void *buffer, int size);
+int uart_bytes_available(const UART_HANDLE *hndl);
+int uart_can_read_line(const UART_HANDLE *hndl);
+void mrbc_init_class_uart(void);
 
 
 //================================================================
@@ -77,33 +97,6 @@ static inline int uart_is_rx_overflow( const UART_HANDLE *uh )
 
 
 //================================================================
-/*! Clear receive buffer.
-
-  @memberof UART_HANDLE
-  @param  uh		Pointer of UART_HANDLE.
-*/
-static inline void uart_clear_rx_buffer( UART_HANDLE *uh )
-{
-  uh->clear_rx_buffer(uh);
-}
-
-
-//================================================================
-/*! Send out binary data.
-
-  @memberof UART_HANDLE
-  @param  uh            Pointer of UART_HANDLE.
-  @param  buffer        Pointer of buffer.
-  @param  size          Size of buffer.
-  @return               Size of transmitted.
-*/
-static inline int uart_write( UART_HANDLE *uh, const void *buffer, int size )
-{
-  return uh->write( buffer, size );
-}
-
-
-//================================================================
 /*! Transmit string.
 
   @memberof UART_HANDLE
@@ -113,25 +106,34 @@ static inline int uart_write( UART_HANDLE *uh, const void *buffer, int size )
 */
 static inline int uart_puts( UART_HANDLE *uh, const void *s )
 {
-  return uh->write( s, strlen(s) );
+  return uart_write( uh, s, strlen(s) );
 }
 
 
-/* C codes */
-void uart_init(void);
-void uart_enable(const UART_HANDLE *uh, int en_dis);
-int uart_set_modem_params(UART_HANDLE *uh, int baud, int parity, int stop_bits, int txd, int rxd);
-int uart_read(UART_HANDLE *uh, void *buffer, size_t size);
-int uart_bytes_available(const UART_HANDLE *uh);
-int uart_can_read_line(const UART_HANDLE *uh);
+//================================================================
+/*! Enable interrrupt
 
-/* mruby/c codes */
-void mrbc_init_class_uart(struct VM *vm);
+  @memberof UART_HANDLE
+*/
+static inline void uart_interrupt_enable( const UART_HANDLE *hndl )
+{
+  uart_interrupt_en_dis( hndl, 1 );
+}
+
+
+//================================================================
+/*! Disable interrrupt
+
+  @memberof UART_HANDLE
+*/
+static inline void uart_interrupt_disable( const UART_HANDLE *hndl )
+{
+  uart_interrupt_en_dis( hndl, 0 );
+}
 
 
 /* Provide C++ Compatibility */
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* _UART_H */
+#endif /* RBOARD_UART_H */

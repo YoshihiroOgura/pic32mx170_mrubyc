@@ -4,13 +4,6 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
-      <itemPath>adc.h</itemPath>
-      <itemPath>delay.h</itemPath>
-      <itemPath>digital.h</itemPath>
-      <itemPath>i2c.h</itemPath>
-      <itemPath>mrbc_firm.h</itemPath>
-      <itemPath>spi.h</itemPath>
-      <itemPath>uart.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -40,14 +33,16 @@
         <itemPath>src/error.c</itemPath>
         <itemPath>src/c_object.c</itemPath>
       </logicalFolder>
-      <itemPath>delay.c</itemPath>
       <itemPath>main.c</itemPath>
       <itemPath>i2c.c</itemPath>
       <itemPath>uart.c</itemPath>
       <itemPath>mrbc_firm.c</itemPath>
       <itemPath>adc.c</itemPath>
-      <itemPath>digital.c</itemPath>
       <itemPath>spi.c</itemPath>
+      <itemPath>gpio.c</itemPath>
+      <itemPath>pic32mx.c</itemPath>
+      <itemPath>pwm.c</itemPath>
+      <itemPath>timer.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -66,9 +61,9 @@
         <targetDevice>PIC32MX170F256B</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>PICkit3PlatformTool</platformTool>
+        <platformTool>noID</platformTool>
         <languageToolchain>XC32</languageToolchain>
-        <languageToolchainVersion>2.50</languageToolchainVersion>
+        <languageToolchainVersion>4.21</languageToolchainVersion>
         <platform>3</platform>
       </toolsSet>
       <packs>
@@ -109,12 +104,12 @@
         <property key="enable-symbols" value="true"/>
         <property key="enable-unroll-loops" value="false"/>
         <property key="exclude-floating-point" value="false"/>
-        <property key="extra-include-directories" value=".;src"/>
+        <property key="extra-include-directories" value=".;PIC32MX170F256B;src"/>
         <property key="generate-16-bit-code" value="false"/>
         <property key="generate-micro-compressed-code" value="false"/>
         <property key="isolate-each-function" value="false"/>
         <property key="make-warnings-into-errors" value="false"/>
-        <property key="optimization-level" value="-O1"/>
+        <property key="optimization-level" value="-O2"/>
         <property key="place-data-into-section" value="false"/>
         <property key="post-instruction-scheduling" value="default"/>
         <property key="pre-instruction-scheduling" value="default"/>
@@ -170,7 +165,7 @@
         <property key="fill-flash-options-increment" value=""/>
         <property key="fill-flash-options-seq" value=""/>
         <property key="fill-flash-options-what" value="0"/>
-        <property key="generate-16-bit-code" value="false"/>
+        <property key="generate-16-bit-code" value="true"/>
         <property key="generate-cross-reference-file" value="false"/>
         <property key="generate-micro-compressed-code" value="false"/>
         <property key="heap-size" value="0x2000"/>
@@ -184,7 +179,7 @@
         <property key="oXC32ld-extra-opts" value=""/>
         <property key="optimization-level" value=""/>
         <property key="preprocessor-macros" value=""/>
-        <property key="remove-unused-sections" value="false"/>
+        <property key="remove-unused-sections" value="true"/>
         <property key="report-memory-usage" value="false"/>
         <property key="serial-length" value=""/>
         <property key="serial-origin" value=""/>
