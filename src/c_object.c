@@ -71,9 +71,6 @@ void mrbc_instance_call_initialize( struct VM *vm, mrbc_value v[], int argc )
     return;
   }
 
-  mrbc_decref(&v[argc+1]);
-  mrbc_set_nil(&v[argc+1]);
-
   if( method.c_func ) {
     method.func(vm, v, argc);
     for( int i = 1; i <= argc; i++ ) {
