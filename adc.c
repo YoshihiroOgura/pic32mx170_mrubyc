@@ -90,11 +90,8 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_raise(vm, MRBC_CLASS(ArgumentError), "ADC initialize.");
 }
 
-/*! read
 
-  adc1.read() -> Float
-*/
-static void c_adc_read(mrbc_vm *vm, mrbc_value v[], int argc)
+static uint32_t read_sub(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   ADC_HANDLE *hndl = *(ADC_HANDLE **)v[0].instance->data;
 
@@ -104,27 +101,32 @@ static void c_adc_read(mrbc_vm *vm, mrbc_value v[], int argc)
     ;
   AD1CON1bits.DONE = 0;
 
-  SET_FLOAT_RETURN( ADC1BUF0 * 3.3 / 1023 );
+  return ADC1BUF0;
 }
 
 
-/*! min
 
-  adc1.min() -> Float
+/*! read_voltage
+
+  adc1.read_voltage() -> Float
 */
-static void c_adc_min(mrbc_vm *vm, mrbc_value v[], int argc)
+static void c_adc_read_voltage(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SET_FLOAT_RETURN( 0 );
+  uint32_t raw_val = read_sub( vm, v, argc );
+
+  SET_FLOAT_RETURN( raw_val * 3.3 / 1023 );
 }
 
 
-/*! max
+/*! read_raw
 
-  adc1.max() -> Float
+  adc1.read_raw() -> Integer
 */
-static void c_adc_max(mrbc_vm *vm, mrbc_value v[], int argc)
+static void c_adc_read_raw(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SET_FLOAT_RETURN( 3.3 );
+  uint32_t raw_val = read_sub( vm, v, argc );
+
+  SET_INT_RETURN( raw_val );
 }
 
 
@@ -144,7 +146,7 @@ void mrbc_init_class_adc(void)
   mrbc_class *adc = mrbc_define_class(0, "ADC", 0);
 
   mrbc_define_method(0, adc, "new", c_adc_new);
-  mrbc_define_method(0, adc, "read", c_adc_read);
-  mrbc_define_method(0, adc, "min", c_adc_min);
-  mrbc_define_method(0, adc, "max", c_adc_max);
+  mrbc_define_method(0, adc, "read_voltage", c_adc_read_voltage);
+  mrbc_define_method(0, adc, "read", c_adc_read_voltage);
+  mrbc_define_method(0, adc, "read_raw", c_adc_read_raw);
 }
