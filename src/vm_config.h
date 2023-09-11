@@ -108,6 +108,11 @@
 // #define MRBC_OUT_OF_MEMORY() mrbc_alloc_print_memory_pool(); hal_abort(0)
 // #define MRBC_ABORT_BY_EXCEPTION(vm) mrbc_p( &vm->exception ); hal_abort(0)
 
+#if defined(MRBC_SYMBOL_SEARCH_LINER)
+#warning "MRBC_SYMBOL_SEARCH_LINER will be removed in the future release (3.3 or 4.0). Use MRBC_SYMBOL_SEARCH_LINEAR instead."
+#define MRBC_SYMBOL_SEARCH_LINEAR
+#endif
+
 void hal_abort(const char *s);
 #define MRBC_OUT_OF_MEMORY() hal_abort("Fatal error: Out of memory.\n")
 #define MRBC_ABORT_BY_EXCEPTION(vm) mrbc_print_vm_exception( vm ); hal_abort(0)

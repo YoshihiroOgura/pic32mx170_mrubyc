@@ -364,6 +364,50 @@ int mrbc_string_chomp(mrbc_value *src)
 
 
 //================================================================
+/*! upcase myself
+
+  @param    str     pointer to target value
+  @return   count   number of upcased characters
+*/
+static int mrbc_string_upcase(mrbc_value *str)
+{
+  int len = str->string->size;
+  int count = 0;
+  uint8_t *data = str->string->data;
+  while (len != 0) {
+    len--;
+    if ('a' <= data[len] && data[len] <= 'z') {
+      data[len] = data[len] - ('a' - 'A');
+      count++;
+    }
+  }
+  return count;
+}
+
+
+//================================================================
+/*! downcase myself
+
+  @param    str     pointer to target value
+  @return   count   number of downcased characters
+*/
+static int mrbc_string_downcase(mrbc_value *str)
+{
+  int len = str->string->size;
+  int count = 0;
+  uint8_t *data = str->string->data;
+  while (len != 0) {
+    len--;
+    if ('A' <= data[len] && data[len] <= 'Z') {
+      data[len] = data[len] + ('a' - 'A');
+      count++;
+    }
+  }
+  return count;
+}
+
+
+//================================================================
 /*! (method) new
 */
 static void c_string_new(struct VM *vm, mrbc_value v[], int argc)
@@ -1271,6 +1315,49 @@ static void c_string_bytes(struct VM *vm, mrbc_value v[], int argc)
 }
 
 
+//================================================================
+/*! (method) upcase
+*/
+static void c_string_upcase(struct VM *vm, mrbc_value v[], int argc)
+{
+  mrbc_value ret = mrbc_string_dup(vm, &v[0]);
+  mrbc_string_upcase(&ret);
+  SET_RETURN(ret);
+}
+
+//================================================================
+/*! (method) upcase!
+*/
+static void c_string_upcase_self(struct VM *vm, mrbc_value v[], int argc)
+{
+  if (mrbc_string_upcase(&v[0]) == 0) {
+    SET_NIL_RETURN();
+  }
+}
+
+
+//================================================================
+/*! (method) downcase
+*/
+static void c_string_downcase(struct VM *vm, mrbc_value v[], int argc)
+{
+  mrbc_value ret = mrbc_string_dup(vm, &v[0]);
+  mrbc_string_downcase(&ret);
+  SET_RETURN(ret);
+}
+
+
+//================================================================
+/*! (method) downcase!
+*/
+static void c_string_downcase_self(struct VM *vm, mrbc_value v[], int argc)
+{
+  if (mrbc_string_downcase(&v[0]) == 0) {
+    SET_NIL_RETURN();
+  }
+}
+
+
 /* MRBC_AUTOGEN_METHOD_TABLE
 
   CLASS("String")
@@ -1312,6 +1399,10 @@ static void c_string_bytes(struct VM *vm, mrbc_value v[], int argc)
   METHOD( "end_with?",	c_string_end_with )
   METHOD( "include?",	c_string_include )
   METHOD( "bytes",	c_string_bytes )
+  METHOD( "upcase",	c_string_upcase )
+  METHOD( "upcase!",	c_string_upcase_self )
+  METHOD( "downcase",	c_string_downcase )
+  METHOD( "downcase!",	c_string_downcase_self )
 
 #if MRBC_USE_FLOAT
   METHOD( "to_f",	c_string_to_f )
