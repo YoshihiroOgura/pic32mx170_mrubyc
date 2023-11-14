@@ -274,7 +274,7 @@ void add_code(void)
       }
     }
 
-    u_puts("-ERR Illegal command.");
+    mrbc_printf("-ERR Illegal command. '%s'\n", token);
 
   DONE:
     ;

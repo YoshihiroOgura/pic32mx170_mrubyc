@@ -52,6 +52,7 @@ volatile uint32_t *TBL_RPxnR[] = { &RPA0R, &RPB0R, &RPC0R };
 
 /*! Initializes the device to the default states configured.
 */
+__attribute__((weak))
 void system_init()
 {
   /*
@@ -109,6 +110,7 @@ void system_init()
   @param num	LED number. 1 origin.
   @param on_off	ON or OFF (True or False)
 */
+__attribute__((weak))
 void onboard_led( int num, int on_off )
 {
   switch( num ) {
@@ -125,6 +127,7 @@ void onboard_led( int num, int on_off )
   @param num	SW number. 1 origin.
   @return	1 is OFF, 0 is ON.
 */
+__attribute__((weak))
 int onboard_sw( int num )
 {
   return PORTBbits.RB7;
