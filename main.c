@@ -150,7 +150,7 @@ int main(void)
   const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
   static const char RITE[4] = "RITE";
   while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
-    mrbc_create_task(fl_addr, 0);
+    if( ! mrbc_create_task(fl_addr, 0) ) return 1;
 
     // get a next irep.
     uint32_t size = 0;

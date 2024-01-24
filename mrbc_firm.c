@@ -178,7 +178,7 @@ static int cmd_write(void)
     goto DONE;
   }
 
-  while( prog_end_addr > next_page_top ) {
+  while( next_page_top < prog_end_addr ) {
     if( flash_erase_page( next_page_top ) != 0 ) {
       u_puts("-ERR Flash erase error.");
       goto DONE;
@@ -194,6 +194,12 @@ static int cmd_write(void)
     }
     p_irep_write += FLASH_ROW_SIZE;
     p += FLASH_ROW_SIZE;
+  }
+
+  // Check if magic word "RITE" remains on the next rows.
+  if( strncmp( (const char *)p_irep_write, RITE, sizeof(RITE)) == 0 ) {
+    // erase it.
+    flash_erase_page( p_irep_write );
   }
 
   u_puts("+DONE");
