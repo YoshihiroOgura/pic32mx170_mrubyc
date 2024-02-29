@@ -135,11 +135,6 @@ static int cmd_clear(void)
 */
 static int cmd_write(void)
 {
-  if( !flag_clear ) {
-    flag_clear = 1;
-    flash_erase_page( (uint8_t*)FLASH_SAVE_ADDR );
-  }
-
   char *token = strtok( NULL, WHITE_SPACE );
   if( token == NULL ) {
     u_puts("-ERR");
@@ -168,17 +163,18 @@ static int cmd_write(void)
     goto DONE;
   }
 
-  // erase required amount of PAGE
   uint8_t *page_top = p_irep_write - ((uintptr_t)p_irep_write % FLASH_PAGE_SIZE);
   uint8_t *next_page_top = page_top + FLASH_PAGE_SIZE;
-  uint8_t *prog_end_addr = p_irep_write + FLASH_ALIGN_ROW_SIZE(size);
+  uint8_t *prog_end_row = p_irep_write + FLASH_ALIGN_ROW_SIZE(size);
 
-  if( prog_end_addr > (uint8_t*)FLASH_END_ADDR ) {
-    u_puts("-ERR total bytecode size overflow.");
-    goto DONE;
-  }
+  // erase required amount of PAGE
+  if( p_irep_write == page_top ) next_page_top = page_top;
+  while( next_page_top < prog_end_row ) {
+    if( (next_page_top + FLASH_PAGE_SIZE) > (uint8_t*)(FLASH_END_ADDR+1) ) {
+      u_puts("-ERR total bytecode size overflow.");
+      goto DONE;
+    }
 
-  while( next_page_top < prog_end_addr ) {
     if( flash_erase_page( next_page_top ) != 0 ) {
       u_puts("-ERR Flash erase error.");
       goto DONE;
@@ -187,7 +183,7 @@ static int cmd_write(void)
   }
 
   // Write data to FLASH. segmentad by ROW size.
-  while( p_irep_write < prog_end_addr ) {
+  while( p_irep_write < prog_end_row ) {
     if( flash_write_row( p_irep_write, p ) != 0 ) {
       u_puts("-ERR Flash write error.");
       goto DONE;
@@ -197,9 +193,9 @@ static int cmd_write(void)
   }
 
   // Check if magic word "RITE" remains on the next rows.
-  if( strncmp( (const char *)p_irep_write, RITE, sizeof(RITE)) == 0 ) {
-    // erase it.
-    flash_erase_page( p_irep_write );
+  if( p_irep_write == next_page_top &&
+      memcmp( (const char *)next_page_top, RITE, sizeof(RITE)) == 0 ) {
+    flash_erase_page( next_page_top );   // erase it.
   }
 
   u_puts("+DONE");
@@ -219,17 +215,17 @@ static int cmd_showprog(void)
   uint32_t used_size = 0;
   int n = 0;
 
-  u_puts("idx size");
+  u_puts("idx size offset");
   while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
     uint32_t size = 0;
     for( int i = 0; i < 4; i++ ) {
       size = (size << 8) | fl_addr[8 + i];
     }
+    mrbc_printf(" %d  %-4d $%p\r\n", n++, size, fl_addr );
+
     size = FLASH_ALIGN_ROW_SIZE( size );
     used_size += size;
     fl_addr += size;
-
-    mrbc_printf(" %d  %d\r\n", n++, size );
   }
 
   int total_size = (FLASH_END_ADDR - FLASH_SAVE_ADDR + 1);

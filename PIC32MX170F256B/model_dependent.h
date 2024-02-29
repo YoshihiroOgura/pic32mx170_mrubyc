@@ -95,8 +95,7 @@ extern volatile uint32_t *TBL_RPxnR[];
 #define FLASH_PAGE_SIZE 1024
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE / 8)
 #define FLASH_ALIGN_ROW_SIZE(bytes) \
-  ((((bytes)-1) / FLASH_ROW_SIZE + 1) * FLASH_ROW_SIZE)
-
+  ((bytes) + ((FLASH_ROW_SIZE - (bytes)) & (FLASH_ROW_SIZE-1)))
 
 // System clock.
 #if !defined(_XTAL_FREQ)
