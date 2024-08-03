@@ -1,10 +1,10 @@
 /*! @file
   @brief
-  mruby/c Math class
+  mruby/c Math module
 
   <pre>
-  Copyright (C) 2015-2021 Kyushu Institute of Technology.
-  Copyright (C) 2015-2021 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -246,7 +246,7 @@ static void c_math_tanh(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! initialize
 */
-void mrbc_init_class_math(void)
+void mrbc_init_module_math(void)
 {
   static mrbc_value e = mrbc_float_value(0, M_E);
   mrbc_set_class_const( MRBC_CLASS(Math), MRBC_SYM(E), &e );
@@ -257,8 +257,8 @@ void mrbc_init_class_math(void)
 
 /* MRBC_AUTOGEN_METHOD_TABLE
 
-  CLASS("Math")
-  FILE("_autogen_class_math.h")
+  MODULE("Math")
+  FILE("_autogen_module_math.h")
 
   METHOD( "acos",	c_math_acos )
   METHOD( "acosh",	c_math_acosh )
@@ -284,6 +284,6 @@ void mrbc_init_class_math(void)
   METHOD( "tan",	c_math_tan )
   METHOD( "tanh",	c_math_tanh )
 */
-#include "_autogen_class_math.h"
+#include "_autogen_module_math.h"
 
 #endif  // MRBC_USE_FLOAT && MRBC_USE_MATH

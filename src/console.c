@@ -3,8 +3,8 @@
   console output module. (not yet input)
 
   <pre>
-  Copyright (C) 2015-2023 Kyushu Institute of Technology.
-  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -25,7 +25,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "hal_selector.h"
+#include "hal.h"
 #include "alloc.h"
 #include "value.h"
 #include "symbol.h"
@@ -393,7 +393,7 @@ int mrbc_p_sub(const mrbc_value *v)
 #if 0
   // display reference counter
   if( mrbc_type(*v) > MRBC_TT_INC_DEC_THRESHOLD ) {
-    mrbc_printf("(%d)", v->obj->ref_count);
+    mrbc_printf("#%d", v->obj->ref_count);
   }
 #endif
 
@@ -445,7 +445,8 @@ int mrbc_print_sub(const mrbc_value *v)
   case MRBC_TT_FLOAT:	mrbc_printf("%g", v->d);	break;
 #endif
   case MRBC_TT_SYMBOL:	mrbc_print_symbol(v->i);	break;
-  case MRBC_TT_CLASS:	mrbc_print_symbol(v->cls->sym_id); break;
+  case MRBC_TT_CLASS:   // fall through.
+  case MRBC_TT_MODULE:	mrbc_print_symbol(v->cls->sym_id); break;
 
   case MRBC_TT_OBJECT:
     mrbc_printf("#<");

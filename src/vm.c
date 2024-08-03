@@ -3,8 +3,8 @@
   mruby bytecode executor.
 
   <pre>
-  Copyright (C) 2015-2023 Kyushu Institute of Technology.
-  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -359,24 +359,6 @@ mrbc_vm * mrbc_vm_open( struct VM *vm )
 
 
 //================================================================
-/*! Close the VM.
-
-  @param  vm  Pointer to VM
-*/
-void mrbc_vm_close( struct VM *vm )
-{
-  // free vm id.
-  int idx = (vm->vm_id-1) >> 4;
-  int bit = 1 << ((vm->vm_id-1) & 0x0f);
-  free_vm_bitmap[idx] &= ~bit;
-
-  // free irep and vm
-  if( vm->top_irep ) mrbc_irep_free( vm->top_irep );
-  if( vm->flag_need_memfree ) mrbc_raw_free(vm);
-}
-
-
-//================================================================
 /*! VM initializer.
 
   @param  vm  Pointer to VM
@@ -394,6 +376,7 @@ void mrbc_vm_begin( struct VM *vm )
   vm->flag_stop = 0;
 
   // set self to reg[0], others nil
+  mrbc_decref( &vm->regs[0] );
   vm->regs[0] = mrbc_instance_new(vm, mrbc_class_object, 0);
   if( vm->regs[0].instance == NULL ) return;	// ENOMEM
   for( int i = 1; i < vm->regs_size; i++ ) {
@@ -420,7 +403,7 @@ void mrbc_vm_end( struct VM *vm )
   assert( vm->ret_blk == 0 );
 
   int n_used = 0;
-  for( int i = 0; i < vm->regs_size; i++ ) {
+  for( int i = 1; i < vm->regs_size; i++ ) {
     //mrbc_printf("vm->regs[%d].tt = %d\n", i, mrbc_type(vm->regs[i]));
     if( mrbc_type(vm->regs[i]) != MRBC_TT_NIL ) n_used = i;
     mrbc_decref_empty(&vm->regs[i]);
@@ -435,6 +418,24 @@ void mrbc_vm_end( struct VM *vm )
   mrbc_global_clear_vm_id();
   mrbc_free_all(vm);
 #endif
+}
+
+
+//================================================================
+/*! Close the VM.
+
+  @param  vm  Pointer to VM
+*/
+void mrbc_vm_close( struct VM *vm )
+{
+  // free vm id.
+  int idx = (vm->vm_id-1) >> 4;
+  int bit = 1 << ((vm->vm_id-1) & 0x0f);
+  free_vm_bitmap[idx] &= ~bit;
+
+  // free irep and vm
+  if( vm->top_irep ) mrbc_irep_free( vm->top_irep );
+  if( vm->flag_need_memfree ) mrbc_raw_free(vm);
 }
 
 
@@ -680,6 +681,10 @@ static inline void op_getiv( mrbc_vm *vm, mrbc_value *regs EXT )
     return;
   }
   mrbc_value *self = mrbc_get_self( vm, regs );
+  if( self->tt != MRBC_TT_OBJECT ) {
+    mrbc_raise(vm, MRBC_CLASS(NotImplementedError), 0);
+    return;
+  }
 
   mrbc_decref(&regs[a]);
   regs[a] = mrbc_instance_getiv(self, sym_id);
@@ -702,6 +707,10 @@ static inline void op_setiv( mrbc_vm *vm, mrbc_value *regs EXT )
     return;
   }
   mrbc_value *self = mrbc_get_self( vm, regs );
+  if( self->tt != MRBC_TT_OBJECT ) {
+    mrbc_raise(vm, MRBC_CLASS(NotImplementedError), 0);
+    return;
+  }
 
   mrbc_instance_setiv(self, sym_id, &regs[a]);
 }
@@ -717,49 +726,41 @@ static inline void op_getconst( mrbc_vm *vm, mrbc_value *regs EXT )
   FETCH_BB();
 
   mrbc_sym sym_id = mrbc_irep_symbol_id(vm->cur_irep, b);
-  mrbc_class *cls = NULL;
-  mrbc_value *v;
-
-  if( vm->target_class->sym_id != MRBC_SYM(Object) ) {
-    cls = vm->target_class;		// References in class definitions.
-  } else if( vm->callinfo_tail ) {
-    cls = vm->callinfo_tail->own_class;	// References in methods.
-  }
-  if( !cls ) goto TOP_LEVEL;
+  mrbc_class *self_cls = find_class_by_object( mrbc_get_self(vm, regs) );
+  mrbc_value *ret;
 
   // search in my class, then search nested outer class.
-  mrbc_class *cls1 = cls;
+  mrbc_class *cls = self_cls;
   while( 1 ) {
-    v = mrbc_get_class_const(cls, sym_id);
-    if( v != NULL ) goto DONE;
-
+    ret = mrbc_get_class_const(cls, sym_id);
+    if( ret ) goto DONE;
     if( !mrbc_is_nested_symid(cls->sym_id) ) break;
+
     mrbc_sym outer_id;
     mrbc_separate_nested_symid( cls->sym_id, &outer_id, 0 );
     cls = mrbc_get_const( outer_id )->cls;
   }
 
   // search in super class.
-  cls = cls1->super;
-  while( cls->sym_id != MRBC_SYM(Object) ) {
-    v = mrbc_get_class_const(cls, sym_id);
-    if( v != NULL ) goto DONE;
+  cls = self_cls->super;
+  while( cls ) {
+    ret = mrbc_get_class_const(cls, sym_id);
+    if( ret ) goto DONE;
     cls = cls->super;
   }
 
- TOP_LEVEL:
   // is top level constant definition?
-  v = mrbc_get_const(sym_id);
-  if( v == NULL ) {
+  ret = mrbc_get_const(sym_id);
+  if( ret == NULL ) {
     mrbc_raisef( vm, MRBC_CLASS(NameError),
 		 "uninitialized constant %s", mrbc_symid_to_str(sym_id));
     return;
   }
 
  DONE:
-  mrbc_incref(v);
+  mrbc_incref(ret);
   mrbc_decref(&regs[a]);
-  regs[a] = *v;
+  regs[a] = *ret;
 }
 
 
@@ -775,7 +776,7 @@ static inline void op_setconst( mrbc_vm *vm, mrbc_value *regs EXT )
   mrbc_sym sym_id = mrbc_irep_symbol_id(vm->cur_irep, b);
 
   mrbc_incref(&regs[a]);
-  if( mrbc_type(regs[0]) == MRBC_TT_CLASS ) {
+  if( regs[0].tt == MRBC_TT_CLASS || regs[0].tt == MRBC_TT_MODULE ) {
     mrbc_set_class_const(regs[0].cls, sym_id, &regs[a]);
   } else {
     mrbc_set_const(sym_id, &regs[a]);
@@ -794,20 +795,32 @@ static inline void op_getmcnst( mrbc_vm *vm, mrbc_value *regs EXT )
 
   mrbc_sym sym_id = mrbc_irep_symbol_id(vm->cur_irep, b);
   mrbc_class *cls = regs[a].cls;
-  mrbc_value *v;
+  mrbc_value *ret;
 
-  while( !(v = mrbc_get_class_const(cls, sym_id)) ) {
+  // ::CONST case
+  if( cls->sym_id == MRBC_SYM(Object) ) {
+    ret = mrbc_get_const(sym_id);
+    if( ret == NULL ) {
+      mrbc_raisef( vm, MRBC_CLASS(NameError), "uninitialized constant %s::%s",
+                   "", mrbc_symid_to_str( sym_id ));
+      return;
+    }
+    goto DONE;
+  }
+
+  while( !(ret = mrbc_get_class_const(cls, sym_id)) ) {
     cls = cls->super;
-    if( cls->sym_id == MRBC_SYM(Object) ) {
+    if( !cls ) {
       mrbc_raisef( vm, MRBC_CLASS(NameError), "uninitialized constant %s::%s",
 	mrbc_symid_to_str( regs[a].cls->sym_id ), mrbc_symid_to_str( sym_id ));
       return;
     }
   }
 
-  mrbc_incref(v);
+ DONE:
+  mrbc_incref(ret);
   mrbc_decref(&regs[a]);
-  regs[a] = *v;
+  regs[a] = *ret;
 }
 
 
@@ -1460,21 +1473,23 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
   if( mrbc_type(regs[0]) == MRBC_TT_PROC &&
       mrbc_type(regs[1]) == MRBC_TT_ARRAY &&
       argc == 1 && m1 > 1 ) {
+
     mrbc_value argary = regs[1];
-    regs[1].tt = MRBC_TT_EMPTY;
+    int argary_size = mrbc_array_size(&argary);
 
-    argc = mrbc_array_size(&argary);
-    if( argc < m1 ) argc = m1;
+    argc = argary_size > m1 ? argary_size : m1;
 
-    for( int i = 0; i < argc; i++ ) {
-      mrbc_decref( &regs[i+1] );
-      if( mrbc_array_size(&argary) > i ) {
-	regs[i+1] = argary.array->data[i];
+    for( int i = argc; i > 0; i-- ) {
+      if( i != 1 ) mrbc_decref( &regs[i] );
+      if( argary_size >= i ) {
+	regs[i] = argary.array->data[i-1];
+	mrbc_incref(&regs[i]);
       } else {
-	mrbc_set_nil( &regs[i+1] );
+	mrbc_set_nil( &regs[i] );
       }
     }
-    mrbc_array_delete_handle( &argary );
+
+    mrbc_decref(&argary);
   }
 
   // dictionary, keyword or rest parameter exists.
@@ -1646,7 +1661,9 @@ static inline void op_return__sub( mrbc_vm *vm, mrbc_value *regs, int a )
 
   // return without anything if top level.
   if( vm->callinfo_tail == NULL ) {
-    if( vm->flag_permanence ) mrbc_incref(&regs[a]);
+    mrbc_decref(&regs[0]);
+    regs[0] = regs[a];
+    regs[a].tt = MRBC_TT_EMPTY;
     vm->flag_preemption = 1;
     vm->flag_stop = 1;
     return;
@@ -2560,7 +2577,19 @@ static inline void op_class( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_BB();
 
-  mrbc_class *super = (regs[a+1].tt == MRBC_TT_CLASS) ? regs[a+1].cls : 0;
+  mrbc_class *super;
+
+  switch( regs[a+1].tt ) {
+  case MRBC_TT_CLASS:
+    super = regs[a+1].cls;
+    break;
+  case MRBC_TT_NIL:
+    super = 0;
+    break;
+  default:
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "superclass must be a Class");
+    return;
+  }
 
   // check unsupported pattern.
   if( super ) {
@@ -2574,9 +2603,9 @@ static inline void op_class( mrbc_vm *vm, mrbc_value *regs EXT )
 
   mrbc_class *outer = 0;
 
-  if( regs[a].tt == MRBC_TT_CLASS ) {
+  if( regs[a].tt == MRBC_TT_CLASS || regs[a].tt == MRBC_TT_MODULE ) {
     outer = regs[a].cls;
-  } else if( vm->cur_regs[0].tt == MRBC_TT_CLASS ) {
+  } else if( vm->cur_regs[0].tt == MRBC_TT_CLASS || vm->cur_regs[0].tt == MRBC_TT_MODULE ) {
     outer = vm->cur_regs[0].cls;
   }
 
@@ -2598,6 +2627,40 @@ static inline void op_class( mrbc_vm *vm, mrbc_value *regs EXT )
 
 
 //================================================================
+/*! OP_MODULE
+
+  R[a] = newmodule(R[a],Syms[b])
+*/
+static inline void op_module( mrbc_vm *vm, mrbc_value *regs EXT )
+{
+  FETCH_BB();
+
+  mrbc_class *outer = 0;
+
+  if( regs[a].tt == MRBC_TT_CLASS || regs[a].tt == MRBC_TT_MODULE ) {
+    outer = regs[a].cls;
+  } else if( vm->cur_regs[0].tt == MRBC_TT_CLASS || vm->cur_regs[0].tt == MRBC_TT_MODULE ) {
+    outer = vm->cur_regs[0].cls;
+  }
+
+  const char *module_name = mrbc_irep_symbol_cstr(vm->cur_irep, b);
+  mrbc_class *cls;
+
+  // define a new module (or get an already defined class)
+  if( outer ) {
+    cls = mrbc_define_module_under(vm, outer, module_name);
+  } else {
+    cls = mrbc_define_module(vm, module_name);
+  }
+
+  // (note)
+  //  regs[a] was set to Class, Module or NIL by compiler. So, no need to release.
+  regs[a].tt = MRBC_TT_MODULE;
+  regs[a].cls = cls;
+}
+
+
+//================================================================
 /*! OP_EXEC
 
   R[a] = blockexec(R[a],Irep[b])
@@ -2605,7 +2668,7 @@ static inline void op_class( mrbc_vm *vm, mrbc_value *regs EXT )
 static inline void op_exec( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_BB();
-  assert( regs[a].tt == MRBC_TT_CLASS );
+  assert( regs[a].tt == MRBC_TT_CLASS || regs[a].tt == MRBC_TT_MODULE );
 
   // prepare callinfo
   mrbc_push_callinfo(vm, 0, a, 0);
@@ -2628,7 +2691,7 @@ static inline void op_def( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_BB();
 
-  assert( regs[a].tt == MRBC_TT_CLASS );
+  assert( regs[a].tt == MRBC_TT_CLASS || regs[a].tt == MRBC_TT_MODULE );
   assert( regs[a+1].tt == MRBC_TT_PROC );
 
   mrbc_class *cls = regs[a].cls;
@@ -2762,6 +2825,7 @@ static inline void op_stop( mrbc_vm *vm, mrbc_value *regs EXT )
 
   vm->flag_preemption = 1;
   vm->flag_stop = 1;
+  vm->inst--;           // to not proceed beyond OP_STOP.
 }
 
 
@@ -2780,7 +2844,7 @@ static inline void op_unsupported( mrbc_vm *vm, mrbc_value *regs EXT )
 /*! Fetch a bytecode and execute
 
   @param  vm	A pointer to VM.
-  @retval 0	(maybe) premption by timer.
+  @retval 0	(maybe) preemption by timer.
   @retval 1	program done.
   @retval 2	exception occurred.
 */
@@ -2891,7 +2955,7 @@ int mrbc_vm_run( struct VM *vm )
     case OP_RANGE_EXC:  op_range_exc  (vm, regs EXT); break;
     case OP_OCLASS:     op_oclass     (vm, regs EXT); break;
     case OP_CLASS:      op_class      (vm, regs EXT); break;
-    case OP_MODULE:     op_unsupported(vm, regs EXT); break; // not implemented.
+    case OP_MODULE:     op_module     (vm, regs EXT); break;
     case OP_EXEC:       op_exec       (vm, regs EXT); break;
     case OP_DEF:        op_def        (vm, regs EXT); break;
     case OP_ALIAS:      op_alias      (vm, regs EXT); break;

@@ -13,6 +13,8 @@ static const mrbc_sym method_symbols_Object[] = {
   MRBC_SYM(block_given_Q),
   MRBC_SYM(class),
   MRBC_SYM(dup),
+  MRBC_SYM(extend),
+  MRBC_SYM(include),
 #if MRBC_USE_STRING
   MRBC_SYM(inspect),
 #endif
@@ -60,6 +62,8 @@ static const mrbc_func_t method_functions_Object[] = {
   c_object_block_given,
   c_object_class,
   c_object_dup,
+  c_object_include,
+  c_object_include,
 #if MRBC_USE_STRING
   c_object_to_s,
 #endif

@@ -3,8 +3,8 @@
   mruby/c value definitions
 
   <pre>
-  Copyright (C) 2015-2023 Kyushu Institute of Technology.
-  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -69,36 +69,37 @@ typedef enum {
   /* (note) Must be same order as mrbc_class_tbl[], mrbc_delfunc[]. */
 
   /* internal use */
-  MRBC_TT_JMPUW		= -5,  // use in OP_JMPUW...
-  MRBC_TT_BREAK		= -4,
-  MRBC_TT_RETURN_BLK	= -3,
-  MRBC_TT_RETURN	= -2,
-  MRBC_TT_HANDLE	= -1,
+  MRBC_TT_JMPUW         = -5,  // use in OP_JMPUW...
+  MRBC_TT_BREAK         = -4,
+  MRBC_TT_RETURN_BLK    = -3,
+  MRBC_TT_RETURN        = -2,
+  MRBC_TT_HANDLE        = -1,
 
   /* primitive */
-  MRBC_TT_EMPTY	  = 0,
-  MRBC_TT_NIL	  = 1,		//!< NilClass
-  MRBC_TT_FALSE	  = 2,		//!< FalseClass
+  MRBC_TT_EMPTY     = 0,
+  MRBC_TT_NIL       = 1,        //!< NilClass
+  MRBC_TT_FALSE     = 2,        //!< FalseClass
   // (note) true/false threshold. see op_jmpif
 
-  MRBC_TT_TRUE	  = 3,		//!< TrueClass
-  MRBC_TT_INTEGER = 4,		//!< Integer
-  MRBC_TT_FIXNUM  = 4,
-  MRBC_TT_FLOAT	  = 5,		//!< Float
-  MRBC_TT_SYMBOL  = 6,		//!< Symbol
-  MRBC_TT_CLASS	  = 7,		//!< Class
+  MRBC_TT_TRUE      = 3,        //!< TrueClass
+  MRBC_TT_INTEGER   = 4,        //!< Integer
+  MRBC_TT_FIXNUM    = 4,
+  MRBC_TT_FLOAT     = 5,        //!< Float
+  MRBC_TT_SYMBOL    = 6,        //!< Symbol
+  MRBC_TT_CLASS     = 7,        //!< Class
+  MRBC_TT_MODULE    = 8,        //!< Module
   // (note) inc/dec ref threshold.
 
   /* non-primitive */
-  MRBC_TT_OBJECT    = 8,	//!< General instance
-  MRBC_TT_PROC	    = 9,	//!< Proc
-  MRBC_TT_ARRAY	    = 10,	//!< Array
-  MRBC_TT_STRING    = 11,	//!< String
-  MRBC_TT_RANGE	    = 12,	//!< Range
-  MRBC_TT_HASH	    = 13,	//!< Hash
-  MRBC_TT_EXCEPTION = 14,	//!< Exception
+  MRBC_TT_OBJECT    = 9,        //!< General instance
+  MRBC_TT_PROC      = 10,       //!< Proc
+  MRBC_TT_ARRAY     = 11,       //!< Array
+  MRBC_TT_STRING    = 12,       //!< String
+  MRBC_TT_RANGE     = 13,       //!< Range
+  MRBC_TT_HASH      = 14,       //!< Hash
+  MRBC_TT_EXCEPTION = 15,       //!< Exception
 } mrbc_vtype;
-#define	MRBC_TT_INC_DEC_THRESHOLD MRBC_TT_CLASS
+#define	MRBC_TT_INC_DEC_THRESHOLD MRBC_TT_MODULE
 #define	MRBC_TT_MAXVAL MRBC_TT_EXCEPTION
 
 
@@ -157,7 +158,7 @@ struct RObject {
     mrbc_float_t d;		// MRBC_TT_FLOAT
 #endif
     struct RBasic *obj;		// use inc/dec ref only.
-    struct RClass *cls;		// MRBC_TT_CLASS
+    struct RClass *cls;		// MRBC_TT_CLASS, MRBC_TT_MODULE
     struct RInstance *instance;	// MRBC_TT_OBJECT
     struct RProc *proc;		// MRBC_TT_PROC
     struct RArray *array;	// MRBC_TT_ARRAY
