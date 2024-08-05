@@ -3,8 +3,8 @@
   Constant and global variables.
 
   <pre>
-  Copyright (C) 2015-2023 Kyushu Institute of Technology.
-  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -105,10 +105,6 @@ mrbc_value * mrbc_get_const( mrbc_sym sym_id )
 */
 mrbc_value * mrbc_get_class_const( const struct RClass *cls, mrbc_sym sym_id )
 {
-  if( cls->sym_id == MRBC_SYM(Object) ) {
-    return mrbc_kv_get( &handle_const, sym_id );  // ::CONST case.
-  }
-
   char buf[sizeof(mrbc_sym)*4+1];
 
   make_nested_symbol_s( buf, cls->sym_id, sym_id );
@@ -186,7 +182,14 @@ void mrbc_debug_dump_const( void )
       mrbc_printf(" = Class(symid=$%x name=", cls->sym_id);
       mrbc_print_symbol(cls->sym_id);
       mrbc_printf(")\n");
+      continue;
+    }
 
+    if( kv->value.tt == MRBC_TT_MODULE ) {
+      const mrbc_class *cls = kv->value.cls;
+      mrbc_printf(" = Module(symid=$%x name=", cls->sym_id);
+      mrbc_print_symbol(cls->sym_id);
+      mrbc_printf(")\n");
       continue;
     }
 

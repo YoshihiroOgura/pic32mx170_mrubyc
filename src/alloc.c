@@ -3,8 +3,8 @@
   mruby/c memory management.
 
   <pre>
-  Copyright (C) 2015-2022 Kyushu Institute of Technology.
-  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -25,14 +25,14 @@
      +-----------------+-------------------------------+-----------------+---
      |size| (contents) |size|*next|*prev| (empty) |*top|size| (contents) |
  USED|   1|            |   0|     |     |         |    |   1|            |
- PREV|   1|            |   1|     |     |         |    |   0|            |
+ PREV|  1 |            |  1 |     |     |         |    |  0 |            |
 
                                            Sentinel block at the link tail.
                                       ...              |  USED_BLOCK     |
                                      ------------------+-----------------+
                                                        |size| (contents) |
                                                    USED|   1|            |
-                                                   PREV|   ?|            |
+                                                   PREV|  ? |            |
     size : block size.
     *next: linked list, pointer to the next free block of same block size.
     *prev: linked list, pointer to the previous free block of same block size.
@@ -53,7 +53,7 @@
 #if !defined(MRBC_ALLOC_LIBC)
 /***** Local headers ********************************************************/
 #include "alloc.h"
-#include "hal_selector.h"
+#include "hal.h"
 #if defined(MRBC_DEBUG)
 #include "console.h"
 #endif
@@ -696,7 +696,7 @@ void mrbc_raw_free(void *ptr)
 void * mrbc_raw_realloc(void *ptr, unsigned int size)
 {
   MEMORY_POOL *pool = memory_pool;
-  USED_BLOCK *target = (USED_BLOCK *)((uint8_t *)ptr - sizeof(USED_BLOCK));
+  volatile USED_BLOCK *target = (USED_BLOCK *)((uint8_t *)ptr - sizeof(USED_BLOCK));
   MRBC_ALLOC_MEMSIZE_T alloc_size = size + sizeof(USED_BLOCK);
   FREE_BLOCK *next;
 

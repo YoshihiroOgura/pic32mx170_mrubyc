@@ -129,7 +129,7 @@ int main(void)
     add_code();
     memset( memory_pool, 0, sizeof(memory_pool) );
   }
-  mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v2.1.0, mruby/c v3.2 start.\n");
+  mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v2.1.0, mruby/c v3.3.1 start.\n");
 
   /* start mruby/c */
   mrbc_init(memory_pool, MRBC_MEMORY_SIZE);

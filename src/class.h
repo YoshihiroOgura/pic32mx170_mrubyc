@@ -3,8 +3,8 @@
   Class related functions.
 
   <pre>
-  Copyright (C) 2015-2022 Kyushu Institute of Technology.
-  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -42,9 +42,14 @@ extern "C" {
 */
 typedef struct RClass {
   mrbc_sym sym_id;		//!< class name's symbol ID
-  int16_t num_builtin_method;	//!< num of built-in method.
+  unsigned int flag_module : 1; //!< is module?
+  unsigned int flag_alias : 1;  //!< is alias class?
+  uint8_t num_builtin_method;	//!< num of built-in method.
   struct RClass *super;		//!< pointer to super class.
-  struct RMethod *method_link;	//!< pointer to method link.
+  union {
+    struct RMethod *method_link;//!< pointer to method link.
+    struct RClass *aliased;     //!< aliased class or module.
+  };
 #if defined(MRBC_DEBUG)
   const char *name;
 #endif
@@ -59,9 +64,14 @@ typedef struct RClass mrb_class;
 */
 struct RBuiltinClass {
   mrbc_sym sym_id;		//!< class name's symbol ID
-  int16_t num_builtin_method;	//!< num of built-in method.
+  unsigned int flag_module : 1; //!< is module?
+  unsigned int flag_alias : 1;  //!< is alias class?
+  uint8_t num_builtin_method;	//!< num of built-in method.
   struct RClass *super;		//!< pointer to super class.
-  struct RMethod *method_link;	//!< pointer to method link.
+  union {
+    struct RMethod *method_link;//!< pointer to method link.
+    struct RClass *aliased;     //!< aliased class or module.
+  };
 #if defined(MRBC_DEBUG)
   const char *name;
 #endif
@@ -160,6 +170,8 @@ extern struct RClass mrbc_class_ZeroDivisionError;
 /***** Function prototypes **************************************************/
 mrbc_class *mrbc_define_class(struct VM *vm, const char *name, mrbc_class *super);
 mrbc_class *mrbc_define_class_under(struct VM *vm, const mrbc_class *outer, const char *name, mrbc_class *super);
+mrbc_class *mrbc_define_module(struct VM *vm, const char *name);
+mrbc_class *mrbc_define_module_under(struct VM *vm, const mrbc_class *outer, const char *name);
 void mrbc_define_method(struct VM *vm, mrbc_class *cls, const char *name, mrbc_func_t cfunc);
 mrbc_value mrbc_instance_new(struct VM *vm, mrbc_class *cls, int size);
 void mrbc_instance_delete(mrbc_value *v);
@@ -194,7 +206,8 @@ static inline mrbc_class *find_class_by_object(const mrbc_value *obj)
   mrbc_class *cls = mrbc_class_tbl[ mrbc_type(*obj) ];
   if( !cls ) {
     switch( mrbc_type(*obj) ) {
-    case MRBC_TT_CLASS:		cls = obj->cls;			break;
+    case MRBC_TT_CLASS:		// fall through.
+    case MRBC_TT_MODULE:	cls = obj->cls;			break;
     case MRBC_TT_OBJECT:	cls = obj->instance->cls;	break;
     case MRBC_TT_EXCEPTION:	cls = obj->exception->cls;	break;
     default:

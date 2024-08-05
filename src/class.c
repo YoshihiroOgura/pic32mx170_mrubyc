@@ -3,8 +3,8 @@
   Class related functions.
 
   <pre>
-  Copyright (C) 2015-2022 Kyushu Institute of Technology.
-  Copyright (C) 2015-2022 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -48,21 +48,22 @@
   @see mrbc_vtype in value.h
 */
 mrbc_class * const mrbc_class_tbl[MRBC_TT_MAXVAL+1] = {
-  0,				// MRBC_TT_EMPTY     = 0,
-  MRBC_CLASS(NilClass),		// MRBC_TT_NIL	     = 1,
-  MRBC_CLASS(FalseClass),	// MRBC_TT_FALSE     = 2,
-  MRBC_CLASS(TrueClass),	// MRBC_TT_TRUE	     = 3,
-  MRBC_CLASS(Integer),		// MRBC_TT_INTEGER   = 4,
-  MRBC_CLASS(Float),		// MRBC_TT_FLOAT     = 5,
-  MRBC_CLASS(Symbol),		// MRBC_TT_SYMBOL    = 6,
-  0,				// MRBC_TT_CLASS     = 7,
-  0,				// MRBC_TT_OBJECT    = 8,
-  MRBC_CLASS(Proc),		// MRBC_TT_PROC	     = 9,
-  MRBC_CLASS(Array),		// MRBC_TT_ARRAY     = 10,
-  MRBC_CLASS(String),		// MRBC_TT_STRING    = 11,
-  MRBC_CLASS(Range),		// MRBC_TT_RANGE     = 12,
-  MRBC_CLASS(Hash),		// MRBC_TT_HASH	     = 13,
-  0,				// MRBC_TT_EXCEPTION = 14,
+  0,                            // MRBC_TT_EMPTY     = 0,
+  MRBC_CLASS(NilClass),         // MRBC_TT_NIL       = 1,
+  MRBC_CLASS(FalseClass),       // MRBC_TT_FALSE     = 2,
+  MRBC_CLASS(TrueClass),        // MRBC_TT_TRUE      = 3,
+  MRBC_CLASS(Integer),          // MRBC_TT_INTEGER   = 4,
+  MRBC_CLASS(Float),            // MRBC_TT_FLOAT     = 5,
+  MRBC_CLASS(Symbol),           // MRBC_TT_SYMBOL    = 6,
+  0,                            // MRBC_TT_CLASS     = 7,
+  0,                            // MRBC_TT_MODULE    = 8,
+  0,                            // MRBC_TT_OBJECT    = 9,
+  MRBC_CLASS(Proc),             // MRBC_TT_PROC      = 10,
+  MRBC_CLASS(Array),            // MRBC_TT_ARRAY     = 11,
+  MRBC_CLASS(String),           // MRBC_TT_STRING    = 12,
+  MRBC_CLASS(Range),            // MRBC_TT_RANGE     = 13,
+  MRBC_CLASS(Hash),             // MRBC_TT_HASH      = 14,
+  0,                            // MRBC_TT_EXCEPTION = 15,
 };
 
 
@@ -98,13 +99,13 @@ mrbc_class * mrbc_define_class(struct VM *vm, const char *name, mrbc_class *supe
   mrbc_class *cls = mrbc_raw_alloc_no_free( sizeof(mrbc_class) );
   if( !cls ) return cls;	// ENOMEM
 
-  cls->sym_id = sym_id;
-  cls->num_builtin_method = 0;
-  cls->super = super ? super : mrbc_class_object;
-  cls->method_link = 0;
+  *cls = (mrbc_class){
+    .sym_id = sym_id,
+    .super = super ? super : mrbc_class_object,
 #if defined(MRBC_DEBUG)
-  cls->name = name;
+    .name = name,
 #endif
+  };
 
   // register to global constant
   mrbc_set_const( sym_id, &(mrbc_value){.tt = MRBC_TT_CLASS, .cls = cls});
@@ -133,7 +134,10 @@ mrbc_class * mrbc_define_class_under(struct VM *vm, const mrbc_class *outer, con
   // already defined?
   const mrbc_value *val = mrbc_get_class_const( outer, sym_id );
   if( val ) {
-    assert( mrbc_type(*val) == MRBC_TT_CLASS );
+    if( val->tt != MRBC_TT_CLASS ) {
+      mrbc_raisef(vm, MRBC_CLASS(TypeError), "%s is not a class", name);
+      return 0;
+    }
     return val->cls;
   }
 
@@ -144,17 +148,110 @@ mrbc_class * mrbc_define_class_under(struct VM *vm, const mrbc_class *outer, con
   char buf[sizeof(mrbc_sym)*4+1];
   make_nested_symbol_s( buf, outer->sym_id, sym_id );
 
-  cls->sym_id = mrbc_symbol( mrbc_symbol_new( vm, buf ));
-  cls->num_builtin_method = 0;
-  cls->super = super ? super : mrbc_class_object;
-  cls->method_link = 0;
+  *cls = (mrbc_class){
+    .sym_id = mrbc_symbol( mrbc_symbol_new( vm, buf )),
+    .super = super ? super : mrbc_class_object,
 #if defined(MRBC_DEBUG)
-  cls->name = name;
+    .name = name,
 #endif
+  };
 
+  // register to global constant
   mrbc_set_class_const( outer, sym_id,
 			&(mrbc_value){.tt = MRBC_TT_CLASS, .cls = cls});
+  return cls;
+}
 
+
+//================================================================
+/*! define module
+
+  @param  vm		pointer to vm.
+  @param  name		module name.
+  @return		pointer to defined module.
+*/
+mrbc_class * mrbc_define_module(struct VM *vm, const char *name)
+{
+  mrbc_sym sym_id = mrbc_str_to_symid(name);
+  if( sym_id < 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(Exception), "Overflow MAX_SYMBOLS_COUNT");
+    return 0;
+  }
+
+  // already defined?
+  const mrbc_value *val = mrbc_get_const(sym_id);
+  if( val ) {
+    if( mrbc_type(*val) != MRBC_TT_MODULE ) {
+      mrbc_raisef(vm, MRBC_CLASS(TypeError), "%s is not a module", name);
+    }
+    return val->cls;
+  }
+
+  // create a new module.
+  mrbc_class *cls = mrbc_raw_alloc_no_free( sizeof(mrbc_class) );
+  if( !cls ) return cls;	// ENOMEM
+
+  *cls = (mrbc_class){
+    .sym_id = sym_id,
+    .flag_module = 1,
+    .super = 0,
+#if defined(MRBC_DEBUG)
+    .name = name,
+#endif
+  };
+
+  // register to global constant
+  mrbc_set_const( sym_id, &(mrbc_value){.tt = MRBC_TT_MODULE, .cls = cls});
+
+  return cls;
+}
+
+
+//================================================================
+/*! define nested module
+
+  @param  vm		pointer to vm.
+  @param  outer		outer module
+  @param  name		module name.
+  @return		pointer to defined module.
+*/
+mrbc_class * mrbc_define_module_under(struct VM *vm, const mrbc_class *outer, const char *name)
+{
+  mrbc_sym sym_id = mrbc_str_to_symid(name);
+  if( sym_id < 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(Exception), "Overflow MAX_SYMBOLS_COUNT");
+    return 0;
+  }
+
+  // already defined?
+  const mrbc_value *val = mrbc_get_class_const( outer, sym_id );
+  if( val ) {
+    if( val->tt != MRBC_TT_MODULE ) {
+      mrbc_raisef(vm, MRBC_CLASS(TypeError), "%s is not a module", name);
+      return 0;
+    }
+    return val->cls;
+  }
+
+  // create a new nested module
+  mrbc_class *cls = mrbc_raw_alloc_no_free( sizeof(mrbc_class) );
+  if( !cls ) return cls;	// ENOMEM
+
+  char buf[sizeof(mrbc_sym)*4+1];
+  make_nested_symbol_s( buf, outer->sym_id, sym_id );
+
+  *cls = (mrbc_class){
+    .sym_id = mrbc_symbol( mrbc_symbol_new( vm, buf )),
+    .flag_module = 1,
+    .super = 0,
+#if defined(MRBC_DEBUG)
+    .name = name,
+#endif
+  };
+
+  // register to global constant
+  mrbc_set_class_const( outer, sym_id,
+			&(mrbc_value){.tt = MRBC_TT_MODULE, .cls = cls});
   return cls;
 }
 
@@ -347,13 +444,17 @@ int mrbc_obj_is_kind_of( const mrbc_value *obj, const mrbc_class *cls )
 /*! find method
 
   @param  r_method	pointer to mrbc_method to return values.
-  @param  cls		search class.
-  @param  sym_id	symbol id.
+  @param  cls		search class or module.
+  @param  sym_id	search symbol id.
   @return		pointer to method or NULL.
 */
 mrbc_method * mrbc_find_method( mrbc_method *r_method, mrbc_class *cls, mrbc_sym sym_id )
 {
-  do {
+  mrbc_class *mod_nest[3];
+  int mod_nest_idx = 0;
+  int flag_module = cls->flag_module;
+
+  while( 1 ) {
     mrbc_method *method;
     for( method = cls->method_link; method != 0; method = method->next ) {
       if( method->sym_id == sym_id ) {
@@ -389,7 +490,34 @@ mrbc_method * mrbc_find_method( mrbc_method *r_method, mrbc_class *cls, mrbc_sym
 
   NEXT:
     cls = cls->super;
-  } while( cls != 0 );
+    if( cls == 0 ) {
+      // does not have super class.
+      if( mod_nest_idx == 0 ) {
+        if( flag_module ) {
+          cls = mrbc_class_object;
+          flag_module = 0;
+          continue;
+        }
+        break;
+      }
+
+      // rewind the module search nest.
+      cls = mod_nest[--mod_nest_idx];
+    }
+
+    // is the next alias?
+    if( cls->flag_alias ) {
+      // save the super for include nesting of modules.
+      if( cls->super ) {
+        if( mod_nest_idx >= (sizeof(mod_nest) / sizeof(mrbc_class *)) ) {
+          mrbc_printf("Warning: Module nest exceeds upper limit.\n");
+          break;
+        }
+        mod_nest[mod_nest_idx++] = cls->super;
+      }
+      cls = cls->aliased;
+    }
+  }  // loop next.
 
   return 0;
 }
@@ -530,7 +658,8 @@ int mrbc_run_mrblib(const void *bytecode)
 void mrbc_init_class(void)
 {
   extern const uint8_t mrblib_bytecode[];
-  void mrbc_init_class_math(void);
+  void mrbc_init_module_math(void);
+
   mrbc_value cls = {.tt = MRBC_TT_CLASS};
 
   cls.cls = MRBC_CLASS(Object);
@@ -574,9 +703,9 @@ void mrbc_init_class(void)
   mrbc_set_const( MRBC_SYM(Hash), &cls );
 
 #if MRBC_USE_MATH
-  cls.cls = MRBC_CLASS(Math);
-  mrbc_set_const( MRBC_SYM(Math), &cls );
-  mrbc_init_class_math();
+  mrbc_value math = {.tt = MRBC_TT_MODULE, .cls = MRBC_CLASS(Math) };
+  mrbc_set_const( MRBC_SYM(Math), &math );
+  mrbc_init_module_math();
 #endif
 
   cls.cls = MRBC_CLASS(Exception);

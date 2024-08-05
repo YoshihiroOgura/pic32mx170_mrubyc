@@ -3,8 +3,8 @@
   mruby/c value definitions
 
   <pre>
-  Copyright (C) 2015-2023 Kyushu Institute of Technology.
-  Copyright (C) 2015-2023 Shimane IT Open-Innovation Center.
+  Copyright (C) 2015- Kyushu Institute of Technology.
+  Copyright (C) 2015- Shimane IT Open-Innovation Center.
 
   This file is distributed under BSD 3-Clause License.
 
@@ -44,18 +44,18 @@
   @see mrbc_vtype in value.h
 */
 void (* const mrbc_delfunc[])(mrbc_value *) = {
-  0, 0, 0, 0, 0, 0, 0, 0,
-  mrbc_instance_delete,		// MRBC_TT_OBJECT    = 8,
-  mrbc_proc_delete,		// MRBC_TT_PROC	     = 9,
-  mrbc_array_delete,		// MRBC_TT_ARRAY     = 10,
+  0, 0, 0, 0, 0, 0, 0, 0, 0,
+  mrbc_instance_delete,         // MRBC_TT_OBJECT    = 9,
+  mrbc_proc_delete,             // MRBC_TT_PROC      = 10,
+  mrbc_array_delete,            // MRBC_TT_ARRAY     = 11,
 #if MRBC_USE_STRING
-  mrbc_string_delete,		// MRBC_TT_STRING    = 11,
+  mrbc_string_delete,           // MRBC_TT_STRING    = 12,
 #else
   NULL,
 #endif
-  mrbc_range_delete,		// MRBC_TT_RANGE     = 12,
-  mrbc_hash_delete,		// MRBC_TT_HASH	     = 13,
-  mrbc_exception_delete,	// MRBC_TT_EXCEPTION = 14,
+  mrbc_range_delete,            // MRBC_TT_RANGE     = 13,
+  mrbc_hash_delete,             // MRBC_TT_HASH      = 14,
+  mrbc_exception_delete,        // MRBC_TT_EXCEPTION = 15,
 };
 
 
