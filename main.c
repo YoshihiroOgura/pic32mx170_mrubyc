@@ -41,7 +41,9 @@ void mrbc_init_class_adc(void);
 void mrbc_init_class_pwm(void);
 void mrbc_init_class_i2c(void);
 void mrbc_init_class_spi(void);
-void add_code(void);
+int receive_bytecode( void *buffer, int buffer_size );
+void * pickup_task( void *task );
+
 
 
 //================================================================
@@ -126,8 +128,8 @@ int main(void)
 
   if( check_timeout() ) {
     /* IDE code */
-    add_code();
-    memset( memory_pool, 0, sizeof(memory_pool) );
+    receive_bytecode( memory_pool, MRBC_MEMORY_SIZE );
+    memset( memory_pool, 0, MRBC_MEMORY_SIZE );
   }
   mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v2.1.0, mruby/c v3.3.1 start.\n");
 
@@ -147,17 +149,12 @@ int main(void)
   tick_timer_init();
 
 #if 1
-  const uint8_t *fl_addr = (uint8_t*)FLASH_SAVE_ADDR;
-  static const char RITE[4] = "RITE";
-  while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
-    if( ! mrbc_create_task(fl_addr, 0) ) return 1;
+  void *task = 0;
+  while( 1 ) {
+    task = pickup_task( task );
+    if( task == 0 ) break;
 
-    // get a next irep.
-    uint32_t size = 0;
-    for( int i = 0; i < 4; i++ ) {
-      size = (size << 8) | fl_addr[8 + i];
-    }
-    fl_addr += FLASH_ALIGN_ROW_SIZE( size );
+    mrbc_create_task( task, 0 );
   }
 
 #else

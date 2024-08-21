@@ -57,8 +57,8 @@ extern UART_HANDLE uart_handle_[];
 /*
   function prototypes.
 */
-void uart_interrupt_en_dis(const UART_HANDLE *hndl, int en_dis);
 void uart_push_rxfifo(UART_HANDLE *hndl, uint8_t ch);
+void uart_interrupt_en_dis(const UART_HANDLE *hndl, int en_dis);
 void uart_init(void);
 void uart_enable(const UART_HANDLE *hndl);
 void uart_disable(const UART_HANDLE *hndl);
@@ -66,6 +66,7 @@ int uart_setmode(const UART_HANDLE *hndl, int baud, int parity, int stop_bits);
 void uart_clear_rx_buffer(UART_HANDLE *hndl);
 int uart_read(UART_HANDLE *hndl, void *buffer, int size);
 int uart_write(UART_HANDLE *hndl, const void *buffer, int size);
+int uart_gets(UART_HANDLE *hndl, void *buffer, int size);
 int uart_bytes_available(const UART_HANDLE *hndl);
 int uart_can_read_line(const UART_HANDLE *hndl);
 void mrbc_init_class_uart(void);
