@@ -2,10 +2,15 @@
   MPU and board model related params.
 
   PIC32MX170F256B
+    * MIPS32® M4K® core with MIPS16e® mode
+    * Up to 50 MHz/83 DMIPS
+    * 256KB Flash memory (plus an additional 3 KB of Boot Flash)
+    * 64K SRAM memory
 
-  CPU clock 40MHz
-   internal oscillator + PLL
-  Peripheral clock 10MHz
+  Current settings
+    * CPU clock 40MHz
+      internal oscillator + PLL
+    * Peripheral clock 10MHz
 */
 
 #if !defined(__32MX170F256B__) && !defined(__PIC32MX170F256B__)
@@ -90,7 +95,7 @@ extern volatile uint32_t *TBL_RPxnR[];
 #define UART_CONSOLE	1
 
 // flash memory address and parameter.
-#define FLASH_SAVE_ADDR 0xBD035000
+#define FLASH_SAVE_ADDR 0xBD037000
 #define FLASH_END_ADDR  0xBD03EFFF
 #define FLASH_PAGE_SIZE 1024
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE / 8)

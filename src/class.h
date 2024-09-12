@@ -156,6 +156,7 @@ extern struct RClass mrbc_class_NotImplementedError;
 extern struct RClass mrbc_class_StandardError;
 extern struct RClass mrbc_class_ArgumentError;
 extern struct RClass mrbc_class_IndexError;
+extern struct RClass mrbc_class_IOError;
 extern struct RClass mrbc_class_NameError;
 extern struct RClass mrbc_class_NoMethodError;
 extern struct RClass mrbc_class_RangeError;

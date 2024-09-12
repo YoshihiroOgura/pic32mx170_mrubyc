@@ -716,28 +716,41 @@ static void c_array_set(struct VM *vm, mrbc_value v[], int argc)
   /*
     in case of self[nth] = val
   */
-  if( argc == 2 && mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
+  if( argc == 2 && v[1].tt == MRBC_TT_INTEGER ) {
     if( mrbc_array_set(v, mrbc_integer(v[1]), &v[2]) != 0 ) {
       mrbc_raise( vm, MRBC_CLASS(IndexError), "too small for array");
+      return;
     }
-    mrbc_type(v[2]) = MRBC_TT_EMPTY;
+
+    // return val
+    mrbc_incref(&v[2]);
+    mrbc_decref(&v[0]);
+    v[0] = v[2];
+    v[2].tt = MRBC_TT_EMPTY;
     return;
   }
 
   /*
     in case of self[start, length] = val
   */
-  if( argc == 3 && mrbc_type(v[1]) == MRBC_TT_INTEGER && mrbc_type(v[2]) == MRBC_TT_INTEGER ) {
+  if( argc == 3 && v[1].tt == MRBC_TT_INTEGER && v[2].tt == MRBC_TT_INTEGER ) {
     int pos = mrbc_integer(v[1]);
     int len = mrbc_integer(v[2]);
 
     if( pos < 0 ) {
-      pos = 0;
+      pos = v[0].array->n_stored + pos;
+      if( pos < 0 ) {
+	mrbc_raise( vm, MRBC_CLASS(IndexError), "index too small for array");
+	return;
+      }
     } else if( pos > v[0].array->n_stored ) {
       mrbc_array_set( &v[0], pos-1, &mrbc_nil_value() );
       len = 0;
     }
-    if( len < 0 ) len = 0;
+    if( len < 0 ) {
+      mrbc_raise( vm, MRBC_CLASS(IndexError), "negative length");
+      return;
+    }
     if( pos+len > v[0].array->n_stored ) {
       len = v[0].array->n_stored - pos;
     }
@@ -747,24 +760,28 @@ static void c_array_set(struct VM *vm, mrbc_value v[], int argc)
     mrbc_array *ha0 = v[0].array;
 
     // delete data from tail.
-    int i;
-    for( i = 0; i < len; i++ ) {
+    for( int i = 0; i < len; i++ ) {
       mrbc_decref( &ha0->data[--ha0->n_stored] );
     }
 
     // append data
     if( v[3].tt == MRBC_TT_ARRAY ) {
       mrbc_array_push_m(&v[0], &v[3]);
-      for( i = 0; i < v[3].array->n_stored; i++ ) {
+      for( int i = 0; i < v[3].array->n_stored; i++ ) {
 	mrbc_incref( &v[3].array->data[i] );
       }
     } else {
+      mrbc_incref(&v[3]);
       mrbc_array_push(&v[0], &v[3]);
-      v[3].tt = MRBC_TT_EMPTY;
     }
 
     mrbc_array_push_m(&v[0], &v1);
     mrbc_array_delete_handle( &v1 );
+
+    // return val
+    mrbc_decref(&v[0]);
+    v[0] = v[3];
+    v[3].tt = MRBC_TT_EMPTY;
     return;
   }
 

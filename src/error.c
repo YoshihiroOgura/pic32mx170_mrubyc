@@ -297,6 +297,7 @@ static void c_exception_message(struct VM *vm, mrbc_value v[], int argc)
       StandardError
         ArgumentError
         IndexError
+        IOError
         NameError
           NoMethodError
         RangeError
@@ -325,6 +326,9 @@ static void c_exception_message(struct VM *vm, mrbc_value v[], int argc)
   SUPER("StandardError")
 
   CLASS("IndexError")
+  SUPER("StandardError")
+
+  CLASS("IOError")
   SUPER("StandardError")
 
   CLASS("NameError")

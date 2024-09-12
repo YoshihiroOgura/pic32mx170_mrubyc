@@ -595,7 +595,7 @@ static void c_string_insert(struct VM *vm, mrbc_value v[], int argc)
 {
   mrbc_int_t nth;
   mrbc_int_t len;
-  const mrbc_value *val;
+  mrbc_value *val;
 
   /*
     in case of self[nth] = val
@@ -649,6 +649,11 @@ static void c_string_insert(struct VM *vm, mrbc_value v[], int argc)
 
   v->string->size = len1 + len2 - len;
   v->string->data = str;
+
+  // return val
+  mrbc_decref(&v[0]);
+  v[0] = *val;
+  val->tt = MRBC_TT_EMPTY;
 }
 
 

@@ -428,13 +428,15 @@ void mrbc_vm_end( struct VM *vm )
 */
 void mrbc_vm_close( struct VM *vm )
 {
+  mrbc_decref( &vm->regs[0] );
+
   // free vm id.
   int idx = (vm->vm_id-1) >> 4;
   int bit = 1 << ((vm->vm_id-1) & 0x0f);
   free_vm_bitmap[idx] &= ~bit;
 
   // free irep and vm
-  if( vm->top_irep ) mrbc_irep_free( vm->top_irep );
+  if( vm->top_irep ) mrbc_raw_free( vm->top_irep );
   if( vm->flag_need_memfree ) mrbc_raw_free(vm);
 }
 
@@ -1137,7 +1139,7 @@ CASE_OP_BREAK: {
 
   // return to the proc generated level.
   int reg_offset = 0;
-  while( vm->callinfo_tail != vm->ret_blk->callinfo_self ) {
+  while( vm->callinfo_tail != vm->ret_blk->callinfo ) {
     // find ensure that still needs to be executed.
     const mrbc_irep_catch_handler *handler = find_catch_handler_ensure(vm);
     if( handler ) {
@@ -1661,9 +1663,13 @@ static inline void op_return__sub( mrbc_vm *vm, mrbc_value *regs, int a )
 
   // return without anything if top level.
   if( vm->callinfo_tail == NULL ) {
-    mrbc_decref(&regs[0]);
-    regs[0] = regs[a];
-    regs[a].tt = MRBC_TT_EMPTY;
+    if (vm->flag_permanence == 1) {
+      mrbc_incref(&regs[a]);
+    } else {
+      mrbc_decref(&regs[0]);
+      regs[0] = regs[a];
+      regs[a].tt = MRBC_TT_EMPTY;
+    }
     vm->flag_preemption = 1;
     vm->flag_stop = 1;
     return;
@@ -1783,7 +1789,7 @@ static inline void op_break( mrbc_vm *vm, mrbc_value *regs EXT )
     }
 
     // Is it the origin (generator) of proc?
-    if( vm->callinfo_tail == vm->ret_blk->callinfo_self ) break;
+    if( vm->callinfo_tail == vm->ret_blk->callinfo ) break;
 
     reg_offset = vm->callinfo_tail->reg_offset;
     mrbc_pop_callinfo(vm);
@@ -1825,13 +1831,22 @@ static inline void op_blkpush( mrbc_vm *vm, mrbc_value *regs EXT )
   if( lv == 0 ) {
     // current env
     blk = regs + offset;
+
   } else {
     // upper env
     assert( regs[0].tt == MRBC_TT_PROC );
+    mrbc_callinfo *callinfo = regs[0].proc->callinfo;
 
-    mrbc_callinfo *callinfo = regs[0].proc->callinfo_self;
+    for( int i = 0; i < lv-1; i++ ) {
+      assert( callinfo );
+      mrbc_value *reg0 = callinfo->cur_regs + callinfo->reg_offset;
+      assert( reg0->tt == MRBC_TT_PROC );
+      callinfo = reg0->proc->callinfo;
+    }
+
     blk = callinfo->cur_regs + callinfo->reg_offset + offset;
   }
+
   if( blk->tt != MRBC_TT_PROC ) {
     mrbc_raise( vm, MRBC_CLASS(Exception), "no block given (yield)");
     return;
@@ -2163,15 +2178,15 @@ static inline void op_array( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_BB();
 
-  mrbc_value value = mrbc_array_new(vm, b);
-  if( value.array == NULL ) return;  // ENOMEM
+  mrbc_value ret = mrbc_array_new(vm, b);
+  if( ret.array == NULL ) return;  // ENOMEM
 
-  memcpy( value.array->data, &regs[a], sizeof(mrbc_value) * b );
+  memcpy( ret.array->data, &regs[a], sizeof(mrbc_value) * b );
   memset( &regs[a], 0, sizeof(mrbc_value) * b );
-  value.array->n_stored = b;
+  ret.array->n_stored = b;
 
   mrbc_decref(&regs[a]);
-  regs[a] = value;
+  regs[a] = ret;
 }
 
 
@@ -2184,17 +2199,15 @@ static inline void op_array2( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_BBB();
 
-  mrbc_value value = mrbc_array_new(vm, c);
-  if( value.array == NULL ) return;  // ENOMEM
+  mrbc_value ret = mrbc_array_new(vm, c);
+  if( ret.array == NULL ) return;  // ENOMEM
 
-  for( int i = 0; i < c; i++ ) {
-    mrbc_incref( &regs[b+i] );
-    value.array->data[i] = regs[b+i];
-  }
-  value.array->n_stored = c;
+  memcpy( ret.array->data, &regs[b], sizeof(mrbc_value) * c );
+  memset( &regs[b], 0, sizeof(mrbc_value) * c );
+  ret.array->n_stored = c;
 
   mrbc_decref(&regs[a]);
-  regs[a] = value;
+  regs[a] = ret;
 }
 
 
@@ -2697,13 +2710,9 @@ static inline void op_def( mrbc_vm *vm, mrbc_value *regs EXT )
   mrbc_class *cls = regs[a].cls;
   mrbc_sym sym_id = mrbc_irep_symbol_id(vm->cur_irep, b);
   mrbc_proc *proc = regs[a+1].proc;
-  mrbc_method *method;
-
-  if( vm->vm_id == 0 ) {
-    method = mrbc_raw_alloc_no_free( sizeof(mrbc_method) );
-  } else {
-    method = mrbc_raw_alloc( sizeof(mrbc_method) );
-  }
+  mrbc_method *method = (vm->vm_id == 0) ?
+    mrbc_raw_alloc_no_free( sizeof(mrbc_method) ) :
+    mrbc_raw_alloc( sizeof(mrbc_method) );
   if( !method ) return; // ENOMEM
 
   method->type = (vm->vm_id == 0) ? 'm' : 'M';
@@ -2742,17 +2751,19 @@ static inline void op_alias( mrbc_vm *vm, mrbc_value *regs EXT )
   mrbc_sym sym_id_new = mrbc_irep_symbol_id(vm->cur_irep, a);
   mrbc_sym sym_id_org = mrbc_irep_symbol_id(vm->cur_irep, b);
   mrbc_class *cls = vm->target_class;
-  mrbc_method *method = mrbc_raw_alloc( sizeof(mrbc_method) );
-  if( !method ) return;	// ENOMEM
+  mrbc_method *method = (vm->vm_id == 0) ?
+    mrbc_raw_alloc_no_free( sizeof(mrbc_method) ) :
+    mrbc_raw_alloc( sizeof(mrbc_method) );
+  if( !method ) return; // ENOMEM
 
   if( mrbc_find_method( method, cls, sym_id_org ) == 0 ) {
     mrbc_raisef(vm, MRBC_CLASS(NameError), "undefined method '%s'",
 		mrbc_symid_to_str(sym_id_org));
-    mrbc_raw_free( method );
+    if(vm->vm_id != 0) mrbc_raw_free( method );
     return;
   }
 
-  method->type = 'M';
+  method->type = (vm->vm_id == 0) ? 'm' : 'M';
   method->sym_id = sym_id_new;
   method->next = cls->method_link;
   cls->method_link = method;

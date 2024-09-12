@@ -79,6 +79,17 @@ struct RClass mrbc_class_IndexError = {
 #endif
 };
 
+/*===== IOError class =====*/
+struct RClass mrbc_class_IOError = {
+  .sym_id = MRBC_SYM(IOError),
+  .num_builtin_method = 0,
+  .super = MRBC_CLASS(StandardError),
+  .method_link = 0,
+#if defined(MRBC_DEBUG)
+  .name = "IOError",
+#endif
+};
+
 /*===== NameError class =====*/
 struct RClass mrbc_class_NameError = {
   .sym_id = MRBC_SYM(NameError),
