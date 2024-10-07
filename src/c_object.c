@@ -474,17 +474,26 @@ static void c_object_getiv(struct VM *vm, mrbc_value v[], int argc)
  */
 static void c_object_setiv(struct VM *vm, mrbc_value v[], int argc)
 {
+  static const int NAMEBUFSIZ = 16;
+  char namebuf_auto[NAMEBUFSIZ];
+  char *namebuf;
   const char *name = mrbc_get_callee_name(vm);
   int len = strlen(name);
-  char *namebuf = mrbc_alloc(vm, len);
-  if( !namebuf ) return;
+
+  if( NAMEBUFSIZ < len ) {
+    namebuf = mrbc_alloc(vm, len);
+    if( !namebuf ) return;
+  } else {
+    namebuf = namebuf_auto;
+  }
 
   memcpy( namebuf, name, len-1 );
   namebuf[len-1] = '\0';	// delete '='
   mrbc_sym sym_id = mrbc_str_to_symid(namebuf);
 
   mrbc_instance_setiv(&v[0], sym_id, &v[1]);
-  mrbc_free(vm, namebuf);
+
+  if( NAMEBUFSIZ < len ) mrbc_free(vm, namebuf);
 }
 
 

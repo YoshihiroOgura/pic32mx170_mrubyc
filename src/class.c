@@ -714,6 +714,9 @@ void mrbc_init_class(void)
   cls.cls = MRBC_CLASS(NoMemoryError);
   mrbc_set_const( MRBC_SYM(NoMemoryError), &cls );
 
+  cls.cls = MRBC_CLASS(NotImplementedError);
+  mrbc_set_const( MRBC_SYM(NotImplementedError), &cls );
+
   cls.cls = MRBC_CLASS(StandardError);
   mrbc_set_const( MRBC_SYM(StandardError), &cls );
 
@@ -722,6 +725,9 @@ void mrbc_init_class(void)
 
   cls.cls = MRBC_CLASS(IndexError);
   mrbc_set_const( MRBC_SYM(IndexError), &cls );
+
+  cls.cls = MRBC_CLASS(IOError);
+  mrbc_set_const( MRBC_SYM(IOError), &cls );
 
   cls.cls = MRBC_CLASS(NameError);
   mrbc_set_const( MRBC_SYM(NameError), &cls );

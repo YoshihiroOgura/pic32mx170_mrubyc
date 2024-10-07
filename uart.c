@@ -396,6 +396,42 @@ int uart_write( UART_HANDLE *hndl, const void *buffer, int size )
 
 
 //================================================================
+/*! Receive string.
+
+  @memberof UART_HANDLE
+  @param  hndl		target UART_HANDLE
+  @param  buffer	pointer to buffer.
+  @param  size		Size of buffer.
+  @return int		Num of received bytes.
+
+  @note			If no data received, it blocks execution.
+*/
+int uart_gets( UART_HANDLE *hndl, void *buffer, int size )
+{
+  uint8_t *buf = buffer;
+  int len;
+
+  while( 1 ) {
+    len = uart_can_read_line(hndl);
+    if( len > 0 ) break;
+
+      Nop(); Nop(); Nop(); Nop();
+  }
+
+  if( len >= size ) return -1;		// buffer size too small.
+
+  // copy fifo to buffer
+  for( int ba = len; ba > 0; ba-- ) {
+    *buf++ = hndl->rxfifo[hndl->rx_rd++];
+    if( hndl->rx_rd >= sizeof(hndl->rxfifo) ) hndl->rx_rd = 0;
+  }
+  *buf = '\0';
+
+  return len;
+}
+
+
+//================================================================
 /*! check data length can be read.
 
   @memberof UART_HANDLE

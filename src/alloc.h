@@ -60,6 +60,8 @@ void *mrbc_raw_realloc(void *ptr, unsigned int size);
 #define mrbc_realloc(vm,ptr,size)	mrbc_raw_realloc(ptr, size)
 unsigned int mrbc_alloc_usable_size(void *ptr);
 void mrbc_alloc_statistics(struct MRBC_ALLOC_STATISTICS *ret);
+void mrbc_alloc_print_pool_header(void *pool_header);
+void mrbc_alloc_print_memory_block(void *pool_header);
 void mrbc_alloc_print_memory_pool(void);
 
 

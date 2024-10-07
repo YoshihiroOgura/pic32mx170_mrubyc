@@ -209,10 +209,11 @@ mrbc_tcb * mrbc_tcb_new( int regs_size, enum MrbcTaskState task_state, int prior
 {
   mrbc_tcb *tcb;
 
-  tcb = mrbc_raw_alloc( sizeof(mrbc_tcb) + sizeof(mrbc_value) * regs_size );
+  unsigned int size = sizeof(mrbc_tcb) + sizeof(mrbc_value) * regs_size;
+  tcb = mrbc_raw_alloc(size);
   if( !tcb ) return NULL;	// ENOMEM
 
-  memset(tcb, 0, sizeof(mrbc_tcb));
+  memset(tcb, 0, size);
 #if defined(MRBC_DEBUG)
   memcpy( tcb->type, "TCB", 4 );
 #endif
@@ -225,7 +226,7 @@ mrbc_tcb * mrbc_tcb_new( int regs_size, enum MrbcTaskState task_state, int prior
 
 
 //================================================================
-/*! specify running VM code.
+/*! Create a task specifying bytecode to be executed.
 
   @param  byte_code	pointer to VM byte code.
   @param  tcb		Task control block with parameter, or NULL.
@@ -257,6 +258,26 @@ mrbc_tcb * mrbc_create_task(const void *byte_code, mrbc_tcb *tcb)
   hal_enable_irq();
 
   return tcb;
+}
+
+
+//================================================================
+/*! Delete a task.
+
+  @param  tcb		Task control block.
+  @return Pointer to mrbc_tcb or NULL.
+*/
+int mrbc_delete_task(mrbc_tcb *tcb)
+{
+  if( tcb->state != TASKSTATE_DORMANT )  return -1;
+
+  hal_disable_irq();
+  q_delete_task(tcb);
+  hal_enable_irq();
+
+  mrbc_vm_close( &tcb->vm );
+
+  return 0;
 }
 
 
@@ -380,7 +401,7 @@ int mrbc_run(void)
       q_insert_task(tcb);
       hal_enable_irq();
 
-      mrbc_vm_end( &tcb->vm );
+      if( ! tcb->vm.flag_permanence ) mrbc_vm_end( &tcb->vm );
       if( ret_vm_run != 1 ) ret = ret_vm_run;   // for debug info.
 
       // find task that called join.

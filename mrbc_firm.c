@@ -22,28 +22,43 @@
 #include "uart.h"
 #include "mrubyc.h"
 
-#define MRUBYC_VERSION_STRING   "mruby/c v2.1 PIC32MX"
+#define VERSION_STRING   "mruby/c v3.3 RITE0300 MRBW1.2"
 
+static const char RITE[4] = "RITE";
 static const char WHITE_SPACE[] = " \t\r\n\f\v";
-static uint8_t *p_irep_write = (uint8_t*)FLASH_SAVE_ADDR;
-static uint8_t flag_clear = 0;
+static uint8_t *irep_write_addr_ = (uint8_t*)FLASH_SAVE_ADDR;
 
-static int cmd_help(void);
-static int cmd_version(void);
-static int cmd_reset(void);
-static int cmd_execute(void);
-static int cmd_clear(void);
-static int cmd_write(void);
-static int cmd_showprog(void);
 
-//================================================================
-/*! command table.
+/* wrap communication API macro.
 */
-struct monitor_commands {
-  const char *command;
-  int (*function)(void);
+#define STRM_READ(buf, len)  uart_read(UART_HANDLE_CONSOLE, buf, len)
+#define STRM_GETS(buf, size) uart_gets(UART_HANDLE_CONSOLE, buf, size)
+#define STRM_PUTS(buf)       uart_puts(UART_HANDLE_CONSOLE, buf)
+#define STRM_RESET()         uart_clear_rx_buffer(UART_HANDLE_CONSOLE)
+#define SYSTEM_RESET()       do { \
+  __builtin_disable_interrupts(); \
+  system_reset(); \
+} while(0)
 
-} monitor_commands[] = {
+
+/* function prototypes.
+*/
+static int cmd_help();
+static int cmd_version();
+static int cmd_reset();
+static int cmd_execute();
+static int cmd_clear();
+static int cmd_write();
+static int cmd_showprog();
+
+
+/* command table.
+*/
+static struct COMMAND_T {
+  const char *command;
+  int (*function)();
+
+} const TBL_COMMANDS[] = {
   {"help",	cmd_help },
   {"version",	cmd_version },
   {"reset",	cmd_reset },
@@ -53,17 +68,7 @@ struct monitor_commands {
   {"showprog",	cmd_showprog },
 };
 
-
-//================================================================
-/*! put string sub-routine.
-
-  @param  s		pointer to string.
-*/
-static void u_puts( const void *s )
-{
-  mrbc_print(s);
-  mrbc_print("\r\n");
-}
+static const int NUM_TBL_COMMANDS = sizeof(TBL_COMMANDS)/sizeof(struct COMMAND_T);
 
 
 //================================================================
@@ -71,13 +76,14 @@ static void u_puts( const void *s )
 */
 static int cmd_help(void)
 {
-  u_puts("+OK\r\nCommands:");
+  STRM_PUTS("+OK\r\nCommands:\r\n");
 
-  for( int i = 0; i < sizeof(monitor_commands)/sizeof(struct monitor_commands); i++ ) {
-    mrbc_print("  ");
-    u_puts(monitor_commands[i].command);
+  for( int i = 0; i < NUM_TBL_COMMANDS; i++ ) {
+    STRM_PUTS("  ");
+    STRM_PUTS(TBL_COMMANDS[i].command);
+    STRM_PUTS("\r\n");
   }
-  u_puts("+DONE");
+  STRM_PUTS("+DONE\r\n");
   return 0;
 }
 
@@ -87,7 +93,7 @@ static int cmd_help(void)
 */
 static int cmd_version(void)
 {
-  u_puts("+OK " MRUBYC_VERSION_STRING);
+  STRM_PUTS("+OK " VERSION_STRING "\r\n");
   return 0;
 }
 
@@ -97,9 +103,7 @@ static int cmd_version(void)
 */
 static int cmd_reset(void)
 {
-  __builtin_disable_interrupts();
-
-  system_reset();
+  SYSTEM_RESET();
   return 0;
 }
 
@@ -109,7 +113,7 @@ static int cmd_reset(void)
 */
 static int cmd_execute(void)
 {
-  u_puts("+OK Execute mruby/c.");
+  STRM_PUTS("+OK Execute mruby/c.\r\n");
   return 1;	// to execute VM.
 }
 
@@ -119,12 +123,11 @@ static int cmd_execute(void)
 */
 static int cmd_clear(void)
 {
-  p_irep_write = (uint8_t*)FLASH_SAVE_ADDR;
-  flag_clear = 1;
-  if( flash_erase_page( p_irep_write ) == 0 ) {
-    u_puts("+OK");
+  irep_write_addr_ = (uint8_t*)FLASH_SAVE_ADDR;
+  if( flash_erase_page( irep_write_addr_ ) == 0 ) {
+    STRM_PUTS("+OK\r\n");
   } else {
-    u_puts("-ERR");
+    STRM_PUTS("-ERR\r\n");
   }
   return 0;
 }
@@ -133,74 +136,78 @@ static int cmd_clear(void)
 //================================================================
 /*! command 'write'
 */
-static int cmd_write(void)
+static int cmd_write( void *buffer, int buffer_size )
 {
   char *token = strtok( NULL, WHITE_SPACE );
   if( token == NULL ) {
-    u_puts("-ERR");
-    return 0;
+    STRM_PUTS("-ERR\r\n");
+    return -1;
   }
 
-  int size = atoi(token);
-  // TODO: size check.
+  // check size
+  int size = mrbc_atoi(token, 10);
+  uint8_t *irep_write_end = irep_write_addr_ + size;
+  if( (irep_write_end > (uint8_t *)FLASH_END_ADDR) || (size > buffer_size) ) {
+    STRM_PUTS("-ERR IREP file size overflow.\r\n");
+    return -1;
+  }
 
-  u_puts("+OK Write bytecode.");
+  STRM_PUTS("+OK Write bytecode.\r\n");
 
-  extern uint8_t memory_pool[];
-  uint8_t *p = memory_pool;
+  // get a bytecode.
+  uint8_t *p = buffer;
   int n = size;
   while (n > 0) {
-    int readed_size = uart_read( UART_HANDLE_CONSOLE, p, size );
+    int readed_size = STRM_READ( p, size );
     p += readed_size;
     n -= readed_size;
   }
 
-  // check 'RITE'
-  static const char RITE[4] = "RITE";
-  p = memory_pool;
-  if( strncmp( p, RITE, sizeof(RITE)) != 0 ) {
-    u_puts("-ERR No RITE code received.");
-    goto DONE;
+  // check 'RITE' magick code.
+  p = buffer;
+  if( strncmp( (const char *)p, RITE, sizeof(RITE)) != 0 ) {
+    STRM_PUTS("-ERR No RITE code received.\r\n");
+    return -1;
   }
 
-  uint8_t *page_top = p_irep_write - ((uintptr_t)p_irep_write % FLASH_PAGE_SIZE);
+  // Write bytecode to FLASH.
+  uint8_t *page_top = irep_write_addr_ - ((uintptr_t)irep_write_addr_ % FLASH_PAGE_SIZE);
   uint8_t *next_page_top = page_top + FLASH_PAGE_SIZE;
-  uint8_t *prog_end_row = p_irep_write + FLASH_ALIGN_ROW_SIZE(size);
+  uint8_t *prog_end_row = irep_write_addr_ + FLASH_ALIGN_ROW_SIZE(size);
 
   // erase required amount of PAGE
-  if( p_irep_write == page_top ) next_page_top = page_top;
+  if( irep_write_addr_ == page_top ) next_page_top = page_top;
   while( next_page_top < prog_end_row ) {
     if( (next_page_top + FLASH_PAGE_SIZE) > (uint8_t*)(FLASH_END_ADDR+1) ) {
-      u_puts("-ERR total bytecode size overflow.");
-      goto DONE;
+      STRM_PUTS("-ERR total bytecode size overflow.\r\n");
+      return -1;
     }
 
     if( flash_erase_page( next_page_top ) != 0 ) {
-      u_puts("-ERR Flash erase error.");
-      goto DONE;
+      STRM_PUTS("-ERR Flash erase error.\r\n");
+      return -1;
     }
     next_page_top += FLASH_PAGE_SIZE;
   }
 
   // Write data to FLASH. segmentad by ROW size.
-  while( p_irep_write < prog_end_row ) {
-    if( flash_write_row( p_irep_write, p ) != 0 ) {
-      u_puts("-ERR Flash write error.");
-      goto DONE;
+  while( irep_write_addr_ < prog_end_row ) {
+    if( flash_write_row( irep_write_addr_, p ) != 0 ) {
+      STRM_PUTS("-ERR Flash write error.\r\n");
+      return -1;
     }
-    p_irep_write += FLASH_ROW_SIZE;
+    irep_write_addr_ += FLASH_ROW_SIZE;
     p += FLASH_ROW_SIZE;
   }
 
   // Check if magic word "RITE" remains on the next rows.
-  if( p_irep_write == next_page_top &&
+  if( irep_write_addr_ == next_page_top &&
       memcmp( (const char *)next_page_top, RITE, sizeof(RITE)) == 0 ) {
     flash_erase_page( next_page_top );   // erase it.
   }
 
-  u_puts("+DONE");
+  STRM_PUTS("+DONE\r\n");
 
- DONE:
   return 0;
 }
 
@@ -210,75 +217,98 @@ static int cmd_write(void)
 */
 static int cmd_showprog(void)
 {
-  static const char RITE[4] = "RITE";
-  const uint8_t *fl_addr = (const uint8_t *)FLASH_SAVE_ADDR;
-  uint32_t used_size = 0;
+  const uint8_t *addr = (const uint8_t *)FLASH_SAVE_ADDR;
   int n = 0;
+  char buf[80];
 
-  u_puts("idx size offset");
-  while( strncmp( (const char *)fl_addr, RITE, sizeof(RITE)) == 0 ) {
+  STRM_PUTS("idx size offset\r\n");
+  while( strncmp( (const char *)addr, RITE, sizeof(RITE)) == 0 ) {
     uint32_t size = 0;
     for( int i = 0; i < 4; i++ ) {
-      size = (size << 8) | fl_addr[8 + i];
+      size = (size << 8) | addr[8 + i];
     }
-    mrbc_printf(" %d  %-4d $%p\r\n", n++, size, fl_addr );
+    mrbc_snprintf(buf, sizeof(buf), " %d  %-4d %p\r\n", n++, size, addr);
+    STRM_PUTS(buf);
 
-    size = FLASH_ALIGN_ROW_SIZE( size );
-    used_size += size;
-    fl_addr += size;
+    addr += FLASH_ALIGN_ROW_SIZE( size );
   }
 
-  int total_size = (FLASH_END_ADDR - FLASH_SAVE_ADDR + 1);
-  int percent = 100 * used_size / total_size;
-  mrbc_printf("total %d / %d (%d%%)\r\n", used_size, total_size, percent);
-  u_puts("+DONE");
+  int total = (FLASH_END_ADDR - FLASH_SAVE_ADDR + 1);
+  int used = addr - (uint8_t *)FLASH_SAVE_ADDR;
+  int percent = 100 * used / total;
+  mrbc_snprintf(buf, sizeof(buf), "total %d / %d (%d%%)\r\n", used, total, percent);
+  STRM_PUTS(buf);
+  STRM_PUTS("+DONE\r\n");
 
   return 0;
 }
 
 
 //================================================================
-/*! mruby/c IDE program creation process
+/*! receive bytecode mode
 */
-void add_code(void)
+int receive_bytecode( void *buffer, int buffer_size )
 {
   char buf[50];
 
+  STRM_PUTS("+OK mruby/c\r\n");
+
   while( 1 ) {
     // get the command string.
-    int len = uart_can_read_line(UART_HANDLE_CONSOLE);
-    if( !len ) continue;
-
-    if( len >= sizeof(buf) ) {
-      uart_clear_rx_buffer(UART_HANDLE_CONSOLE);
+    if( STRM_GETS(buf, sizeof(buf)) < 0 ) {
+      STRM_RESET();
       continue;
     }
-    uart_read(UART_HANDLE_CONSOLE, buf, len);
-    buf[len] = 0;
 
     // split tokens.
     char *token = strtok( buf, WHITE_SPACE );
     if( token == NULL ) {
-      u_puts("+OK mruby/c");
+      STRM_PUTS("+OK mruby/c\r\n");
+      continue;
+    }
+
+    // find command.
+    int i;
+    for( i = 0; i < NUM_TBL_COMMANDS; i++ ) {
+      if( strcmp( token, TBL_COMMANDS[i].command ) == 0 ) break;
+    }
+    if( i == NUM_TBL_COMMANDS ) {
+      STRM_PUTS("-ERR Illegal command. '");
+      STRM_PUTS(token);
+      STRM_PUTS("'\r\n");
       continue;
     }
 
     // execute command.
-    for( int i = 0; i < sizeof(monitor_commands)/sizeof(struct monitor_commands); i++ ) {
-      if( strcmp( token, monitor_commands[i].command ) != 0 ) continue;
+    if( (TBL_COMMANDS[i].function)(buffer, buffer_size) == 1 ) break;
+  }
 
-      int ret = (monitor_commands[i].function)();
-      switch( ret ) {
-      case 0:
-	goto DONE;
-      case 1:
-	return;
-      }
+  return 0;
+}
+
+
+//================================================================
+/*! pick up a task
+*/
+void * pickup_task( void *task )
+{
+  uint8_t *addr = (uint8_t *)FLASH_SAVE_ADDR;
+
+  if( task ) {
+    if( strncmp( task, RITE, sizeof(RITE)) != 0 ) return 0;
+
+    addr = task;
+    unsigned int size = 0;
+    for( int i = 0; i < 4; i++ ) {
+      size = (size << 8) | addr[8 + i];
     }
 
-    mrbc_printf("-ERR Illegal command. '%s'\n", token);
-
-  DONE:
-    ;
+    addr += FLASH_ALIGN_ROW_SIZE( size );
   }
+
+  if( strncmp( (const char *)addr, RITE, sizeof(RITE)) == 0 ) {
+    return addr;
+  }
+
+  return 0;
 }

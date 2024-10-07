@@ -109,6 +109,7 @@ typedef struct RMutex {
 void mrbc_tick(void);
 mrbc_tcb *mrbc_tcb_new(int regs_size, enum MrbcTaskState task_state, int priority);
 mrbc_tcb *mrbc_create_task(const void *byte_code, mrbc_tcb *tcb);
+int mrbc_delete_task(mrbc_tcb *tcb);
 void mrbc_set_task_name(mrbc_tcb *tcb, const char *name);
 mrbc_tcb *mrbc_find_task(const char *name);
 int mrbc_start_task(mrbc_tcb *tcb);
