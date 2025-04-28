@@ -79,6 +79,7 @@ typedef struct PWM_HANDLE {
   uint8_t unit_num;
   uint16_t period;	// PRx set count value.
   uint16_t duty;	// percent but stretch 100% to UINT16_MAX
+  uint8_t timer;
 } PWM_HANDLE;
 
 static PWM_HANDLE pwm_handle_[NUM_PWM_OC_UNIT];
@@ -95,7 +96,11 @@ static int pwm_set_frequency( PWM_HANDLE *hndl, double freq )
   }
 
   OCxRS(hndl->unit_num) = (uint32_t)hndl->period * hndl->duty / UINT16_MAX;
-  PR2 = hndl->period;
+  if( hndl->timer == 1 ){
+    PR3 = hndl->period;
+  } else {
+    PR2 = hndl->period;
+  }
   if( hndl->period <= TMR2 ) TMR2 = 0;
 
   return 0;
@@ -108,7 +113,11 @@ static int pwm_set_period_us( PWM_HANDLE *hndl, unsigned int us )
   hndl->period = (uint64_t)us * (PBCLK/4) / 1000000;
 
   OCxRS(hndl->unit_num) = (uint32_t)hndl->period * hndl->duty / UINT16_MAX;
-  PR2 = hndl->period;
+  if( hndl->timer == 1 ){
+    PR3 = hndl->period;
+  } else {
+    PR2 = hndl->period;
+  }
   if( hndl->period <= TMR2 ) TMR2 = 0;
 
   return 0;
@@ -134,6 +143,23 @@ static int pwm_set_pulse_width_us( PWM_HANDLE *hndl, unsigned int us )
   OCxRS(hndl->unit_num) = (uint64_t)us * (PBCLK/4) / 1000000;
 
   return 0;
+}
+
+
+/*! PWM set timer.
+*/
+static int pwm_set_timer( PWM_HANDLE *hndl, unsigned int timer )
+{
+  if( timer == 3 ) {
+    hndl->timer = 1;
+  } else if( timer == 2 ){
+    hndl->timer = 0;
+  }else {
+    return 0;
+  }
+  
+  OCxCON(hndl->unit_num) = 0x0006 | (hndl->timer << _OC1CON_OCTSEL_POSITION);
+  return 1;
 }
 
 
@@ -166,7 +192,6 @@ static int pwm_assign_pin( const PIN_HANDLE *pin )
   return unit_num;
 }
 
-
 /* ============================= mruby/c codes ============================= */
 
 /*! constructor
@@ -177,7 +202,7 @@ static int pwm_assign_pin( const PIN_HANDLE *pin )
 */
 static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  MRBC_KW_ARG(frequency, freq, duty);
+  MRBC_KW_ARG(frequency, freq, duty, timer);
   if( !MRBC_KW_END() ) goto RETURN;
   if( argc == 0 ) goto ERROR_RETURN;
 
@@ -196,6 +221,10 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   OCxCON(unit_num) = 0x0006;	// PWM mode, use Timer2.
   OCxR(unit_num) = 0;
   OCxRS(unit_num) = 0;
+  
+  if( MRBC_ISNUMERIC(timer) ) {
+    pwm_set_timer( hndl, MRBC_TO_INT(timer));
+  }
 
   // set frequency and duty
   if( MRBC_ISNUMERIC(frequency) ) {
@@ -275,6 +304,26 @@ static void c_pwm_pulse_width_us(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 }
 
+/*! PWM set timer 2 or 3.
+
+  pwm1.set_timer( 3 )
+*/
+static void c_pwm_set_timer(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
+
+  if( MRBC_ISNUMERIC(v[1]) ) {
+    pwm_set_timer( hndl, MRBC_TO_INT(v[1]));
+  }
+  
+  if( hndl->timer == 1 ){
+    PR3 = hndl->period;
+  } else {
+    PR2 = hndl->period;
+  }
+  
+}
+
 
 /*! Initializer
 */
@@ -285,16 +334,12 @@ void mrbc_init_class_pwm(void)
     pwm_handle_[i].duty = UINT16_MAX / 2;
   }
 
-  // using timer2, start.
-  // TODO:
-  //   現在 timer2 を OC1-4で共用していて周波数の設定が全て共通になっている。
-  //   つまり Frequencyは1種類しか選べない。
-  //   また、OCx は Timer2 か 3 しか選ぶことができないという制約がある。
-
-  T2CON = 0x0020;	// 1:4 prescalor, 16bit
-  TMR2 = 0;
-  PR2 = 0xffff;
-  T2CONSET = (1 << _T2CON_ON_POSITION);
+  // using timer2,3 start.
+  // Only two types of cycles[timer] available.
+  T2CON = T3CON = 0x0020;	// 1:4 prescalor, 16bit
+  TMR2 = TMR3 = 0;
+  PR2 = PR3 = 0xffff;
+  T2CONSET = T3CONSET = (1 << _T2CON_ON_POSITION);
 
   mrbc_class *pwm = mrbc_define_class(0, "PWM", 0);
 
@@ -303,4 +348,5 @@ void mrbc_init_class_pwm(void)
   mrbc_define_method(0, pwm, "period_us", c_pwm_period_us);
   mrbc_define_method(0, pwm, "duty", c_pwm_duty);
   mrbc_define_method(0, pwm, "pulse_width_us", c_pwm_pulse_width_us);
+  mrbc_define_method(0, pwm, "set_timer", c_pwm_set_timer);
 }
