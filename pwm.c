@@ -146,6 +146,23 @@ static int pwm_set_pulse_width_us( PWM_HANDLE *hndl, unsigned int us )
 }
 
 
+/*! PWM set timer.
+*/
+static int pwm_set_timer( PWM_HANDLE *hndl, unsigned int timer )
+{
+  if( timer == 3 ) {
+    hndl->timer = 1;
+  } else if( timer == 2 ){
+    hndl->timer = 0;
+  }else {
+    return 0;
+  }
+  
+  OCxCON(hndl->unit_num) = 0x0006 | (hndl->timer << _OC1CON_OCTSEL_POSITION);
+  return 1;
+}
+
+
 /*! assign pin.
 */
 static int pwm_assign_pin( const PIN_HANDLE *pin )
@@ -173,20 +190,6 @@ static int pwm_assign_pin( const PIN_HANDLE *pin )
   RPxnR( pin->port, pin->num ) = PWM_PIN_ASSIGN[i].rpnr_value;
 
   return unit_num;
-}
-
-static int pwm_set_timer( PWM_HANDLE *hndl, unsigned int timer )
-{
-  if( timer == 3 ) {
-    hndl->timer = 1;
-  } else if( timer == 2 ){
-    hndl->timer = 0;
-  }else {
-    return 0;
-  }
-  
-  OCxCON(hndl->unit_num) = 0x0006 | (hndl->timer << _OC1CON_OCTSEL_POSITION);
-  return 1;
 }
 
 /* ============================= mruby/c codes ============================= */
@@ -331,12 +334,8 @@ void mrbc_init_class_pwm(void)
     pwm_handle_[i].duty = UINT16_MAX / 2;
   }
 
-  // using timer2, start.
-  // TODO:
-  //   現在 timer2 を OC1-4で共用していて周波数の設定が全て共通になっている。
-  //   つまり Frequencyは1種類しか選べない。
-  //   また、OCx は Timer2 か 3 しか選ぶことができないという制約がある。
-
+  // using timer2,3 start.
+  // Only two types of cycles[timer] available.
   T2CON = T3CON = 0x0020;	// 1:4 prescalor, 16bit
   TMR2 = TMR3 = 0;
   PR2 = PR3 = 0xffff;
