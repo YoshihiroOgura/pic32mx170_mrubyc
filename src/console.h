@@ -70,6 +70,7 @@ typedef struct RPrintf {
 
 /***** Global variables *****************************************************/
 /***** Function prototypes **************************************************/
+//@cond
 void mrbc_putchar(char c);
 void mrbc_print_symbol(mrbc_sym sym_id);
 void mrbc_nprint(const char *str, int size);
@@ -90,6 +91,7 @@ int mrbc_printf_int(mrbc_printf_t *pf, mrbc_int_t value, unsigned int base);
 int mrbc_printf_bit(mrbc_printf_t *pf, mrbc_int_t value, int bit);
 int mrbc_printf_float(mrbc_printf_t *pf, double value);
 int mrbc_printf_pointer(mrbc_printf_t *pf, void *ptr);
+//@endcond
 
 
 /***** Inline functions *****************************************************/

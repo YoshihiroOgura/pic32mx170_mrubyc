@@ -48,9 +48,9 @@ static const mrbc_func_t method_functions_Task[] = {
 
 struct RBuiltinClass mrbc_class_Task = {
   .sym_id = MRBC_SYM(Task),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_Task) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "Task",
 #endif
@@ -80,9 +80,9 @@ static const mrbc_func_t method_functions_Mutex[] = {
 
 struct RBuiltinClass mrbc_class_Mutex = {
   .sym_id = MRBC_SYM(Mutex),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_Mutex) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "Mutex",
 #endif
@@ -102,9 +102,9 @@ static const mrbc_func_t method_functions_VM[] = {
 
 struct RBuiltinClass mrbc_class_VM = {
   .sym_id = MRBC_SYM(VM),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_VM) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "VM",
 #endif

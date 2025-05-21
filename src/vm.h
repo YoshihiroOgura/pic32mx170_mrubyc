@@ -27,6 +27,7 @@
 /***** Local headers ********************************************************/
 #include "value.h"
 #include "class.h"
+#include "c_proc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,16 +41,22 @@ extern "C" {
 */
 typedef struct IREP {
 #if defined(MRBC_DEBUG)
-  uint8_t type[2];		//!< set "RP" for debug.
+  uint8_t obj_mark_[2];		//!< set "RP" for debug.
 #endif
 
+  uint16_t ref_count;		//!< reference counter
+#if defined(MRBC_DEBUG)
   uint16_t nlocals;		//!< num of local variables
+#endif
   uint16_t nregs;		//!< num of register variables
   uint16_t rlen;		//!< num of child IREP blocks
   uint16_t clen;		//!< num of catch handlers
-  uint32_t ilen;		//!< num of bytes in OpCode
+  uint16_t ilen;		//!< num of bytes in OpCode
+#if defined(MRBC_DEBUG)
   uint16_t plen;		//!< num of pools
   uint16_t slen;		//!< num of symbols
+#endif
+  uint16_t ofs_pools;		//!< offset of data->tbl_pools.
   uint16_t ofs_ireps;		//!< offset of data->tbl_ireps. (32bit aligned)
 
   const uint8_t *inst;		//!< pointer to instruction in RITE binary
@@ -75,7 +82,7 @@ typedef struct IREP mrb_irep;
 
 //! get a pool data offset table pointer.
 #define mrbc_irep_tbl_pools(irep) \
-  ( (uint16_t *) ((irep)->data + (irep)->slen * sizeof(mrbc_sym)) )
+  ( (uint16_t *)((irep)->data + (irep)->ofs_pools) )
 
 //! get a pointer to n'th pool data.
 #define mrbc_irep_pool_ptr(irep, n) \
@@ -84,7 +91,7 @@ typedef struct IREP mrb_irep;
 
 //! get a child irep table pointer.
 #define mrbc_irep_tbl_ireps(irep) \
-  ( (mrbc_irep **) ((irep)->data + (irep)->ofs_ireps * 4) )
+  ( (mrbc_irep **)((irep)->data + (irep)->ofs_ireps) )
 
 //! get a n'th child irep
 #define mrbc_irep_child_irep(irep, n) \
@@ -132,7 +139,7 @@ typedef struct CALLINFO mrb_callinfo;
 */
 typedef struct VM {
 #if defined(MRBC_DEBUG)
-  char type[2];				// set "VM" for debug
+  uint8_t obj_mark_[2];			// set "VM" for debug
 #endif
   uint8_t vm_id;			//!< vm_id : 1..MAX_VM_COUNT
   volatile int8_t flag_preemption;
@@ -158,6 +165,7 @@ typedef struct VM mrb_vm;
 
 /***** Global variables *****************************************************/
 /***** Function prototypes **************************************************/
+//@cond
 void mrbc_cleanup_vm(void);
 mrbc_sym mrbc_get_callee_symid(struct VM *vm);
 const char *mrbc_get_callee_name(struct VM *vm);
@@ -169,237 +177,37 @@ void mrbc_vm_close(struct VM *vm);
 void mrbc_vm_begin(struct VM *vm);
 void mrbc_vm_end(struct VM *vm);
 int mrbc_vm_run(struct VM *vm);
+//@endcond
 
 
 /***** Inline functions *****************************************************/
-/*
-  (note)
-  Conversion functions from binary (byte array) to each data type.
-
-  Use the MRBC_BIG_ENDIAN, MRBC_LITTLE_ENDIAN and MRBC_REQUIRE_32BIT_ALIGNMENT
-  macros.
-
-  (each cases)
-  Little endian, no alignment.
-   MRBC_LITTLE_ENDIAN && !MRBC_REQUIRE_32BIT_ALIGNMENT
-   (e.g.) ARM Cortex-M4, Intel x86
-
-  Big endian, no alignment.
-   MRBC_BIG_ENDIAN && !MRBC_REQUIRE_32BIT_ALIGNMENT
-   (e.g.) IBM PPC405
-
-  Little endian, 32bit alignment required.
-   MRBC_LITTLE_ENDIAN && MRBC_REQUIRE_32BIT_ALIGNMENT
-   (e.g.) ARM Cortex-M0
-
-  Big endian, 32bit alignment required.
-   MRBC_BIG_ENDIAN) && MRBC_REQUIRE_32BIT_ALIGNMENT
-   (e.g.) OpenRISC
-*/
-#if defined(MRBC_REQUIRE_32BIT_ALIGNMENT) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-#define MRBC_REQUIRE_64BIT_ALIGNMENT
-#endif
-
-
 //================================================================
-/*! Get 16bit int value from memory.
+/*! get the self object
 
-  @param  s	Pointer to memory.
-  @return	16bit unsigned int value.
+  @param  vm	A pointer to VM.
+  @param  regs	registor
+  @return	pointer to self object
 */
-static inline uint16_t bin_to_uint16( const void *s )
+static inline mrbc_value * mrbc_get_self( struct VM *vm, mrbc_value *regs )
 {
-#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
-  // Little endian, no alignment.
-  uint16_t x = *((uint16_t *)s);
-  x = (x << 8) | (x >> 8);
-
-#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
-  // Big endian, no alignment.
-  uint16_t x = *((uint16_t *)s);
-
-#elif defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
-  // 32bit alignment required.
-  uint8_t *p = (uint8_t *)s;
-  uint16_t x = *p++;
-  x <<= 8;
-  x |= *p;
-
-#else
-  #error "Specify MRBC_BIG_ENDIAN or MRBC_LITTLE_ENDIAN"
-#endif
-
-  return x;
+  return regs[0].tt == MRBC_TT_PROC ? &(regs[0].proc->self) : &regs[0];
 }
 
 
 //================================================================
-/*! Get 32bit int value from memory.
+/*! (BETA) check if a block is passed to a method.
 
-  @param  s	Pointer to memory.
-  @return	32bit unsigned int value.
+  @param  vm	A pointer to VM.
+  @param  v	register top.
+  @param  argc	n of arguments.
+  @return	0 or 1
 */
-static inline uint32_t bin_to_uint32( const void *s )
+static inline int mrbc_c_block_given( struct VM *vm, mrbc_value v[], int argc )
 {
-#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
-  // Little endian, no alignment.
-  uint32_t x = *((uint32_t *)s);
-  x = (x << 24) | ((x & 0xff00) << 8) | ((x >> 8) & 0xff00) | (x >> 24);
+  int ofs = 1 + (v[argc+1].tt == MRBC_TT_HASH);
 
-#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
-  // Big endian, no alignment.
-  uint32_t x = *((uint32_t *)s);
-
-#elif defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
-  // 32bit alignment required.
-  uint8_t *p = (uint8_t *)s;
-  uint32_t x = *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p;
-
-#endif
-
-  return x;
+  return v[argc + ofs].tt == MRBC_TT_PROC;
 }
-
-
-#if defined(MRBC_INT64)
-//================================================================
-/*! Get 64bit int value from memory.
-
-  @param  s	Pointer to memory.
-  @return	64bit int value.
-*/
-static inline int64_t bin_to_int64( const void *s )
-{
-#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-  // Little endian, no alignment.
-  uint64_t x = *((uint64_t *)s);
-  uint64_t y = (x << 56);
-  y |= ((uint64_t)(uint8_t)(x >>  8)) << 48;
-  y |= ((uint64_t)(uint8_t)(x >> 16)) << 40;
-  y |= ((uint64_t)(uint8_t)(x >> 24)) << 32;
-  y |= ((uint64_t)(uint8_t)(x >> 32)) << 24;
-  y |= ((uint64_t)(uint8_t)(x >> 40)) << 16;
-  y |= ((uint64_t)(uint8_t)(x >> 48)) << 8;
-  y |= (x >> 56);
-  return y;
-
-#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-  // Big endian, no alignment.
-  return *((uint64_t *)s);
-
-#elif defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-  // 64bit alignment required.
-  uint8_t *p = (uint8_t *)s;
-  uint64_t x = *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p++;
-  x <<= 8;
-  x |= *p;
-  return x;
-
-#endif
-
-}
-#endif
-
-
-//================================================================
-/*! Get double (64bit) value from memory.
-
-  @param  s	Pointer to memory.
-  @return	double value.
-*/
-static inline double bin_to_double64( const void *s )
-{
-#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-  // Little endian, no alignment.
-  return *((double *)s);
-
-#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-  // Big endian, no alignment.
-  double x;
-  uint8_t *p1 = (uint8_t*)s;
-  uint8_t *p2 = (uint8_t*)&x + 7;
-  int i;
-  for( i = 7; i >= 0; i-- ) {
-    *p2-- = *p1++;
-  }
-  return x;
-
-#elif defined(MRBC_LITTLE_ENDIAN) && defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-  // Little endian, 64bit alignment required.
-  double x;
-  uint8_t *p1 = (uint8_t*)s;
-  uint8_t *p2 = (uint8_t*)&x;
-  int i;
-  for( i = 7; i >= 0; i-- ) {
-    *p2++ = *p1++;
-  }
-  return x;
-
-#elif defined(MRBC_BIG_ENDIAN) && defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
-  // Big endian, 64bit alignment required.
-  double x;
-  uint8_t *p1 = (uint8_t*)s;
-  uint8_t *p2 = (uint8_t*)&x + 7;
-  int i;
-  for( i = 7; i >= 0; i-- ) {
-    *p2-- = *p1++;
-  }
-  return x;
-
-#endif
-}
-
-
-//================================================================
-/*! Set 32bit value to memory.
-
-  @param  v	Source value.
-  @param  d	Pointer to memory.
-*/
-static inline void uint32_to_bin( uint32_t v, void *d )
-{
-  uint8_t *p = (uint8_t *)d + 3;
-  *p-- = 0xff & v;
-  v >>= 8;
-  *p-- = 0xff & v;
-  v >>= 8;
-  *p-- = 0xff & v;
-  v >>= 8;
-  *p = 0xff & v;
-}
-
-
-//================================================================
-/*! Set 16bit value to memory.
-
-  @param  v	Source value.
-  @param  d	Pointer to memory.
-*/
-static inline void uint16_to_bin( uint16_t v, void *d )
-{
-  uint8_t *p = (uint8_t *)d;
-  *p++ = (v >> 8);
-  *p = 0xff & v;
-}
-
 
 #ifdef __cplusplus
 }

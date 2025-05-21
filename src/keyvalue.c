@@ -8,6 +8,40 @@
 
   This file is distributed under BSD 3-Clause License.
 
+
+ Function summary
+
+ (constructor)
+    mrbc_kv_new()
+
+ (destructor)
+    mrbc_kv_delete()
+    mrbc_kv_delete_data()
+
+ (initializer)
+    mrbc_kv_init_handle()
+
+ (setter)
+  --[name]-------------[arg]---[ret]---[note]----------------------------------
+    mrbc_kv_set()	*V	int
+
+ (getter)
+  --[name]-------------[arg]---[ret]---[note]----------------------------------
+    mrbc_kv_get()	SymID	*V
+
+ (others)
+    mrbc_kv_resize()
+    mrbc_kv_remove()
+    mrbc_kv_clear()
+    mrbc_kv_dup()
+    mrbc_kv_size()
+
+  (iterator)
+    mrbc_kv_iterator_new()
+    mrbc_kv_i_is_first()
+    mrbc_kv_i_has_next()
+    mrbc_kv_i_get()
+    mrbc_kv_i_next()
   </pre>
 */
 
@@ -20,9 +54,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "value.h"
-#include "alloc.h"
-#include "keyvalue.h"
+#include "mrubyc.h"
 
 /***** Constat values *******************************************************/
 #if !defined(MRBC_KV_SIZE_INIT)
@@ -111,7 +143,7 @@ int mrbc_kv_init_handle(struct VM *vm, mrbc_kv_handle *kvh, int size)
     if( !kvh->data ) return -1;		// ENOMEM
 
 #if defined(MRBC_DEBUG)
-    memcpy( kvh->data->type, "KV", 2 );
+    memcpy( kvh->data->obj_mark_, "KV", 2 );
 #endif
   }
 
@@ -178,10 +210,12 @@ void mrbc_kv_clear_vm_id(mrbc_kv_handle *kvh)
 */
 int mrbc_kv_resize(mrbc_kv_handle *kvh, int size)
 {
-  mrbc_kv *data2 = mrbc_raw_realloc(kvh->data, sizeof(mrbc_kv) * size);
-  if( !data2 ) return E_NOMEMORY_ERROR;		// ENOMEM
+  if( size <= 0 ) size = 1;
 
-  kvh->data = data2;
+  mrbc_kv *data = mrbc_raw_realloc(kvh->data, sizeof(mrbc_kv) * size);
+  if( !data ) return E_NOMEMORY_ERROR;		// ENOMEM
+
+  kvh->data = data;
   kvh->data_size = size;
 
   return 0;
@@ -223,7 +257,7 @@ int mrbc_kv_set(mrbc_kv_handle *kvh, mrbc_sym sym_id, mrbc_value *set_val)
     kvh->data_size = MRBC_KV_SIZE_INIT;
 
 #if defined(MRBC_DEBUG)
-    memcpy( kvh->data->type, "KV", 2 );
+    memcpy( kvh->data->obj_mark_, "KV", 2 );
 #endif
 
   // need resize?
@@ -283,7 +317,7 @@ int mrbc_kv_append(mrbc_kv_handle *kvh, mrbc_sym sym_id, mrbc_value *set_val)
     kvh->data_size = MRBC_KV_SIZE_INIT;
 
 #if defined(MRBC_DEBUG)
-    memcpy( kvh->data->type, "KV", 2 );
+    memcpy( kvh->data->obj_mark_, "KV", 2 );
 #endif
 
   // need resize?

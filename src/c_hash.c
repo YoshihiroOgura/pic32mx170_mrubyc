@@ -8,6 +8,41 @@
 
   This file is distributed under BSD 3-Clause License.
 
+
+ Function summary
+
+ (constructor)
+    mrbc_hash_new()
+
+ (destructor)
+    mrbc_hash_delete()
+
+ (setter)
+  --[name]------------------[arg]--[ret]-[note]------------------------
+    mrbc_hash_set()	    *K,*V   int
+
+ (getter)
+  --[name]------------------[arg]--[ret]-[note]------------------------
+    mrbc_hash_get()	     *K      V	Data remains in the container
+    mrbc_hash_get_p()	     *K     *V	Data remains in the container
+    mrbc_hash_search()	     *K     *K	Data remains in the container
+    mrbc_hash_search_by_id() SymID  *K	Data remains in the container
+    mrbc_hash_remove()	     *K      V	Data does not remain in the container
+    mrbc_hash_remove_by_id() SymID   V	Data does not remain in the container
+
+ (iterator)
+  --[name]------------------[arg]--[ret]-[note]------------------------
+    mrbc_hash_iterator_new() *V     I
+    mrbc_hash_i_has_next()   *I     bool
+    mrbc_hash_i_next()	     *I     *V	Getter. Data remains in the container
+
+ (others)
+    mrbc_hash_size()
+    mrbc_hash_resize()
+    mrbc_hash_clear()
+    mrbc_hash_compare()
+    mrbc_hash_dup()
+
   </pre>
 */
 
@@ -20,14 +55,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "class.h"
-#include "c_string.h"
-#include "c_array.h"
-#include "c_hash.h"
-
+#include "mrubyc.h"
 
 /***** Constat values *******************************************************/
 /***** Macros ***************************************************************/
@@ -38,41 +66,6 @@
 /***** Signal catching functions ********************************************/
 /***** Local functions ******************************************************/
 /***** Global functions *****************************************************/
-/*
-  function summary
-
- (constructor)
-    mrbc_hash_new
-
- (destructor)
-    mrbc_hash_delete
-
- (setter)
-  --[name]-----------------[arg]--[ret]-[note]------------------------
-    mrbc_hash_set	   *K,*V   int
-
- (getter)
-  --[name]-----------------[arg]--[ret]-[note]------------------------
-    mrbc_hash_get	    *K      V	Data remains in the container
-    mrbc_hash_search	    *K     *K	Data remains in the container
-    mrbc_hash_search_by_id  SymID  *K	Data remains in the container
-    mrbc_hash_remove	    *K      V	Data does not remain in the container
-    mrbc_hash_remove_by_id  SymID   V	Data does not remain in the container
-
- (iterator)
-  --[name]-----------------[arg]--[ret]-[note]------------------------
-    mrbc_hash_iterator_new  *V      I
-    mrbc_hash_i_has_next    *I     bool
-    mrbc_hash_i_next	    *I     *V	Getter. Data remains in the container
-
- (others)
-    mrbc_hash_size
-    mrbc_hash_resize
-    mrbc_hash_clear
-    mrbc_hash_compare
-    mrbc_hash_dup
-*/
-
 
 //================================================================
 /*! constructor
@@ -209,6 +202,20 @@ mrbc_value mrbc_hash_get(const mrbc_value *hash, const mrbc_value *key)
 
 
 //================================================================
+/*! getter
+
+  @param  hash	pointer to target hash
+  @param  key	pointer to key value
+  @return	pointer to mrbc_value or NULL
+*/
+mrbc_value * mrbc_hash_get_p(const mrbc_value *hash, const mrbc_value *key)
+{
+  mrbc_value *v = mrbc_hash_search(hash, key);
+  return v ? ++v : v;
+}
+
+
+//================================================================
 /*! remove a data
 
   @param  hash	pointer to target hash
@@ -287,8 +294,7 @@ int mrbc_hash_compare(const mrbc_value *v1, const mrbc_value *v2)
   if( v1->hash->n_stored != v2->hash->n_stored ) return 1;
 
   mrbc_value *d1 = v1->hash->data;
-  int i;
-  for( i = 0; i < mrbc_hash_size(v1); i++, d1++ ) {
+  for( int i = 0; i < mrbc_hash_size(v1); i++, d1++ ) {
     mrbc_value *d2 = mrbc_hash_search(v2, d1);	// check key
     if( d2 == NULL ) return 1;
     if( mrbc_compare( ++d1, ++d2 ) ) return 1;	// check data
@@ -343,7 +349,7 @@ static void c_hash_new(struct VM *vm, mrbc_value v[], int argc)
 static void c_hash_get(struct VM *vm, mrbc_value v[], int argc)
 {
   if( argc != 1 ) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments.");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
@@ -359,7 +365,7 @@ static void c_hash_get(struct VM *vm, mrbc_value v[], int argc)
 static void c_hash_set(struct VM *vm, mrbc_value v[], int argc)
 {
   if( argc != 2 ) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments.");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 

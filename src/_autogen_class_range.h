@@ -30,9 +30,9 @@ static const mrbc_func_t method_functions_Range[] = {
 
 struct RBuiltinClass mrbc_class_Range = {
   .sym_id = MRBC_SYM(Range),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_Range) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "Range",
 #endif

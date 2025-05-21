@@ -14,7 +14,7 @@
    Using TLSF and FistFit algorithm.
 
   MEMORY POOL USAGE (see struct MEMORY_POOL)
-     | Memory pool header | Memory blocks to provide to application     |
+     | Memory pool header | Memory block pool to provide to application |
      +--------------------+---------------------------------------------+
      | size, bitmap, ...  | USED_BLOCK, FREE_BLOCK, ..., (SentinelBlock)|
 
@@ -214,8 +214,9 @@ typedef struct MEMORY_POOL {
   FREE_BLOCK *free_blocks[SIZE_FREE_BLOCKS +1];	// +1=sentinel
 } MEMORY_POOL;
 
-#define BLOCK_TOP(p) ((void *)((uint8_t *)(p) + sizeof(MEMORY_POOL)))
-#define BLOCK_END(p) ((void *)((uint8_t *)(p) + ((MEMORY_POOL *)(p))->size))
+#define BPOOL_TOP(memory_pool) ((void *)((uint8_t *)(memory_pool) + sizeof(MEMORY_POOL)))
+#define BPOOL_END(memory_pool) ((void *)((uint8_t *)(memory_pool) + ((MEMORY_POOL *)(memory_pool))->size))
+#define BLOCK_ADRS(p) ((void *)((uint8_t *)(p) - sizeof(USED_BLOCK)))
 
 #define MSB_BIT1_FLI 0x8000
 #define MSB_BIT1_SLI 0x80
@@ -228,6 +229,10 @@ typedef struct MEMORY_POOL {
 // memory pool
 static MEMORY_POOL *memory_pool;
 
+#if defined(MRBC_USE_ALLOC_PROF)
+static int profiling = 0;
+static struct MRBC_ALLOC_PROF alloc_prof = {0, 0, 0};
+#endif
 
 /***** Global variables *****************************************************/
 /***** Signal catching functions ********************************************/
@@ -360,6 +365,30 @@ static void remove_free_block(MEMORY_POOL *pool, FREE_BLOCK *target)
 }
 
 
+#if defined(MRBC_USE_ALLOC_PROF)
+//================================================================
+/*! Record current memory usage for profiling
+*/
+static void alloc_profile(void)
+{
+  if (!profiling) return;
+
+  MEMORY_POOL *pool = memory_pool;
+  USED_BLOCK *block = BPOOL_TOP(pool);
+  unsigned int used = 0;
+
+  while (block < (USED_BLOCK *)BPOOL_END(pool)) {
+    if (!IS_FREE_BLOCK(block)) {
+      used += BLOCK_SIZE(block);
+    }
+    block = PHYS_NEXT(block);
+  }
+
+  if (alloc_prof.max < used) alloc_prof.max = used;
+  if (used < alloc_prof.min) alloc_prof.min = used;
+}
+#endif
+
 //================================================================
 /*! Split block by size
 
@@ -417,10 +446,14 @@ void mrbc_init_alloc(void *ptr, unsigned int size)
   */
 
   assert( (sizeof(MEMORY_POOL) & 0x03) == 0 );
+#if defined(UINTPTR_MAX)
+  assert( ((uintptr_t)ptr & 0x03) == 0 );
+#else
+  assert( ((uint32_t)ptr & 0x03) == 0 );
+#endif
   assert( size != 0 );
   assert( size <= (MRBC_ALLOC_MEMSIZE_T)(~0) );
 
-  if( memory_pool != NULL ) return;
   size &= ~(unsigned int)0x03;	// align 4 byte.
   memory_pool = ptr;
   memset( memory_pool, 0, sizeof(MEMORY_POOL) );
@@ -431,7 +464,7 @@ void mrbc_init_alloc(void *ptr, unsigned int size)
   MRBC_ALLOC_MEMSIZE_T sentinel_size = sizeof(USED_BLOCK);
   sentinel_size += (-sentinel_size & 0x03);
   MRBC_ALLOC_MEMSIZE_T free_size = size - sizeof(MEMORY_POOL) - sentinel_size;
-  FREE_BLOCK *free_block = BLOCK_TOP(memory_pool);
+  FREE_BLOCK *free_block = BPOOL_TOP(memory_pool);
   USED_BLOCK *used_block = (USED_BLOCK *)((uint8_t *)free_block + free_size);
 
   free_block->size = free_size | 0x02;		// flag prev=1, used=0
@@ -568,6 +601,10 @@ void * mrbc_raw_alloc(unsigned int size)
           BLOCK_SIZE(target) - sizeof(USED_BLOCK) );
 #endif
 
+#if defined(MRBC_USE_ALLOC_PROF)
+  alloc_profile();
+#endif
+
   return (uint8_t *)target + sizeof(USED_BLOCK);
 }
 
@@ -585,12 +622,12 @@ void * mrbc_raw_alloc_no_free(unsigned int size)
   MRBC_ALLOC_MEMSIZE_T alloc_size = size + (-size & 3);	// align 4 byte
 
   // find the tail block
-  FREE_BLOCK *tail = BLOCK_TOP(pool);
+  FREE_BLOCK *tail = BPOOL_TOP(pool);
   FREE_BLOCK *prev;
   do {
     prev = tail;
     tail = PHYS_NEXT(tail);
-  } while( PHYS_NEXT(tail) < BLOCK_END(pool) );
+  } while( PHYS_NEXT(tail) < BPOOL_END(pool) );
 
   // can resize it block?
   if( IS_USED_BLOCK(prev) ) goto FALLBACK;
@@ -612,6 +649,10 @@ void * mrbc_raw_alloc_no_free(unsigned int size)
     tail->size = tail_size;
     prev->size -= alloc_size;		// w/ flags.
     add_free_block( pool, prev );
+
+#if defined(MRBC_DEBUG)
+    memset( (uint8_t *)tail + sizeof(USED_BLOCK), 0xaa, alloc_size );
+#endif
   }
   SET_VM_ID( tail, 0xff );
 
@@ -623,12 +664,38 @@ void * mrbc_raw_alloc_no_free(unsigned int size)
 
 
 //================================================================
+/*! allocate memory for compatibility with calloc
+
+  @param  nmemb  number of elements.
+  @param  size   size of an element.
+  @return void * pointer to allocated memory.
+  @retval NULL   error.
+*/
+void * mrbc_raw_calloc(unsigned int nmemb, unsigned int size)
+{
+  unsigned int total_size = nmemb * size;
+  void* ptr = mrbc_raw_alloc(total_size);
+  if (ptr != NULL) {
+    // Instead of using memset and memset_s (not available in C99),
+    // we use a volatile pointer to prevent unexpected optimization.
+    volatile unsigned char *vptr = (volatile unsigned char *)ptr;
+    while (total_size--) {
+      *vptr++ = 0;
+    }
+  }
+  return ptr;
+}
+
+
+//================================================================
 /*! release memory
 
   @param  ptr	Return value of mrbc_raw_alloc()
 */
 void mrbc_raw_free(void *ptr)
 {
+  MEMORY_POOL *pool = memory_pool;
+
 #if defined(MRBC_DEBUG)
   {
     if( ptr == NULL ) {
@@ -637,15 +704,44 @@ void mrbc_raw_free(void *ptr)
       return;
     }
 
-    FREE_BLOCK *target = (FREE_BLOCK *)((uint8_t *)ptr - sizeof(USED_BLOCK));
-    FREE_BLOCK *block = BLOCK_TOP(memory_pool);
-    while( block < (FREE_BLOCK *)BLOCK_END(memory_pool) ) {
+    FREE_BLOCK *target = BLOCK_ADRS(ptr);
+    if( target < (FREE_BLOCK *)BPOOL_TOP(pool) ||
+	target > (FREE_BLOCK *)BPOOL_END(pool) ) {
+      static const char msg[] = "mrbc_raw_free(): Outside memory pool address was specified.\n";
+      hal_write(2, msg, sizeof(msg)-1);
+      return;
+    }
+
+    FREE_BLOCK *block = BPOOL_TOP(pool);
+    while(1) {
       if( block == target ) break;
+      if( PHYS_NEXT(block) >= BPOOL_END(pool) ) break;
       block = PHYS_NEXT(block);
     }
 
-    if( block != target || IS_FREE_BLOCK(block) ) {
-      static const char msg[] = "mrbc_raw_free(): double free detected.\n";
+    if( block == target ) {
+      // found target block.
+      if( IS_FREE_BLOCK(block) ) {  // is Free block?
+        static const char msg[] = "mrbc_raw_free(): double free detected.\n";
+        hal_write(2, msg, sizeof(msg)-1);
+        return;
+      }
+
+      if( PHYS_NEXT(block) >= BPOOL_END(pool) ) {  // Is this a sentinel?
+        static const char msg[] = "mrbc_raw_free(): no_free address was specified.\n";
+        hal_write(2, msg, sizeof(msg)-1);
+        return;
+      }
+
+    } else {
+      // not found target block.
+      if( block < target ) {
+	static const char msg[] = "mrbc_raw_free(): no_free address was specified.\n";
+	hal_write(2, msg, sizeof(msg)-1);
+	return;
+      }
+
+      static const char msg[] = "mrbc_raw_free(): Illegal address.\n";
       hal_write(2, msg, sizeof(msg)-1);
       return;
     }
@@ -657,10 +753,8 @@ void mrbc_raw_free(void *ptr)
 
   if( ptr == NULL ) return;
 
-  MEMORY_POOL *pool = memory_pool;
-
   // get target block
-  FREE_BLOCK *target = (FREE_BLOCK *)((uint8_t *)ptr - sizeof(USED_BLOCK));
+  FREE_BLOCK *target = BLOCK_ADRS(ptr);
 
   // check next block, merge?
   FREE_BLOCK *next = PHYS_NEXT(target);
@@ -684,6 +778,10 @@ void mrbc_raw_free(void *ptr)
 
   // target, add to index
   add_free_block( pool, target );
+
+#if defined(MRBC_USE_ALLOC_PROF)
+  alloc_profile();
+#endif
 }
 
 
@@ -697,8 +795,13 @@ void mrbc_raw_free(void *ptr)
 */
 void * mrbc_raw_realloc(void *ptr, unsigned int size)
 {
+  if (ptr != NULL && size == 0) {
+    mrbc_raw_free(ptr);
+    return NULL;
+  }
+
   MEMORY_POOL *pool = memory_pool;
-  volatile USED_BLOCK *target = (USED_BLOCK *)((uint8_t *)ptr - sizeof(USED_BLOCK));
+  volatile USED_BLOCK *target = BLOCK_ADRS(ptr);
   MRBC_ALLOC_MEMSIZE_T alloc_size = size + sizeof(USED_BLOCK);
   FREE_BLOCK *next;
 
@@ -726,6 +829,9 @@ void * mrbc_raw_realloc(void *ptr, unsigned int size)
     SET_PREV_USED(release);
   } else {
     SET_PREV_USED(next);
+#if defined(MRBC_USE_ALLOC_PROF)
+    alloc_profile();
+#endif
     return ptr;
   }
 
@@ -737,6 +843,9 @@ void * mrbc_raw_realloc(void *ptr, unsigned int size)
     SET_PREV_FREE(next);
   }
   add_free_block( pool, release );
+#if defined(MRBC_USE_ALLOC_PROF)
+  alloc_profile();
+#endif
   return ptr;
 
 
@@ -764,7 +873,7 @@ void * mrbc_raw_realloc(void *ptr, unsigned int size)
 */
 unsigned int mrbc_alloc_usable_size(void *ptr)
 {
-  USED_BLOCK *target = (USED_BLOCK *)((uint8_t *)ptr - sizeof(USED_BLOCK));
+  USED_BLOCK *target = BLOCK_ADRS(ptr);
   return (unsigned int)(BLOCK_SIZE(target) - sizeof(USED_BLOCK));
 }
 
@@ -790,6 +899,26 @@ void * mrbc_alloc(const struct VM *vm, unsigned int size)
 
 
 //================================================================
+/*! allocate memory where zero-cleared out.
+
+  @param  vm     pointer to VM.
+  @param  nmemb  number of elements.
+  @param  size   size of an element.
+  @return void * pointer to allocated memory.
+  @retval NULL   error.
+*/
+void * mrbc_calloc(const struct VM *vm, unsigned int nmemb, unsigned int size)
+{
+  void *ptr = mrbc_raw_calloc(nmemb, size);
+  if( ptr == NULL ) return NULL;	// ENOMEM
+
+  if( vm ) mrbc_set_vm_id(ptr, vm->vm_id);
+
+  return ptr;
+}
+
+
+//================================================================
 /*! release memory, vm used.
 
   @param  vm	pointer to VM.
@@ -797,11 +926,11 @@ void * mrbc_alloc(const struct VM *vm, unsigned int size)
 void mrbc_free_all(const struct VM *vm)
 {
   MEMORY_POOL *pool = memory_pool;
-  USED_BLOCK *target = BLOCK_TOP(pool);
+  USED_BLOCK *target = BPOOL_TOP(pool);
   USED_BLOCK *next;
   int vm_id = vm->vm_id;
 
-  while( target < (USED_BLOCK *)BLOCK_END(pool) ) {
+  while( target < (USED_BLOCK *)BPOOL_END(pool) ) {
     next = PHYS_NEXT(target);
     if( IS_FREE_BLOCK(next) ) next = PHYS_NEXT(next);
 
@@ -821,7 +950,7 @@ void mrbc_free_all(const struct VM *vm)
 */
 void mrbc_set_vm_id(void *ptr, int vm_id)
 {
-  SET_VM_ID( (uint8_t *)ptr - sizeof(USED_BLOCK), vm_id );
+  SET_VM_ID( BLOCK_ADRS(ptr), vm_id );
 }
 
 
@@ -833,7 +962,7 @@ void mrbc_set_vm_id(void *ptr, int vm_id)
 */
 int mrbc_get_vm_id(void *ptr)
 {
-  return GET_VM_ID( (uint8_t *)ptr - sizeof(USED_BLOCK) );
+  return GET_VM_ID( BLOCK_ADRS(ptr) );
 }
 #endif	// defined(MRBC_ALLOC_VMID)
 
@@ -846,7 +975,7 @@ int mrbc_get_vm_id(void *ptr)
 void mrbc_alloc_statistics( struct MRBC_ALLOC_STATISTICS *ret )
 {
   MEMORY_POOL *pool = memory_pool;
-  USED_BLOCK *block = BLOCK_TOP(pool);
+  USED_BLOCK *block = BPOOL_TOP(pool);
   int flag_used_free = IS_USED_BLOCK(block);
 
   ret->total = pool->size;
@@ -854,7 +983,7 @@ void mrbc_alloc_statistics( struct MRBC_ALLOC_STATISTICS *ret )
   ret->free = 0;
   ret->fragmentation = -1;
 
-  while( block < (USED_BLOCK *)BLOCK_END(pool) ) {
+  while( block < (USED_BLOCK *)BPOOL_END(pool) ) {
     if( IS_FREE_BLOCK(block) ) {
       ret->free += BLOCK_SIZE(block);
     } else {
@@ -869,20 +998,73 @@ void mrbc_alloc_statistics( struct MRBC_ALLOC_STATISTICS *ret )
 }
 
 
+#if defined(MRBC_USE_ALLOC_PROF)
+//================================================================
+/*! Start memory allocation profiling
+*/
+void mrbc_alloc_start_profiling(void)
+{
+  if (profiling) return;
+  profiling = 1;
+  alloc_prof.max = 0;
+  alloc_profile();
+  alloc_prof.initial = alloc_prof.min = alloc_prof.max;
+}
+
+//================================================================
+/*! Stop memory allocation profiling
+*/
+void mrbc_alloc_stop_profiling(void)
+{
+  if (!profiling) return;
+  profiling = 0;
+}
+
+//================================================================
+/*! Get memory allocation profiling data
+
+  @return pointer to struct MRBC_ALLOC_PROF
+*/
+void mrbc_alloc_get_profiling(struct MRBC_ALLOC_PROF *prof)
+{
+  memcpy(prof, &alloc_prof, sizeof(struct MRBC_ALLOC_PROF));
+}
+#endif  // defined(MRBC_USE_ALLOC_PROF)
+
+
 #if defined(MRBC_DEBUG)
 //================================================================
+/*! print used/free memory size.
+
+  (examples)
+  mrbc_define_method(0, 0, "print_memstat", (mrbc_func_t)mrbc_alloc_print_statistics);
+*/
+void mrbc_alloc_print_statistics( void )
+{
+  struct MRBC_ALLOC_STATISTICS stat;
+  mrbc_alloc_statistics( &stat );
+  mrbc_printf("== MEMORY STAT ==\n");
+  mrbc_printf(" total:%d used:%d free:%d frag:%d\n",
+	      stat.total, stat.used, stat.free, stat.fragmentation );
+}
+
+
+//================================================================
 /*! print memory block for debug.
+
+  (examples)
+  mrbc_define_method(0, 0, "print_memory_pool", (mrbc_func_t)mrbc_alloc_print_memory_pool);
 */
 void mrbc_alloc_print_pool_header( void *pool_header )
 {
   MEMORY_POOL *pool = pool_header ? pool_header : memory_pool;
 
   mrbc_printf("== MEMORY POOL HEADER DUMP ==\n");
-  mrbc_printf(" Address: %p - %p - %p  ", pool,
-	      BLOCK_TOP(pool), BLOCK_END(pool));
-  mrbc_printf(" Size Total: %d User: %d\n",
+  mrbc_printf(" Address:%p - %p - %p  ", pool,
+	      BPOOL_TOP(pool), BPOOL_END(pool));
+  mrbc_printf(" Size Total:%d User:%d\n",
 	      pool->size, pool->size - sizeof(MEMORY_POOL));
-  mrbc_printf(" sizeof MEMORY_POOL: %d(%04x), USED_BLOCK: %d(%02x), FREE_BLOCK: %d(%02x)\n",
+  mrbc_printf(" sizeof MEMORY_POOL:%d(%04x), USED_BLOCK:%d(%02x), FREE_BLOCK:%d(%02x)\n",
 	      sizeof(MEMORY_POOL), sizeof(MEMORY_POOL),
 	      sizeof(USED_BLOCK), sizeof(USED_BLOCK),
 	      sizeof(FREE_BLOCK), sizeof(FREE_BLOCK) );
@@ -913,14 +1095,14 @@ void mrbc_alloc_print_memory_block( void *pool_header )
   MEMORY_POOL *pool = pool_header ? pool_header : memory_pool;
 
   mrbc_printf("== MEMORY BLOCK DUMP ==\n");
-  FREE_BLOCK *block = BLOCK_TOP(pool);
+  FREE_BLOCK *block = BPOOL_TOP(pool);
 
-  while( block < (FREE_BLOCK *)BLOCK_END(pool) ) {
+  while( block < (FREE_BLOCK *)BPOOL_END(pool) ) {
     mrbc_printf("%p", block );
 #if defined(MRBC_ALLOC_VMID)
     mrbc_printf(" id:%02x", block->vm_id );
 #endif
-    mrbc_printf(" size:%5d(%04x) use:%d prv:%d ",
+    mrbc_printf(" size:%5d($%04x) use:%d prv:%d ",
 		block->size & ~0x03, block->size & ~0x03,
 		!!(block->size & 0x01), !!(block->size & 0x02) );
 

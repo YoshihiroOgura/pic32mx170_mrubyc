@@ -26,13 +26,53 @@
 #include "keyvalue.h"
 #include "error.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /***** Constant values ******************************************************/
+#define MRBC_TRAVERSE_NEST_LEVEL 3
+
+
 /***** Macros ***************************************************************/
+/*!
+  Get a built-in class (pointer)
+
+  @param  cls	Class name. (e.g. Array)
+  @return	Pointer to the class.
+
+  @details
+  Example
+  @code
+    mrbc_class *cls = MRBC_CLASS(Array);	// get a Array class
+    mrbc_class *cls = MRBC_CLASS(String);	// get a String class
+  @endcode
+*/
 #define MRBC_CLASS(cls)	((mrbc_class *)(&mrbc_class_##cls))
+
+/*!
+  Get a pointer to mrbc_instance->data converted to specified type.
+
+  @param  v	Pointer to mrbc_instance.
+  @param  t	Type of return pointer.
+
+  @details
+  Example
+  @code
+    // store a int value.
+    *MRBC_INSTANCE_DATA_PTR(v, int) = n;
+
+    // get
+    int n = *MRBC_INSTANCE_DATA_PTR(v, int);
+
+    // store a pointer to statically allocated memory.
+    *MRBC_INSTANCE_DATA_PTR(v, struct STATIC_STRUCT *) = STATIC_STRUCT;
+
+    // get
+    struct STATIC_STRUCT *p = *MRBC_INSTANCE_DATA_PTR(v, struct STATIC_STRUCT *);
+  @endcode
+*/
+#define MRBC_INSTANCE_DATA_PTR(v, t) ((t *)((v)->instance->data))
 
 
 /***** Typedefs *************************************************************/
@@ -41,18 +81,21 @@ extern "C" {
   Class object.
 */
 typedef struct RClass {
-  mrbc_sym sym_id;		//!< class name's symbol ID
-  unsigned int flag_module : 1; //!< is module?
-  unsigned int flag_alias : 1;  //!< is alias class?
-  uint8_t num_builtin_method;	//!< num of built-in method.
-  struct RClass *super;		//!< pointer to super class.
+  mrbc_sym sym_id;		 //!< class name's symbol ID
+  unsigned int flag_builtin : 1; //!< is built-in class? (= 0)
+  unsigned int flag_module : 1;  //!< is module?
+  unsigned int flag_alias : 1;   //!< is module alias?
+  uint8_t num_builtin_method;	 //!< num of built-in method.
+  struct RClass *super;		 //!< pointer to super class.
   union {
-    struct RMethod *method_link;//!< pointer to method link.
-    struct RClass *aliased;     //!< aliased class or module.
+    struct RMethod *method_link; //!< pointer to method link.
+    struct RClass *aliased;      //!< aliased class or module.
   };
 #if defined(MRBC_DEBUG)
   const char *name;
 #endif
+
+  void (*destructor)( mrbc_value * );	//!< specify a destructor if need.
 } mrbc_class;
 typedef struct RClass mrb_class;
 
@@ -63,14 +106,15 @@ typedef struct RClass mrb_class;
   @extends RClass
 */
 struct RBuiltinClass {
-  mrbc_sym sym_id;		//!< class name's symbol ID
-  unsigned int flag_module : 1; //!< is module?
-  unsigned int flag_alias : 1;  //!< is alias class?
-  uint8_t num_builtin_method;	//!< num of built-in method.
-  struct RClass *super;		//!< pointer to super class.
+  mrbc_sym sym_id;		 //!< class name's symbol ID
+  unsigned int flag_builtin : 1; //!< is built-in class? (= 1)
+  unsigned int flag_module : 1;  //!< is module?
+  unsigned int flag_alias : 1;   //!< is alias class?
+  uint8_t num_builtin_method;	 //!< num of built-in method.
+  struct RClass *super;		 //!< pointer to super class.
   union {
-    struct RMethod *method_link;//!< pointer to method link.
-    struct RClass *aliased;     //!< aliased class or module.
+    struct RMethod *method_link; //!< pointer to method link.
+    struct RClass *aliased;      //!< aliased class or module.
   };
 #if defined(MRBC_DEBUG)
   const char *name;
@@ -80,6 +124,27 @@ struct RBuiltinClass {
   const mrbc_func_t *method_functions;	//!< built-in method function table.
 };
 
+//================================================================
+/*!@brief
+  Built-in No method class object.
+
+  @extends RBuiltinClass
+*/
+struct RBuiltinNoMethodClass {
+  mrbc_sym sym_id;		 //!< class name's symbol ID
+  unsigned int flag_builtin : 1; //!< is built-in class? (= 1)
+  unsigned int flag_module : 1;  //!< is module?
+  unsigned int flag_alias : 1;   //!< is alias class?
+  uint8_t num_builtin_method;	 //!< num of built-in method.
+  struct RClass *super;		 //!< pointer to super class.
+  union {
+    struct RMethod *method_link; //!< pointer to method link.
+    struct RClass *aliased;      //!< aliased class or module.
+  };
+#if defined(MRBC_DEBUG)
+  const char *name;
+#endif
+};
 
 //================================================================
 /*!@brief
@@ -90,30 +155,12 @@ struct RBuiltinClass {
 typedef struct RInstance {
   MRBC_OBJECT_HEADER;
 
-  struct RClass *cls;
-  struct RKeyValueHandle ivar;
-  uint8_t data[];
+  struct RClass *cls;		//!< pointer to class of this object.
+  struct RKeyValueHandle ivar;	//!< instance variable.
+  uint8_t data[];		//!< extended data
 
 } mrbc_instance;
 typedef struct RInstance mrb_instance;
-
-
-//================================================================
-/*!@brief
-  Proc object.
-
-  @extends RBasic
-*/
-typedef struct RProc {
-  MRBC_OBJECT_HEADER;
-
-  struct CALLINFO *callinfo;
-  struct CALLINFO *callinfo_self;
-  struct IREP *irep;
-  mrbc_value ret_val;
-
-} mrbc_proc;
-typedef struct RProc mrb_proc;
 
 
 //================================================================
@@ -137,38 +184,16 @@ typedef struct RMethod {
 
 /***** Global variables *****************************************************/
 extern struct RClass * const mrbc_class_tbl[];
-extern struct RBuiltinClass mrbc_class_Object;
-extern struct RBuiltinClass mrbc_class_NilClass;
-extern struct RBuiltinClass mrbc_class_FalseClass;
-extern struct RBuiltinClass mrbc_class_TrueClass;
-extern struct RBuiltinClass mrbc_class_Integer;
-extern struct RBuiltinClass mrbc_class_Float;
-extern struct RBuiltinClass mrbc_class_Symbol;
-extern struct RBuiltinClass mrbc_class_Proc;
-extern struct RBuiltinClass mrbc_class_Array;
-extern struct RBuiltinClass mrbc_class_String;
-extern struct RBuiltinClass mrbc_class_Range;
-extern struct RBuiltinClass mrbc_class_Hash;
-extern struct RBuiltinClass mrbc_class_Math;
-extern struct RBuiltinClass mrbc_class_Exception;
-extern struct RClass mrbc_class_NoMemoryError;
-extern struct RClass mrbc_class_NotImplementedError;
-extern struct RClass mrbc_class_StandardError;
-extern struct RClass mrbc_class_ArgumentError;
-extern struct RClass mrbc_class_IndexError;
-extern struct RClass mrbc_class_IOError;
-extern struct RClass mrbc_class_NameError;
-extern struct RClass mrbc_class_NoMethodError;
-extern struct RClass mrbc_class_RangeError;
-extern struct RClass mrbc_class_RuntimeError;
-extern struct RClass mrbc_class_TypeError;
-extern struct RClass mrbc_class_ZeroDivisionError;
+#include "_autogen_builtin_class.h"
 
 // for old version compatibility.
 #define mrbc_class_object ((struct RClass*)(&mrbc_class_Object))
 
 
 /***** Function prototypes **************************************************/
+//@cond
+mrbc_class *mrbc_traverse_class_tree(mrbc_class *cls, mrbc_class *nest_buf[], int *nest_idx);
+mrbc_class *mrbc_traverse_class_tree_skip(mrbc_class *nest_buf[], int *nest_idx);
 mrbc_class *mrbc_define_class(struct VM *vm, const char *name, mrbc_class *super);
 mrbc_class *mrbc_define_class_under(struct VM *vm, const mrbc_class *outer, const char *name, mrbc_class *super);
 mrbc_class *mrbc_define_module(struct VM *vm, const char *name);
@@ -179,16 +204,14 @@ void mrbc_instance_delete(mrbc_value *v);
 void mrbc_instance_setiv(mrbc_value *obj, mrbc_sym sym_id, mrbc_value *v);
 mrbc_value mrbc_instance_getiv(mrbc_value *obj, mrbc_sym sym_id);
 void mrbc_instance_clear_vm_id(mrbc_value *v);
-mrbc_value mrbc_proc_new(struct VM *vm, void *irep);
-void mrbc_proc_delete(mrbc_value *val);
-void mrbc_proc_clear_vm_id(mrbc_value *v);
-int mrbc_obj_is_kind_of(const mrbc_value *obj, const mrbc_class *cls);
+int mrbc_obj_is_kind_of(const mrbc_value *obj, const mrbc_class *tcls);
 mrbc_method *mrbc_find_method(mrbc_method *r_method, mrbc_class *cls, mrbc_sym sym_id);
 mrbc_class *mrbc_get_class_by_name(const char *name);
-mrbc_value mrbc_send(struct VM *vm, mrbc_value *v, int reg_ofs, mrbc_value *recv, const char *method_name, int argc, ...);
+mrbc_value mrbc_send(struct VM *vm, mrbc_value *v, int argc, mrbc_value *recv, const char *method_name, int n_params, ...);
 void c_ineffect(struct VM *vm, mrbc_value v[], int argc);
 int mrbc_run_mrblib(const void *bytecode);
 void mrbc_init_class(void);
+//@endcond
 
 
 /***** Inline functions *****************************************************/
@@ -217,6 +240,37 @@ static inline mrbc_class *find_class_by_object(const mrbc_value *obj)
   }
 
   return cls;
+}
+
+
+//================================================================
+/*! Define the destructor
+
+  @param  cls		class.
+  @param  destructor	destructor.
+  @details
+  Define the destructor.
+  This function can only be defined for destruction of mrbc_instance.
+*/
+static inline void mrbc_define_destructor( mrbc_class *cls, void (*destructor)(mrbc_value *) )
+{
+  assert( cls->flag_builtin == 0 );
+  assert( cls->flag_module == 0 );
+
+  cls->destructor = destructor;
+}
+
+
+//================================================================
+/*! instance variable getter
+
+  @param  obj		target object.
+  @param  sym_id	key symbol ID.
+  @return		pointer to value or NULL.
+*/
+static inline mrbc_value * mrbc_instance_getiv_p(mrbc_value *obj, mrbc_sym sym_id)
+{
+  return mrbc_kv_get( &obj->instance->ivar, sym_id );
 }
 
 

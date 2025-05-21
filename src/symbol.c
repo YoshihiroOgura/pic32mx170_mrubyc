@@ -25,13 +25,7 @@
 #define MRBC_DEFINE_SYMBOL_TABLE
 #include "_autogen_builtin_symbol.h"
 #undef MRBC_DEFINE_SYMBOL_TABLE
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "class.h"
-#include "c_string.h"
-#include "c_array.h"
-#include "console.h"
+#include "mrubyc.h"
 
 /***** Constant values ******************************************************/
 #if !defined(MRBC_SYMBOL_SEARCH_LINEAR) && !defined(MRBC_SYMBOL_SEARCH_BTREE)
@@ -134,8 +128,7 @@ static int search_builtin_symbol( const char *str )
 static int search_index( uint16_t hash, const char *str )
 {
 #ifdef MRBC_SYMBOL_SEARCH_LINEAR
-  int i;
-  for( i = 0; i < sym_index_pos; i++ ) {
+  for( int i = 0; i < sym_index_pos; i++ ) {
     if( sym_index[i].hash == hash && strcmp(str, sym_index[i].cstr) == 0 ) {
       return i;
     }
@@ -372,12 +365,11 @@ static void c_symbol_all_symbols(struct VM *vm, mrbc_value v[], int argc)
 {
   mrbc_value ret = mrbc_array_new(vm, sym_index_pos);
 
-  int i;
-  for( i = 0; i < sizeof(builtin_symbols) / sizeof(builtin_symbols[0]); i++ ) {
+  for( int i = 0; i < sizeof(builtin_symbols) / sizeof(builtin_symbols[0]); i++ ) {
     mrbc_array_push(&ret, &mrbc_symbol_value(i));
   }
 
-  for( i = 0; i < sym_index_pos; i++ ) {
+  for( int i = 0; i < sym_index_pos; i++ ) {
     mrbc_array_push(&ret, &mrbc_symbol_value(i + OFFSET_BUILTIN_SYMBOL));
   }
   SET_RETURN(ret);

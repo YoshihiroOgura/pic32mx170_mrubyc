@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  Object, Proc, Nil, True and False class.
+  Object, Nil, True and False class.
 
   <pre>
   Copyright (C) 2015- Kyushu Institute of Technology.
@@ -23,19 +23,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "error.h"
-#include "class.h"
-#include "c_object.h"
-#include "c_string.h"
-#include "c_array.h"
-#include "c_hash.h"
-#include "global.h"
-#include "vm.h"
-#include "console.h"
-
+#include "mrubyc.h"
 
 /***** Local functions ******************************************************/
 //================================================================
@@ -217,8 +205,8 @@ static void c_object_block_given(struct VM *vm, mrbc_value v[], int argc)
  */
 static void c_object_kind_of(struct VM *vm, mrbc_value v[], int argc)
 {
-  if( mrbc_type(v[1]) != MRBC_TT_CLASS ) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "class required");
+  if( v[1].tt != MRBC_TT_CLASS && v[1].tt != MRBC_TT_MODULE ) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "class or module required");
     return;
   }
 
@@ -238,10 +226,10 @@ static void c_object_nil(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! (method) p
  */
+#if !defined(MRBC_NO_STDIO)
 static void c_object_p(struct VM *vm, mrbc_value v[], int argc)
 {
-  int i;
-  for( i = 1; i <= argc; i++ ) {
+  for( int i = 1; i <= argc; i++ ) {
     mrbc_p( &v[i] );
   }
 
@@ -255,7 +243,7 @@ static void c_object_p(struct VM *vm, mrbc_value v[], int argc)
     if( value.array == NULL ) {
       SET_NIL_RETURN();  // ENOMEM
     } else {
-      for ( i = 1; i <= argc; i++ ) {
+      for ( int i = 1; i <= argc; i++ ) {
         mrbc_incref( &v[i] );
         value.array->data[i-1] = v[i];
       }
@@ -264,28 +252,31 @@ static void c_object_p(struct VM *vm, mrbc_value v[], int argc)
     }
   }
 }
+#endif
 
 
 //================================================================
 /*! (method) print
  */
+#if !defined(MRBC_NO_STDIO)
 static void c_object_print(struct VM *vm, mrbc_value v[], int argc)
 {
-  int i;
-  for( i = 1; i <= argc; i++ ) {
+  for( int i = 1; i <= argc; i++ ) {
     mrbc_print_sub( &v[i] );
   }
+  SET_NIL_RETURN();
 }
+#endif
 
 
 //================================================================
 /*! (method) puts
  */
+#if !defined(MRBC_NO_STDIO)
 static void c_object_puts(struct VM *vm, mrbc_value v[], int argc)
 {
-  int i;
-  if( argc ){
-    for( i = 1; i <= argc; i++ ) {
+  if( argc ) {
+    for( int i = 1; i <= argc; i++ ) {
       if( mrbc_puts_sub( &v[i] ) == 0 ) mrbc_putchar('\n');
     }
   } else {
@@ -293,6 +284,7 @@ static void c_object_puts(struct VM *vm, mrbc_value v[], int argc)
   }
   SET_NIL_RETURN();
 }
+#endif
 
 
 //================================================================
@@ -374,27 +366,42 @@ static void c_object_object_id(struct VM *vm, mrbc_value v[], int argc)
 
 //================================================================
 /*! (method - debug) instance_methods
- */
+
+  temporary code for operation check.
+*/
 static void c_object_instance_methods(struct VM *vm, mrbc_value v[], int argc)
 {
-  // TODO: check argument.
   if( v[0].tt != MRBC_TT_CLASS ) return;
 
-  // temporary code for operation check.
+  int flag_inherit = !(argc >= 1 && v[1].tt == MRBC_TT_FALSE);
   mrbc_value ret = mrbc_array_new( vm, 0 );
-  const struct RBuiltinClass *cls = (const struct RBuiltinClass *)(v[0].cls);
+  mrbc_class *cls = v[0].cls;
+  mrbc_class *nest_buf[MRBC_TRAVERSE_NEST_LEVEL];
+  int nest_idx = 0;
 
-  // builtin method.
-  for( int i = 0; i < cls->num_builtin_method; i++ ) {
-    mrbc_array_push( &ret, &mrbc_symbol_value(cls->method_symbols[i]) );
-  }
+  do {
+    // builtin method.
+    for( int i = 0; i < cls->num_builtin_method; i++ ) {
+      mrbc_array_push( &ret, &mrbc_symbol_value(((struct RBuiltinClass *)cls)->method_symbols[i]) );
+    }
 
-  // non builtin method.
-  const mrbc_method *method = cls->method_link;
-  while( method ) {
-    mrbc_array_push( &ret, &mrbc_symbol_value(method->sym_id) );
-    method = method->next;
-  }
+    // non builtin method.
+    const mrbc_method *method = cls->method_link;
+    while( method ) {
+      mrbc_array_push( &ret, &mrbc_symbol_value(method->sym_id) );
+      method = method->next;
+    }
+
+    if( !flag_inherit ) break;
+
+  REDO:
+    cls = mrbc_traverse_class_tree( cls, nest_buf, &nest_idx );
+    if( cls == MRBC_CLASS(Object) ) {
+      cls = mrbc_traverse_class_tree_skip( nest_buf, &nest_idx );
+      if( !cls ) break;
+      goto REDO;
+    }
+  } while( cls );
 
   SET_RETURN(ret);
 }
@@ -502,8 +509,7 @@ static void c_object_setiv(struct VM *vm, mrbc_value v[], int argc)
  */
 static void c_object_attr_reader(struct VM *vm, mrbc_value v[], int argc)
 {
-  int i;
-  for( i = 1; i <= argc; i++ ) {
+  for( int i = 1; i <= argc; i++ ) {
     if( mrbc_type(v[i]) != MRBC_TT_SYMBOL ) {
       // Not support "String" only :symbol
       mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol");
@@ -522,8 +528,7 @@ static void c_object_attr_reader(struct VM *vm, mrbc_value v[], int argc)
  */
 static void c_object_attr_accessor(struct VM *vm, mrbc_value v[], int argc)
 {
-  int i;
-  for( i = 1; i <= argc; i++ ) {
+  for( int i = 1; i <= argc; i++ ) {
     if( mrbc_type(v[i]) != MRBC_TT_SYMBOL ) {
       // Not support "String" only :symbol
       mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol");
@@ -558,7 +563,7 @@ static void c_object_include(struct VM *vm, mrbc_value v[], int argc)
   if( v[0].tt == MRBC_TT_CLASS || v[0].tt == MRBC_TT_MODULE ) {
     self = v[0].cls;
   } else if( vm->callinfo_tail == 0 ) {    // is top level?
-    self = mrbc_class_object;
+    self = MRBC_CLASS(Object);
   } else {
     mrbc_raise( vm, 0, 0 );
     return; // Error.
@@ -588,6 +593,39 @@ static void c_object_include(struct VM *vm, mrbc_value v[], int argc)
 }
 
 
+//================================================================
+/*! (class method) constants
+ */
+static void c_object_constants(mrb_vm *vm, mrb_value v[], int argc)
+{
+  if( v[0].tt != MRBC_TT_CLASS ) {
+    mrbc_raise(vm, MRBC_CLASS(NoMethodError), 0);
+    return;
+  }
+
+  int flag_inherit = !(argc >= 1 && v[1].tt == MRBC_TT_FALSE);
+  mrbc_value ret = mrbc_array_new( vm, 0 );
+  mrbc_class *cls = v[0].cls;
+  mrbc_class *nest_buf[MRBC_TRAVERSE_NEST_LEVEL];
+  int nest_idx = 0;
+
+  mrbc_get_all_class_const( cls, &ret );
+  if( !flag_inherit ) goto RETURN;
+
+  while( cls ) {
+    cls = mrbc_traverse_class_tree( cls, nest_buf, &nest_idx );
+    if( cls == MRBC_CLASS(Object) ) {
+      cls = mrbc_traverse_class_tree_skip( nest_buf, &nest_idx );
+      continue;
+    }
+    mrbc_get_all_class_const( cls, &ret );
+  }
+
+ RETURN:
+  SET_RETURN(ret);
+}
+
+
 #if MRBC_USE_STRING
 //================================================================
 /*! (method) sprintf
@@ -598,7 +636,7 @@ static void c_object_sprintf(struct VM *vm, mrbc_value v[], int argc)
 
   mrbc_value *format = &v[1];
   if( mrbc_type(*format) != MRBC_TT_STRING ) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "sprintf");
+    mrbc_raise(vm, MRBC_CLASS(TypeError), 0);
     return;
   }
 
@@ -721,12 +759,14 @@ static void c_object_sprintf(struct VM *vm, mrbc_value v[], int argc)
 //================================================================
 /*! (method) printf
 */
+#if !defined(MRBC_NO_STDIO)
 static void c_object_printf(struct VM *vm, mrbc_value v[], int argc)
 {
   c_object_sprintf(vm, v, argc);
   mrbc_nprint( mrbc_string_cstr(v), mrbc_string_size(v) );
   SET_NIL_RETURN();
 }
+#endif
 
 
 //================================================================
@@ -737,8 +777,9 @@ static void c_object_to_s(struct VM *vm, mrbc_value v[], int argc)
   char buf[64];
   char *s = buf;
   mrbc_sym sym_id = find_class_by_object(&v[0])->sym_id;
+  int class_or_module = (v[0].tt == MRBC_TT_CLASS || v[0].tt == MRBC_TT_MODULE);
 
-  if( v[0].tt != MRBC_TT_CLASS ) {
+  if (!class_or_module) {
     buf[0] = '#'; buf[1] = '<';
     s = buf + 2;
   }
@@ -746,12 +787,8 @@ static void c_object_to_s(struct VM *vm, mrbc_value v[], int argc)
   int bufsiz = sizeof(buf) - (s - buf);
   int n = set_sym_name_by_id( s, bufsiz, sym_id );
 
-  if( v[0].tt != MRBC_TT_CLASS ) {
-    mrbc_snprintf(s+n, bufsiz-n, ":%08x>", (uint32_t)
-#if defined(UINTPTR_MAX)
-	(uintptr_t)
-#endif
-	v->instance );
+  if (!class_or_module) {
+    mrbc_snprintf(s+n, bufsiz-n, ":%08x>", MRBC_PTR_TO_UINT32(v->instance));
   }
 
   SET_RETURN( mrbc_string_new_cstr( vm, buf ));
@@ -777,18 +814,26 @@ static void c_object_to_s(struct VM *vm, mrbc_value v[], int argc)
   METHOD( "is_a?",	c_object_kind_of )
   METHOD( "kind_of?",	c_object_kind_of )
   METHOD( "nil?",	c_object_nil )
+#if !defined(MRBC_NO_STDIO)
   METHOD( "p",		c_object_p )
   METHOD( "print",	c_object_print )
   METHOD( "puts",	c_object_puts )
+#endif
   METHOD( "raise",	c_object_raise )
   METHOD( "attr_reader",c_object_attr_reader )
   METHOD( "attr_accessor", c_object_attr_accessor )
   METHOD( "include",    c_object_include )
   METHOD( "extend",     c_object_include )
+  METHOD( "constants",  c_object_constants )
+  METHOD( "public",	c_ineffect )
+  METHOD( "private",	c_ineffect )
+  METHOD( "protected",	c_ineffect )
 
 #if MRBC_USE_STRING
   METHOD( "sprintf",	c_object_sprintf )
+#if !defined(MRBC_NO_STDIO)
   METHOD( "printf",	c_object_printf )
+#endif
   METHOD( "inspect",	c_object_to_s )
   METHOD( "to_s",	c_object_to_s )
 #endif
@@ -801,58 +846,6 @@ static void c_object_to_s(struct VM *vm, mrbc_value v[], int argc)
   METHOD( "memory_statistics",	c_object_memory_statistics )
 #endif
 #endif
-*/
-
-
-
-/***** Proc class ***********************************************************/
-//================================================================
-/*! (method) new
-*/
-static void c_proc_new(struct VM *vm, mrbc_value v[], int argc)
-{
-  if( mrbc_type(v[1]) != MRBC_TT_PROC ) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError),
-	       "tried to create Proc object without a block");
-    return;
-  }
-
-  v[0] = v[1];
-  v[1].tt = MRBC_TT_EMPTY;
-}
-
-
-//================================================================
-/*! (method) call
-*/
-static void c_proc_call(struct VM *vm, mrbc_value v[], int argc)
-{
-  assert( mrbc_type(v[0]) == MRBC_TT_PROC );
-
-  mrbc_callinfo *callinfo_self = v[0].proc->callinfo_self;
-  mrbc_callinfo *callinfo = mrbc_push_callinfo(vm,
-				(callinfo_self ? callinfo_self->method_id : 0),
-				v - vm->cur_regs, argc);
-  if( !callinfo ) return;
-
-  if( callinfo_self ) {
-    callinfo->own_class = callinfo_self->own_class;
-  }
-
-  // target irep
-  vm->cur_irep = v[0].proc->irep;
-  vm->inst = vm->cur_irep->inst;
-  vm->cur_regs = v;
-}
-
-
-/* MRBC_AUTOGEN_METHOD_TABLE
-
-  CLASS("Proc")
-  APPEND("_autogen_class_object.h")
-
-  METHOD( "new",	c_proc_new )
-  METHOD( "call",	c_proc_call )
 */
 
 

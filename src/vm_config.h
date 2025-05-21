@@ -45,7 +45,7 @@
 
 // Use math. Support Math class.
 #if !defined(MRBC_USE_MATH)
-#define MRBC_USE_MATH 1
+#define MRBC_USE_MATH 1		/* CHANGED */
 #endif
 /* (NOTE)
    maybe you need
@@ -63,7 +63,29 @@
 #endif
 
 
-/* Hardware dependent flags */
+/* Hardware dependent flags
+
+  Use the MRBC_BIG_ENDIAN, MRBC_LITTLE_ENDIAN and MRBC_REQUIRE_*BIT_ALIGNMENT
+  macros.
+  for conversion functions from binary (byte array) to each data type.
+
+  (each cases)
+  Little endian, no alignment.
+   MRBC_LITTLE_ENDIAN && !MRBC_REQUIRE_32BIT_ALIGNMENT
+   (e.g.) ARM Cortex-M4, Intel x86
+
+  Big endian, no alignment.
+   MRBC_BIG_ENDIAN && !MRBC_REQUIRE_32BIT_ALIGNMENT
+   (e.g.) IBM PPC405
+
+  Little endian, 32bit alignment required.
+   MRBC_LITTLE_ENDIAN && MRBC_REQUIRE_32BIT_ALIGNMENT
+   (e.g.) ARM Cortex-M0
+
+  Big endian, 32bit alignment required.
+   MRBC_BIG_ENDIAN) && MRBC_REQUIRE_32BIT_ALIGNMENT
+   (e.g.) OpenRISC
+*/
 
 /* Endian
    Define either MRBC_BIG_ENDIAN or MRBC_LITTLE_ENDIAN.
@@ -75,7 +97,7 @@
 /* Word alignment
    If 32bit and/or 64bit alignment is required, enable the following line.
 */
-#define MRBC_REQUIRE_32BIT_ALIGNMENT
+#define MRBC_REQUIRE_32BIT_ALIGNMENT	/* CHANGED */
 #define MRBC_REQUIRE_64BIT_ALIGNMENT
 
 
@@ -107,11 +129,6 @@
 // Examples of override actions when some fatal errors.
 // #define MRBC_OUT_OF_MEMORY() mrbc_alloc_print_memory_pool(); hal_abort(0)
 // #define MRBC_ABORT_BY_EXCEPTION(vm) mrbc_p( &vm->exception ); hal_abort(0)
-
-#if defined(MRBC_SYMBOL_SEARCH_LINER)
-#warning "MRBC_SYMBOL_SEARCH_LINER will be removed in the future release (3.3 or 4.0). Use MRBC_SYMBOL_SEARCH_LINEAR instead."
-#define MRBC_SYMBOL_SEARCH_LINEAR
-#endif
 
 void hal_abort(const char *s);
 #define MRBC_OUT_OF_MEMORY() hal_abort("Fatal error: Out of memory.\n")

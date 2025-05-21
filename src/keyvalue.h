@@ -37,7 +37,7 @@ extern "C" {
 */
 typedef struct RKeyValue {
 #if defined(MRBC_DEBUG)
-  char type[2];
+  char obj_mark_[2];
 #endif
   mrbc_sym sym_id;	//!< symbol ID as key.
   mrbc_value value;	//!< stored value.
@@ -74,6 +74,7 @@ typedef struct RKeyValueIterator {
 /***** Macros ***************************************************************/
 /***** Global variables *****************************************************/
 /***** Function prototypes **************************************************/
+//@cond
 mrbc_kv_handle *mrbc_kv_new(struct VM *vm, int size);
 int mrbc_kv_init_handle(struct VM *vm, mrbc_kv_handle *kvh, int size);
 void mrbc_kv_delete(mrbc_kv_handle *kvh);
@@ -87,6 +88,7 @@ int mrbc_kv_reorder(mrbc_kv_handle *kvh);
 int mrbc_kv_remove(mrbc_kv_handle *kvh, mrbc_sym sym_id);
 void mrbc_kv_clear(mrbc_kv_handle *kvh);
 void mrbc_kv_dup(const mrbc_kv_handle *src, mrbc_kv_handle *dst);
+//@endcond
 
 
 /***** Inline functions *****************************************************/
@@ -99,7 +101,7 @@ static inline int mrbc_kv_size(const mrbc_kv_handle *kvh)
 }
 
 //================================================================
-/*! iterator constructor
+/*! iterator: constructor
 
 <b>Code example</b>
 @code
@@ -121,7 +123,15 @@ static inline mrbc_kv_iterator mrbc_kv_iterator_new( const mrbc_kv_handle *h )
 }
 
 //================================================================
-/*! iterator has_next?
+/*! iterator: is_first?
+*/
+static inline int mrbc_kv_i_is_first( const mrbc_kv_iterator *ite )
+{
+  return ite->i == 0;
+}
+
+//================================================================
+/*! iterator: has_next?
 */
 static inline int mrbc_kv_i_has_next( const mrbc_kv_iterator *ite )
 {
@@ -129,13 +139,20 @@ static inline int mrbc_kv_i_has_next( const mrbc_kv_iterator *ite )
 }
 
 //================================================================
-/*! iterator getter
+/*! iterator: getter
+*/
+static inline mrbc_kv *mrbc_kv_i_get( mrbc_kv_iterator *ite )
+{
+  return &ite->target->data[ ite->i ];
+}
+
+//================================================================
+/*! iterator: get and next
 */
 static inline mrbc_kv *mrbc_kv_i_next( mrbc_kv_iterator *ite )
 {
   return &ite->target->data[ ite->i++ ];
 }
-
 
 
 #ifdef __cplusplus

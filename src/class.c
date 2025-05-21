@@ -21,20 +21,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "error.h"
-#include "keyvalue.h"
-#include "class.h"
-#include "c_string.h"
-#include "c_array.h"
-#include "c_hash.h"
-#include "global.h"
-#include "vm.h"
-#include "load.h"
-#include "console.h"
-
+#include "mrubyc.h"
 
 /***** Constant values ******************************************************/
 /***** Macros ***************************************************************/
@@ -69,6 +56,56 @@ mrbc_class * const mrbc_class_tbl[MRBC_TT_MAXVAL+1] = {
 
 /***** Signal catching functions ********************************************/
 /***** Local functions ******************************************************/
+//================================================================
+/*! (internal use) traverse class tree.
+
+  @param  cls		target class
+  @param  nest_buf	nest buffer
+  @param  nest_idx	nest buffer index
+  @return mrbc_class *	next target class or NULL
+*/
+mrbc_class * mrbc_traverse_class_tree( mrbc_class *cls, mrbc_class *nest_buf[], int *nest_idx )
+{
+  cls = cls->super;
+
+  if( cls == 0 ) {
+    if( *nest_idx == 0 ) return 0;	// does not have super class.
+    cls = nest_buf[--(*nest_idx)];	// rewind to the saved point.
+    cls = cls->super;
+  }
+
+  // is the next module alias?
+  if( cls->flag_alias ) {
+    if( cls->super ) {
+      // save the branch point to nest_buf.
+      if( *nest_idx >= MRBC_TRAVERSE_NEST_LEVEL ) {
+	mrbc_printf("Warning: Module nest exceeds upper limit.\n");
+      } else {
+	nest_buf[(*nest_idx)++] = cls;
+      }
+    }
+
+    cls = cls->aliased;
+  }
+
+  return cls;
+}
+
+
+//================================================================
+/*! (internal use) traverse class tree. skip that class.
+
+  @param  nest_buf	nest buffer
+  @param  nest_idx	nest buffer index
+  @return mrbc_class *	previous target class
+*/
+mrbc_class * mrbc_traverse_class_tree_skip( mrbc_class *nest_buf[], int *nest_idx )
+{
+  if( *nest_idx == 0 ) return 0;	// does not have super class.
+  return nest_buf[--(*nest_idx)];	// rewind to the saved point.
+}
+
+
 /***** Global functions *****************************************************/
 //================================================================
 /*! define class
@@ -101,7 +138,7 @@ mrbc_class * mrbc_define_class(struct VM *vm, const char *name, mrbc_class *supe
 
   *cls = (mrbc_class){
     .sym_id = sym_id,
-    .super = super ? super : mrbc_class_object,
+    .super = super ? super : MRBC_CLASS(Object),
 #if defined(MRBC_DEBUG)
     .name = name,
 #endif
@@ -150,7 +187,7 @@ mrbc_class * mrbc_define_class_under(struct VM *vm, const mrbc_class *outer, con
 
   *cls = (mrbc_class){
     .sym_id = mrbc_symbol( mrbc_symbol_new( vm, buf )),
-    .super = super ? super : mrbc_class_object,
+    .super = super ? super : MRBC_CLASS(Object),
 #if defined(MRBC_DEBUG)
     .name = name,
 #endif
@@ -266,7 +303,7 @@ mrbc_class * mrbc_define_module_under(struct VM *vm, const mrbc_class *outer, co
 */
 void mrbc_define_method(struct VM *vm, mrbc_class *cls, const char *name, mrbc_func_t cfunc)
 {
-  if( cls == NULL ) cls = mrbc_class_object;	// set default to Object.
+  if( cls == NULL ) cls = MRBC_CLASS(Object);	// set default to Object.
 
   mrbc_method *method = mrbc_raw_alloc_no_free( sizeof(mrbc_method) );
   if( !method ) return; // ENOMEM
@@ -317,6 +354,11 @@ mrbc_value mrbc_instance_new(struct VM *vm, mrbc_class *cls, int size)
 */
 void mrbc_instance_delete(mrbc_value *v)
 {
+  assert( v->tt == MRBC_TT_OBJECT );
+  mrbc_class *cls = v->instance->cls;
+
+  if( !cls->flag_builtin && cls->destructor ) cls->destructor( v );
+
   mrbc_kv_delete_data( &v->instance->ivar );
   mrbc_raw_free( v->instance );
 }
@@ -339,7 +381,7 @@ void mrbc_instance_setiv(mrbc_value *obj, mrbc_sym sym_id, mrbc_value *v)
 //================================================================
 /*! instance variable getter
 
-  @param  obj		pointer to target.
+  @param  obj		target object.
   @param  sym_id	key symbol ID.
   @return		value.
 */
@@ -368,75 +410,24 @@ void mrbc_instance_clear_vm_id(mrbc_value *v)
 
 
 //================================================================
-/*! proc constructor
-
-  @param  vm		Pointer to VM.
-  @param  irep		Pointer to IREP.
-  @return		mrbc_value of Proc object.
-*/
-mrbc_value mrbc_proc_new(struct VM *vm, void *irep)
-{
-  mrbc_value val = {.tt = MRBC_TT_PROC};
-
-  val.proc = mrbc_alloc(vm, sizeof(mrbc_proc));
-  if( !val.proc ) return val;	// ENOMEM
-
-  MRBC_INIT_OBJECT_HEADER( val.proc, "PR" );
-  val.proc->callinfo = vm->callinfo_tail;
-
-  if( mrbc_type(vm->cur_regs[0]) == MRBC_TT_PROC ) {
-    val.proc->callinfo_self = vm->cur_regs[0].proc->callinfo_self;
-  } else {
-    val.proc->callinfo_self = vm->callinfo_tail;
-  }
-
-  val.proc->irep = irep;
-
-  return val;
-}
-
-
-//================================================================
-/*! proc destructor
-
-  @param  val	pointer to target value
-*/
-void mrbc_proc_delete(mrbc_value *val)
-{
-  mrbc_raw_free(val->proc);
-}
-
-
-#if defined(MRBC_ALLOC_VMID)
-//================================================================
-/*! clear vm_id
-
-  @param  v		pointer to target.
-*/
-void mrbc_proc_clear_vm_id(mrbc_value *v)
-{
-  mrbc_set_vm_id( v->proc, 0 );
-}
-#endif
-
-
-
-//================================================================
 /*! Check the class is the class of object.
 
   @param  obj	target object
-  @param  cls	class
+  @param  tcls	target class
   @return	result
 */
-int mrbc_obj_is_kind_of( const mrbc_value *obj, const mrbc_class *cls )
+int mrbc_obj_is_kind_of( const mrbc_value *obj, const mrbc_class *tcls )
 {
-  const mrbc_class *c = find_class_by_object( obj );
-  while( c != NULL ) {
-    if( c == cls ) return 1;
-    c = c->super;
+  mrbc_class *cls = find_class_by_object( obj );
+  mrbc_class *nest_buf[MRBC_TRAVERSE_NEST_LEVEL];
+  int nest_idx = 0;
+
+  while( cls != tcls ) {
+    cls = mrbc_traverse_class_tree( cls, nest_buf, &nest_idx );
+    if( ! cls ) return 0;
   }
 
-  return 0;
+  return 1;
 }
 
 
@@ -450,8 +441,8 @@ int mrbc_obj_is_kind_of( const mrbc_value *obj, const mrbc_class *cls )
 */
 mrbc_method * mrbc_find_method( mrbc_method *r_method, mrbc_class *cls, mrbc_sym sym_id )
 {
-  mrbc_class *mod_nest[3];
-  int mod_nest_idx = 0;
+  mrbc_class *nest_buf[MRBC_TRAVERSE_NEST_LEVEL];
+  int nest_idx = 0;
   int flag_module = cls->flag_module;
 
   while( 1 ) {
@@ -479,43 +470,21 @@ mrbc_method * mrbc_find_method( mrbc_method *r_method, mrbc_class *cls, mrbc_sym
     }
 
     if( c->method_symbols[right] == sym_id ) {
-      *r_method = (mrbc_method){
-	.type = 'm',
-	.c_func = 2,
-	.sym_id = sym_id,
-	.func = c->method_functions[right],
-	.cls = cls };
+      r_method->type = 'm';
+      r_method->c_func = 2;
+      r_method->sym_id = sym_id;
+      r_method->func = c->method_functions[right];
+      r_method->cls = cls;
       return r_method;
     }
 
   NEXT:
-    cls = cls->super;
+    cls = mrbc_traverse_class_tree( cls, nest_buf, &nest_idx );
     if( cls == 0 ) {
-      // does not have super class.
-      if( mod_nest_idx == 0 ) {
-        if( flag_module ) {
-          cls = mrbc_class_object;
-          flag_module = 0;
-          continue;
-        }
-        break;
-      }
+      if( !flag_module ) break;
 
-      // rewind the module search nest.
-      cls = mod_nest[--mod_nest_idx];
-    }
-
-    // is the next alias?
-    if( cls->flag_alias ) {
-      // save the super for include nesting of modules.
-      if( cls->super ) {
-        if( mod_nest_idx >= (sizeof(mod_nest) / sizeof(mrbc_class *)) ) {
-          mrbc_printf("Warning: Module nest exceeds upper limit.\n");
-          break;
-        }
-        mod_nest[mod_nest_idx++] = cls->super;
-      }
-      cls = cls->aliased;
+      cls = MRBC_CLASS(Object);
+      flag_module = 0;
     }
   }  // loop next.
 
@@ -536,9 +505,11 @@ mrbc_class * mrbc_get_class_by_name( const char *name )
 
   mrbc_value *obj = mrbc_get_const(sym_id);
   if( obj == NULL ) return NULL;
-  if( mrbc_type(*obj) != MRBC_TT_CLASS ) return NULL;
 
-  return obj->cls;
+  if( obj->tt == MRBC_TT_CLASS ||
+      obj->tt == MRBC_TT_MODULE ) return obj->cls;
+
+  return NULL;
 }
 
 
@@ -547,46 +518,51 @@ mrbc_class * mrbc_get_class_by_name( const char *name )
 
   @param  vm		pointer to vm.
   @param  v		see below example.
-  @param  reg_ofs	see below example.
+  @param  argc		see below example.
   @param  recv		pointer to receiver.
   @param  method_name	method name.
-  @param  argc		num of params.
+  @param  n_params	num of params.
 
-  @example
+<b>Examples</b>
+@code
   // (Integer).to_s(16)
   static void c_integer_to_s(struct VM *vm, mrbc_value v[], int argc)
   {
-    mrbc_value *recv = &v[1];
+    mrbc_value *recv = &v[1];	// expect Integer.
     mrbc_value arg1 = mrbc_integer_value(16);
     mrbc_value ret = mrbc_send( vm, v, argc, recv, "to_s", 1, &arg1 );
     SET_RETURN(ret);
   }
- */
-mrbc_value mrbc_send( struct VM *vm, mrbc_value *v, int reg_ofs,
-		     mrbc_value *recv, const char *method_name, int argc, ... )
+@endcode
+*/
+mrbc_value mrbc_send( struct VM *vm, mrbc_value *v, int argc,
+	mrbc_value *recv, const char *method_name, int n_params, ... )
 {
   mrbc_method method;
+  mrbc_class *cls = find_class_by_object(recv);
 
-  if( mrbc_find_method( &method, find_class_by_object(recv),
-			mrbc_str_to_symid(method_name) ) == 0 ) {
-    mrbc_printf("No method. vtype=%d method='%s'\n", mrbc_type(*recv), method_name );
+  if( mrbc_find_method( &method, cls, mrbc_str_to_symid(method_name)) == 0 ) {
+    mrbc_raisef(vm, MRBC_CLASS(NoMethodError), "undefined method '%s' for %s",
+		method_name, mrbc_symid_to_str(cls->sym_id) );
     goto ERROR;
   }
   if( !method.c_func ) {
-    mrbc_printf("Method %s needs to be C function.\n", method_name );
+    mrbc_raisef(vm, MRBC_CLASS(NotImplementedError),
+		"Method needs to be C function. '%s' for %s",
+		method_name, mrbc_symid_to_str(cls->sym_id) );
     goto ERROR;
   }
 
   // create call stack.
-  mrbc_value *regs = v + reg_ofs + 2;
+  mrbc_value *regs = v + argc + 2;
   mrbc_decref( &regs[0] );
   regs[0] = *recv;
   mrbc_incref(recv);
 
   va_list ap;
-  va_start(ap, argc);
+  va_start(ap, n_params);
   int i;
-  for( i = 1; i <= argc; i++ ) {
+  for( i = 1; i <= n_params; i++ ) {
     mrbc_decref( &regs[i] );
     regs[i] = *va_arg(ap, mrbc_value *);
   }
@@ -595,7 +571,7 @@ mrbc_value mrbc_send( struct VM *vm, mrbc_value *v, int reg_ofs,
   va_end(ap);
 
   // call method.
-  method.func(vm, regs, argc);
+  method.func(vm, regs, n_params);
   mrbc_value ret = regs[0];
 
   for(; i >= 0; i-- ) {
@@ -642,110 +618,38 @@ int mrbc_run_mrblib(const void *bytecode)
     ret = mrbc_vm_run(vm);
   } while( ret == 0 );
   mrbc_vm_end(vm);
-
-  // instead of mrbc_vm_close()
-  mrbc_raw_free( vm->top_irep );	// free only top-level mrbc_irep.
-					// (no need to free child ireps.)
-  mrbc_raw_free( vm );
+  mrbc_vm_close(vm);
 
   return ret;
 }
 
+#define MRBC_DEFINE_BUILTIN_CLASS_TABLE
+#include "_autogen_builtin_class.h"
+#undef MRBC_DEFINE_BUILTIN_CLASS_TABLE
 
 //================================================================
 /*! initialize all classes.
  */
 void mrbc_init_class(void)
 {
-  extern const uint8_t mrblib_bytecode[];
-  void mrbc_init_module_math(void);
+  // initialize builtin class.
+  mrbc_value vcls;
 
-  mrbc_value cls = {.tt = MRBC_TT_CLASS};
+  for( int i = 0; i < sizeof(MRBC_BuiltinClass)/sizeof(struct MRBC_BuiltinClass); i++ ) {
+    mrbc_class *cls = MRBC_BuiltinClass[i].cls;
 
-  cls.cls = MRBC_CLASS(Object);
-  mrbc_set_const( MRBC_SYM(Object), &cls );
+    cls->super = MRBC_BuiltinClass[i].super;
+    cls->method_link = 0;
+    vcls.cls = cls;
+    vcls.tt = cls->flag_module ? MRBC_TT_MODULE : MRBC_TT_CLASS;
 
-  cls.cls = MRBC_CLASS(NilClass);
-  mrbc_set_const( MRBC_SYM(NilClass), &cls );
-
-  cls.cls = MRBC_CLASS(FalseClass);
-  mrbc_set_const( MRBC_SYM(FalseClass), &cls );
-
-  cls.cls = MRBC_CLASS(TrueClass);
-  mrbc_set_const( MRBC_SYM(TrueClass), &cls );
-
-  cls.cls = MRBC_CLASS(Integer);
-  mrbc_set_const( MRBC_SYM(Integer), &cls );
-
-#if MRBC_USE_FLOAT
-  cls.cls = MRBC_CLASS(Float);
-  mrbc_set_const( MRBC_SYM(Float), &cls );
-#endif
-
-  cls.cls = MRBC_CLASS(Symbol);
-  mrbc_set_const( MRBC_SYM(Symbol), &cls );
-
-  cls.cls = MRBC_CLASS(Proc);
-  mrbc_set_const( MRBC_SYM(Proc), &cls );
-
-  cls.cls = MRBC_CLASS(Array);
-  mrbc_set_const( MRBC_SYM(Array), &cls );
-
-#if MRBC_USE_STRING
-  cls.cls = MRBC_CLASS(String);
-  mrbc_set_const( MRBC_SYM(String), &cls );
-#endif
-
-  cls.cls = MRBC_CLASS(Range);
-  mrbc_set_const( MRBC_SYM(Range), &cls );
-
-  cls.cls = MRBC_CLASS(Hash);
-  mrbc_set_const( MRBC_SYM(Hash), &cls );
+    mrbc_set_const( cls->sym_id, &vcls );
+  }
 
 #if MRBC_USE_MATH
-  mrbc_value math = {.tt = MRBC_TT_MODULE, .cls = MRBC_CLASS(Math) };
-  mrbc_set_const( MRBC_SYM(Math), &math );
   mrbc_init_module_math();
 #endif
 
-  cls.cls = MRBC_CLASS(Exception);
-  mrbc_set_const( MRBC_SYM(Exception), &cls );
-
-  cls.cls = MRBC_CLASS(NoMemoryError);
-  mrbc_set_const( MRBC_SYM(NoMemoryError), &cls );
-
-  cls.cls = MRBC_CLASS(NotImplementedError);
-  mrbc_set_const( MRBC_SYM(NotImplementedError), &cls );
-
-  cls.cls = MRBC_CLASS(StandardError);
-  mrbc_set_const( MRBC_SYM(StandardError), &cls );
-
-  cls.cls = MRBC_CLASS(ArgumentError);
-  mrbc_set_const( MRBC_SYM(ArgumentError), &cls );
-
-  cls.cls = MRBC_CLASS(IndexError);
-  mrbc_set_const( MRBC_SYM(IndexError), &cls );
-
-  cls.cls = MRBC_CLASS(IOError);
-  mrbc_set_const( MRBC_SYM(IOError), &cls );
-
-  cls.cls = MRBC_CLASS(NameError);
-  mrbc_set_const( MRBC_SYM(NameError), &cls );
-
-  cls.cls = MRBC_CLASS(NoMethodError);
-  mrbc_set_const( MRBC_SYM(NoMethodError), &cls );
-
-  cls.cls = MRBC_CLASS(RangeError);
-  mrbc_set_const( MRBC_SYM(RangeError), &cls );
-
-  cls.cls = MRBC_CLASS(RuntimeError);
-  mrbc_set_const( MRBC_SYM(RuntimeError), &cls );
-
-  cls.cls = MRBC_CLASS(TypeError);
-  mrbc_set_const( MRBC_SYM(TypeError), &cls );
-
-  cls.cls = MRBC_CLASS(ZeroDivisionError);
-  mrbc_set_const( MRBC_SYM(ZeroDivisionError), &cls );
-
+  extern const uint8_t mrblib_bytecode[];
   mrbc_run_mrblib(mrblib_bytecode);
 }

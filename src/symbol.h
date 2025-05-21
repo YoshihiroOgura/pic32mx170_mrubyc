@@ -25,9 +25,16 @@ extern "C" {
 #endif
 /***** Constant values ******************************************************/
 /***** Macros ***************************************************************/
+/*! Macros to specify built-in symbol IDs.
+ */
+#define MRBC_SYM(sym) MRBC_SYMID_##sym
+#define MRB_SYM(sym)  MRBC_SYMID_##sym
+
+
 /***** Typedefs *************************************************************/
 /***** Global variables *****************************************************/
 /***** Function prototypes **************************************************/
+//@cond
 void mrbc_cleanup_symbol(void);
 mrbc_sym mrbc_str_to_symid(const char *str);
 const char *mrbc_symid_to_str(mrbc_sym sym_id);
@@ -37,6 +44,7 @@ void mrbc_separate_nested_symid(mrbc_sym sym_id, mrbc_sym *id1, mrbc_sym *id2);
 mrbc_value mrbc_symbol_new(struct VM *vm, const char *str);
 void mrbc_debug_dump_symbol(void);
 void mrbc_symbol_statistics(int *total_used);
+//@endcond
 
 
 /***** Inline functions *****************************************************/
@@ -46,7 +54,7 @@ void mrbc_symbol_statistics(int *total_used);
 */
 static inline const char * mrbc_symbol_cstr(const mrbc_value *v)
 {
-  return mrbc_symid_to_str(v->i);
+  return mrbc_symid_to_str(v->sym_id);
 }
 
 
