@@ -77,13 +77,12 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( i == NUM ) goto ERROR_RETURN;
 
   // allocate instance with ADC_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));
-  *(const ADC_HANDLE **)(val.instance->data) = &adc_handle_[i];
+  v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));
+  *MRBC_INSTANCE_DATA_PTR(v, const ADC_HANDLE *) = &adc_handle_[i];
 
   // set pin to analog input
   gpio_setmode( &pin, GPIO_ANALOG|GPIO_IN );
 
-  v[0] = val;
   return;
 
  ERROR_RETURN:
@@ -93,7 +92,7 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
 static uint32_t read_sub(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  ADC_HANDLE *hndl = *(ADC_HANDLE **)v[0].instance->data;
+  ADC_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, ADC_HANDLE *);
 
   AD1CHSbits.CH0SA = hndl->channel;
   AD1CON1bits.SAMP = 1;

@@ -79,7 +79,7 @@ typedef struct PWM_HANDLE {
   uint8_t unit_num;
   uint16_t period;	// PRx set count value.
   uint16_t duty;	// percent but stretch 100% to UINT16_MAX
-  uint8_t timer;
+  uint8_t timer;	// Either 1 or 2 is specified due to hardware spec.
 } PWM_HANDLE;
 
 static PWM_HANDLE pwm_handle_[NUM_PWM_OC_UNIT];
@@ -157,7 +157,7 @@ static int pwm_set_timer( PWM_HANDLE *hndl, unsigned int timer )
   }else {
     return 0;
   }
-  
+
   OCxCON(hndl->unit_num) = 0x0006 | (hndl->timer << _OC1CON_OCTSEL_POSITION);
   return 1;
 }
@@ -214,14 +214,14 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   PWM_HANDLE *hndl = &pwm_handle_[unit_num-1];
 
   // allocate instance with PWM_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(PWM_HANDLE *));
-  *(PWM_HANDLE **)(val.instance->data) = hndl;
+  v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(PWM_HANDLE *));
+  *MRBC_INSTANCE_DATA_PTR(v, PWM_HANDLE *) = hndl;
 
   // set OC module
   OCxCON(unit_num) = 0x0006;	// PWM mode, use Timer2.
   OCxR(unit_num) = 0;
   OCxRS(unit_num) = 0;
-  
+
   if( MRBC_ISNUMERIC(timer) ) {
     pwm_set_timer( hndl, MRBC_TO_INT(timer));
   }
@@ -238,7 +238,6 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 
   OCxCON(unit_num) |= 0x8000;	// OC module ON
-  v[0] = val;
   goto RETURN;
 
  ERROR_RETURN:
@@ -255,7 +254,7 @@ static void c_pwm_new(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_frequency(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, PWM_HANDLE *);
 
   if( MRBC_ISNUMERIC(v[1]) ) {
     pwm_set_frequency( hndl, MRBC_TO_FLOAT(v[1]));
@@ -269,7 +268,7 @@ static void c_pwm_frequency(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_period_us(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, PWM_HANDLE *);
 
   if( MRBC_ISNUMERIC(v[1]) ) {
     pwm_set_period_us( hndl, MRBC_TO_INT(v[1]));
@@ -283,7 +282,7 @@ static void c_pwm_period_us(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_duty(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, PWM_HANDLE *);
 
   if( MRBC_ISNUMERIC(v[1]) ) {
     pwm_set_duty( hndl, MRBC_TO_FLOAT(v[1]));
@@ -297,7 +296,7 @@ static void c_pwm_duty(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_pwm_pulse_width_us(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PWM_HANDLE *hndl = *(PWM_HANDLE **)v[0].instance->data;
+  PWM_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, PWM_HANDLE *);
 
   if( MRBC_ISNUMERIC(v[1]) ) {
     pwm_set_pulse_width_us( hndl, MRBC_TO_INT(v[1]));
@@ -315,13 +314,13 @@ static void c_pwm_set_timer(mrbc_vm *vm, mrbc_value v[], int argc)
   if( MRBC_ISNUMERIC(v[1]) ) {
     pwm_set_timer( hndl, MRBC_TO_INT(v[1]));
   }
-  
+
   if( hndl->timer == 1 ){
     PR3 = hndl->period;
   } else {
     PR2 = hndl->period;
   }
-  
+
 }
 
 

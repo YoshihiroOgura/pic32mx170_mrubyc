@@ -506,11 +506,10 @@ static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( ch < 1 || ch > NUM_UART_UNIT ) goto ERROR_RETURN;
 
   // allocate instance with UART_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
-  *(UART_HANDLE**)(val.instance->data) = &uart_handle_[ch-1];
+  v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
+  *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *) = &uart_handle_[ch-1];
 
   // process other parameters
-  v[0] = val;
   c_uart_setmode( vm, v, argc );
   goto RETURN;
 
@@ -533,7 +532,7 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   MRBC_KW_ARG( baudrate, baud, data_bits, stop_bits, parity, flow_control, txd_pin, rxd_pin, rts_pin, cts_pin );
   if( !MRBC_KW_END() ) goto RETURN;
 
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
   int baud_rate = -1;
   int flag_pin_change = 0;
   PIN_HANDLE now_txd_pin = hndl->txd_pin;
@@ -587,7 +586,7 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
   mrbc_int_t read_bytes;
 
   if( mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
@@ -638,7 +637,7 @@ static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   if( v[1].tt == MRBC_TT_STRING ) {
     int n = uart_write( hndl, mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
@@ -659,7 +658,7 @@ static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   int len;
   while( 1 ) {
@@ -697,7 +696,7 @@ static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   if( v[1].tt == MRBC_TT_STRING ) {
     const char *s = mrbc_string_cstr(&v[1]);
@@ -724,7 +723,7 @@ static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   SET_INT_RETURN( uart_bytes_available( hndl ) );
 }
@@ -753,7 +752,7 @@ static void c_uart_bytes_to_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_can_read_line(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   int len = uart_can_read_line(hndl);
   if( len < 0 ) {
@@ -795,7 +794,7 @@ static void c_uart_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
   uart_clear_rx_buffer( hndl );
 }
 
@@ -807,7 +806,7 @@ static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   while( (UxSTA(hndl->unit_num) & _U1STA_TRMT_MASK) == 0 )
     ;

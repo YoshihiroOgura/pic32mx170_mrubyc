@@ -292,8 +292,8 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( unit_num < 1 || unit_num > 2 ) goto ERROR_RETURN;
 
   // allocate instance with SPI_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(SPI_HANDLE *));
-  *(SPI_HANDLE**)(val.instance->data) = &spi_handle_[unit_num-1];
+  v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(SPI_HANDLE *));
+  *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *) = &spi_handle_[unit_num-1];
 
   if( !spi_handle_[unit_num-1].flag_in_use ) {
     // set SPI default hardware settings.
@@ -306,7 +306,6 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
     spi_assign_sck_pin( &spi_handle_[unit_num-1] );
   }
 
-  v[0] = val;
   c_spi_setmode( vm, v, argc );
 
   if( !spi_handle_[unit_num-1].flag_in_use ) {
@@ -334,7 +333,7 @@ static void c_spi_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   MRBC_KW_ARG( frequency, mode, sdi_pin, sdo_pin );
   if( !MRBC_KW_END() ) goto RETURN;
 
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
   uint32_t freq = -1;
   int spi_mode = -1;
   PIN_HANDLE now_sdo_pin = hndl->sdo_pin;
@@ -374,7 +373,7 @@ static void c_spi_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_spi_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
 
   if( mrbc_type(v[1]) != MRBC_TT_INTEGER ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
@@ -400,7 +399,7 @@ static void c_spi_read(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_spi_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
 
   for( int i = 1; i <= argc; i++ ) {
     spi_trans_mrbc_value( hndl, &v[i], NULL );
@@ -416,7 +415,7 @@ static void c_spi_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
   mrbc_value ret = mrbc_string_new(vm, NULL, 0);
 
   if( argc == 0 ) goto RETURN;
