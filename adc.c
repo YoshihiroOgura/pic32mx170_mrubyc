@@ -62,10 +62,11 @@ static const ADC_HANDLE adc_handle_[] = {
 */
 static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  if( argc != 1 ) goto ERROR_RETURN;
-
   PIN_HANDLE pin;
-  if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
+
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) goto ERROR_RETURN;
 
   // find ADC channel from adc_handle_ table.
   static const int NUM = sizeof(adc_handle_)/sizeof(ADC_HANDLE);
@@ -82,11 +83,11 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
   // set pin to analog input
   gpio_setmode( &pin, GPIO_ANALOG|GPIO_IN );
-
   return;
 
+
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "ADC initialize.");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
 }
 
 

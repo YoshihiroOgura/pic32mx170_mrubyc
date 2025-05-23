@@ -111,14 +111,17 @@ static void c_gpio_new(mrbc_vm *vm, mrbc_value v[], int argc)
   v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(PIN_HANDLE));
   PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
-  if( argc != 2 ) goto ERROR_RETURN;
-  if( set_pin_handle( pin, &v[1] ) != 0 ) goto ERROR_RETURN;
-  if( (mrbc_integer(v[2]) & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
-  if( gpio_setmode( pin, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  int arg_modes = MRBC_ARG_I(2);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( pin, arg_pin ) != 0 ) goto ERROR_RETURN;
+  if( (arg_modes & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
+  if( gpio_setmode( pin, arg_modes ) < 0 ) goto ERROR_RETURN;
   return;
 
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "GPIO initialize");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
 }
 
 
@@ -135,10 +138,12 @@ static void c_gpio_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
     */
     PIN_HANDLE pin;
 
-    if( argc != 2 ) goto ERROR_RETURN;
-    if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
-    if( v[2].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
-    if( gpio_setmode( &pin, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
+    mrbc_value *arg_pin = MRBC_ARG(1);
+    int arg_modes = MRBC_ARG_I(2);
+    if( mrbc_israised(vm) ) return;
+
+    if( set_pin_handle( &pin, arg_pin ) != 0 ) goto ERROR_RETURN;
+    if( gpio_setmode( &pin, arg_modes ) < 0 ) goto ERROR_RETURN;
   }
   else {
     /*
@@ -146,15 +151,18 @@ static void c_gpio_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
     */
     PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
-    if( v[1].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
-    if( gpio_setmode( pin, mrbc_integer(v[1]) ) < 0 ) goto ERROR_RETURN;
-    SET_NIL_RETURN();
+    int arg_modes = MRBC_ARG_I(1);
+    if( mrbc_israised(vm) ) return;
+
+    if( gpio_setmode( pin, arg_modes ) < 0 ) goto ERROR_RETURN;
   }
+
+  SET_NIL_RETURN();
   return;
 
 
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "GPIO Can't setup");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
 }
 
 
@@ -166,43 +174,55 @@ static void c_gpio_read_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
-    SET_INT_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
-  } else {
-    SET_NIL_RETURN();
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+    return;
   }
+
+  SET_INT_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
 }
 
 
 /*! high_at? -> bool
 
-  v1 = GPIO.read_at( 1 )          # read from pin 1.
+  v1 = GPIO.high_at( 1 )          # pin 1 is high?
 */
 static void c_gpio_high_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
-    SET_BOOL_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
-  } else {
-    SET_NIL_RETURN();
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+    return;
   }
+
+  SET_BOOL_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
 }
 
 
 /*! low_at? -> bool
 
-  v1 = GPIO.read_at( 1 )          # read from pin 1.
+  v1 = GPIO.row_at( 1 )          # pin 1 is row?
 */
 static void c_gpio_low_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
-    SET_BOOL_RETURN( ~(PORTx(pin.port) >> pin.num) & 1 );
-  } else {
-    SET_NIL_RETURN();
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+    return;
   }
+
+  SET_BOOL_RETURN( ~(PORTx(pin.port) >> pin.num) & 1 );
 }
 
 
@@ -214,18 +234,27 @@ static void c_gpio_write_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( (set_pin_handle( &pin, &v[1] ) != 0) ||
-      (v[2].tt != MRBC_TT_INTEGER) ) {
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  int arg_data = MRBC_ARG_I(2);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
     return;
   }
 
-  if( mrbc_integer(v[2]) == 0 ) {
+  switch( arg_data ) {
+  case 0:
     LATxCLR(pin.port) = (1 << pin.num);
-  } else if( mrbc_integer(v[2]) == 1 ) {
+    break;
+
+  case 1:
     LATxSET(pin.port) = (1 << pin.num);
-  } else {
+    break;
+
+  default:
     mrbc_raise(vm, MRBC_CLASS(RangeError), 0);
+    break;
   }
 }
 
@@ -274,11 +303,21 @@ static void c_gpio_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
-  if( v[1].tt != MRBC_TT_INTEGER ) return;
-  if( mrbc_integer(v[1]) == 0 ) {
+  int arg_data = MRBC_ARG_I(1);
+  if( mrbc_israised(vm) ) return;
+
+  switch( arg_data ) {
+  case 0:
     LATxCLR(pin->port) = (1 << pin->num);
-  } else {
+    break;
+
+  case 1:
     LATxSET(pin->port) = (1 << pin->num);
+    break;
+
+  default:
+    mrbc_raise(vm, MRBC_CLASS(RangeError), 0);
+    break;
   }
 }
 
