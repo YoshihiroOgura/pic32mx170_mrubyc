@@ -42,8 +42,8 @@ static SPI_HANDLE spi_handle_[NUM_SPI_UNIT] = {
     .sck_pin = {2,14},	// B14
   },
   { .unit_num = 2,
-    .sdi_pin = {1, 2},	// A2
-    .sdo_pin = {2,13},	// B13
+    .sdi_pin = {2,13},	// B13
+    .sdo_pin = {1, 2},	// A2
     .sck_pin = {2,15},	// B15
   },
 };
