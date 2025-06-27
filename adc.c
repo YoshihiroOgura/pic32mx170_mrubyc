@@ -134,6 +134,13 @@ static void c_adc_read_raw(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init_class_adc(void)
 {
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "new", c_adc_new },
+    { "read_voltage", c_adc_read_voltage },
+    { "read", c_adc_read_voltage },  // alias
+    { "read_raw", c_adc_read_raw },
+  };
+
   AD1CON1 = 0x00e0;	// SSRC=111 CLRASAM=0 ASAM=0 SAMP=0
   AD1CON2 = 0x0000;
   AD1CON3 = 0x1e09;	// SAMC=1e(60us) ADCS=09(TAD=2us)
@@ -144,9 +151,5 @@ void mrbc_init_class_adc(void)
   AD1CON1bits.ADON = 1;
 
   mrbc_class *adc = mrbc_define_class(0, "ADC", 0);
-
-  mrbc_define_method(0, adc, "new", c_adc_new);
-  mrbc_define_method(0, adc, "read_voltage", c_adc_read_voltage);
-  mrbc_define_method(0, adc, "read", c_adc_read_voltage);
-  mrbc_define_method(0, adc, "read_raw", c_adc_read_raw);
+  mrbc_define_method_list(0, adc, method_list, sizeof(method_list)/sizeof(method_list[0]));
 }

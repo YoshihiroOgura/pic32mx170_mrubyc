@@ -503,15 +503,18 @@ static void c_i2c_raw_write(mrb_vm *vm, mrb_value v[], int argc)
 */
 void mrbc_init_class_i2c(void)
 {
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "read", c_i2c_read },
+    { "write", c_i2c_write },
+    { "send_start", c_i2c_send_start },
+    { "send_restart", c_i2c_send_restart },
+    { "send_stop", c_i2c_send_stop },
+    { "raw_read", c_i2c_raw_read },
+    { "raw_write", c_i2c_raw_write },
+  };
+
   i2c_init();
 
   mrbc_class *i2c = mrbc_define_class(0, "I2C", 0);
-
-  mrbc_define_method(0, i2c, "read", c_i2c_read);
-  mrbc_define_method(0, i2c, "write", c_i2c_write);
-  mrbc_define_method(0, i2c, "send_start", c_i2c_send_start);
-  mrbc_define_method(0, i2c, "send_restart", c_i2c_send_restart);
-  mrbc_define_method(0, i2c, "send_stop", c_i2c_send_stop);
-  mrbc_define_method(0, i2c, "raw_read", c_i2c_raw_read);
-  mrbc_define_method(0, i2c, "raw_write", c_i2c_raw_write);
+  mrbc_define_method_list(0, i2c, method_list, sizeof(method_list) / sizeof(method_list[0]));
 }

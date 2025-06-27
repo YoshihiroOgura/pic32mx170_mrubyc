@@ -311,6 +311,14 @@ static void c_pwm_pulse_width_us(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init_class_pwm(void)
 {
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "new", c_pwm_new },
+    { "frequency", c_pwm_frequency },
+    { "period_us", c_pwm_period_us },
+    { "duty", c_pwm_duty },
+    { "pulse_width_us", c_pwm_pulse_width_us },
+  };
+
   for( int i = 0; i < NUM_PWM_OC_UNIT; i++ ) {
     pwm_handle_[i].unit_num = i + 1;
     pwm_handle_[i].duty = UINT16_MAX / 2;
@@ -324,10 +332,5 @@ void mrbc_init_class_pwm(void)
   T2CONSET = T3CONSET = (1 << _T2CON_ON_POSITION);
 
   mrbc_class *pwm = mrbc_define_class(0, "PWM", 0);
-
-  mrbc_define_method(0, pwm, "new", c_pwm_new);
-  mrbc_define_method(0, pwm, "frequency", c_pwm_frequency);
-  mrbc_define_method(0, pwm, "period_us", c_pwm_period_us);
-  mrbc_define_method(0, pwm, "duty", c_pwm_duty);
-  mrbc_define_method(0, pwm, "pulse_width_us", c_pwm_pulse_width_us);
+  mrbc_define_method_list(0, pwm, method_list, sizeof(method_list) / sizeof(method_list[0]));
 }

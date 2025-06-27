@@ -432,11 +432,14 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 
 void mrbc_init_class_spi(struct VM *vm)
 {
-  mrbc_class *spi = mrbc_define_class(0, "SPI", 0);
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "new", c_spi_new },
+    { "setmode", c_spi_setmode },
+    { "read", c_spi_read },
+    { "write", c_spi_write },
+    { "transfer", c_spi_transfer },
+  };
 
-  mrbc_define_method(0, spi, "new", c_spi_new);
-  mrbc_define_method(0, spi, "setmode", c_spi_setmode);
-  mrbc_define_method(0, spi, "read", c_spi_read);
-  mrbc_define_method(0, spi, "write", c_spi_write);
-  mrbc_define_method(0, spi, "transfer", c_spi_transfer);
+  mrbc_class *spi = mrbc_define_class(0, "SPI", 0);
+  mrbc_define_method_list(0, spi, method_list, sizeof(method_list) / sizeof(method_list[0]));
 }

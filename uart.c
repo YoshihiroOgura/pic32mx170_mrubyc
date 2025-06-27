@@ -817,22 +817,24 @@ static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init_class_uart(void)
 {
-  // define class and methods.
-  mrbc_class *uart = mrbc_define_class(0, "UART", 0);
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "new", c_uart_new },
+    { "setmode", c_uart_setmode },
+    { "read", c_uart_read },
+    { "write", c_uart_write },
+    { "gets", c_uart_gets },
+    { "puts", c_uart_puts },
+    { "bytes_available",c_uart_bytes_available },
+    { "bytes_to_write",c_uart_bytes_to_write },
+    { "can_read_line",c_uart_can_read_line },
+    { "flush", c_uart_flush },
+    { "clear_rx_buffer",c_uart_clear_rx_buffer },
+    { "clear_tx_buffer",c_uart_clear_tx_buffer },
+    { "send_break",	c_uart_send_break },
+  };
 
-  mrbc_define_method(0, uart, "new",		c_uart_new);
-  mrbc_define_method(0, uart, "setmode",	c_uart_setmode);
-  mrbc_define_method(0, uart, "read",		c_uart_read);
-  mrbc_define_method(0, uart, "write",		c_uart_write);
-  mrbc_define_method(0, uart, "gets",		c_uart_gets);
-  mrbc_define_method(0, uart, "puts",		c_uart_puts);
-  mrbc_define_method(0, uart, "bytes_available",c_uart_bytes_available);
-  mrbc_define_method(0, uart, "bytes_to_write",	c_uart_bytes_to_write);
-  mrbc_define_method(0, uart, "can_read_line",	c_uart_can_read_line);
-  mrbc_define_method(0, uart, "flush",		c_uart_flush);
-  mrbc_define_method(0, uart, "clear_rx_buffer",c_uart_clear_rx_buffer);
-  mrbc_define_method(0, uart, "clear_tx_buffer",c_uart_clear_tx_buffer);
-  mrbc_define_method(0, uart, "send_break",	c_uart_send_break);
+  mrbc_class *uart = mrbc_define_class(0, "UART", 0);
+  mrbc_define_method_list(0, uart, method_list, sizeof(method_list)/sizeof(method_list[0]));
 
   mrbc_set_class_const(uart, mrbc_str_to_symid("NONE"), &mrbc_integer_value(UART_NONE));
   mrbc_set_class_const(uart, mrbc_str_to_symid("ODD"), &mrbc_integer_value(UART_ODD));
