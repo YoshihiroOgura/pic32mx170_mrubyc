@@ -1901,6 +1901,7 @@ static inline void op_addi( mrbc_vm *vm, mrbc_value *regs EXT )
   }
 #endif
 
+  mrbc_decref(&regs[a+1]);
   regs[a+1] = mrbc_integer_value(b);
   send_by_name(vm, MRBC_SYM(PLUS), a, 1);
 }
@@ -1967,6 +1968,7 @@ static inline void op_subi( mrbc_vm *vm, mrbc_value *regs EXT )
   }
 #endif
 
+  mrbc_decref(&regs[a+1]);
   regs[a+1] = mrbc_integer_value(b);
   send_by_name(vm, MRBC_SYM(MINUS), a, 1);
 }
@@ -2700,7 +2702,7 @@ static inline void op_exec( mrbc_vm *vm, mrbc_value *regs EXT )
   assert( regs[a].tt == MRBC_TT_CLASS || regs[a].tt == MRBC_TT_MODULE );
 
   // prepare callinfo
-  mrbc_push_callinfo(vm, 0, a, 0);
+  mrbc_push_callinfo(vm, regs[a].cls->sym_id, a, 0);
 
   // target irep
   vm->cur_irep = mrbc_irep_child_irep(vm->cur_irep, b);

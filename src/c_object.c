@@ -609,19 +609,16 @@ static void c_object_constants(mrb_vm *vm, mrb_value v[], int argc)
   mrbc_class *nest_buf[MRBC_TRAVERSE_NEST_LEVEL];
   int nest_idx = 0;
 
-  mrbc_get_all_class_const( cls, &ret );
-  if( !flag_inherit ) goto RETURN;
+  do {
+    mrbc_get_all_class_const( cls, &ret );
+    if( !flag_inherit ) break;
 
-  while( cls ) {
     cls = mrbc_traverse_class_tree( cls, nest_buf, &nest_idx );
     if( cls == MRBC_CLASS(Object) ) {
       cls = mrbc_traverse_class_tree_skip( nest_buf, &nest_idx );
-      continue;
     }
-    mrbc_get_all_class_const( cls, &ret );
-  }
+  } while( cls );
 
- RETURN:
   SET_RETURN(ret);
 }
 
@@ -672,9 +669,17 @@ static void c_object_sprintf(struct VM *vm, mrbc_value v[], int argc)
 
     case 's':
       if( mrbc_type(v[i]) == MRBC_TT_STRING ) {
-	ret = mrbc_printf_bstr( &pf, mrbc_string_cstr(&v[i]), mrbc_string_size(&v[i]),' ');
-      } else if( mrbc_type(v[i]) == MRBC_TT_SYMBOL ) {
-	ret = mrbc_printf_str( &pf, mrbc_symbol_cstr( &v[i] ), ' ');
+	ret = mrbc_printf_bstr( &pf, mrbc_string_cstr(&v[i]),
+				     mrbc_string_size(&v[i]), ' ');
+      } else {
+	const char *s;
+	switch( v[i].tt ) {
+	case MRBC_TT_SYMBOL:	s = mrbc_symbol_cstr(&v[i]);	break;
+	case MRBC_TT_TRUE:	s = "true";			break;
+	case MRBC_TT_FALSE:	s = "false";			break;
+	default:		s = "";				break;
+	}
+	ret = mrbc_printf_str( &pf, s, ' ');
       }
       break;
 
