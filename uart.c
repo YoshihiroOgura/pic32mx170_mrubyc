@@ -535,7 +535,7 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   PIN_HANDLE now_txd_pin = hndl->txd_pin;
 
   if( MRBC_KW_ISVALID(baudrate) ) arg_baud = MRBC_VAL_I(&baudrate);
-  if( MRBC_KW_ISVALID(baud) ) arg_baud = MRBC_VAL_I(&baudrate);
+  if( MRBC_KW_ISVALID(baud) ) arg_baud = MRBC_VAL_I(&baud);
   if( MRBC_KW_ISVALID(data_bits) ) goto ERROR_NOT_IMPLEMENTED;
   if( MRBC_KW_ISVALID(stop_bits) ) arg_stop_bits = MRBC_VAL_I(&stop_bits);
   if( MRBC_KW_ISVALID(parity) ) arg_parity = MRBC_VAL_I(&parity);
