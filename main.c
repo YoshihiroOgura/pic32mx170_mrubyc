@@ -131,7 +131,7 @@ int main(void)
     receive_bytecode( memory_pool, MRBC_MEMORY_SIZE );
     memset( memory_pool, 0, MRBC_MEMORY_SIZE );
   }
-  mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v2.1.0, mruby/c v3.3.1 start.\n");
+  mrbc_printf("\r\n\x1b(B\x1b)B\x1b[0m\x1b[2JRboard v2.1.0, mruby/c v3.4 start.\n");
 
   /* start mruby/c */
   mrbc_init(memory_pool, MRBC_MEMORY_SIZE);
