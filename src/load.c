@@ -22,14 +22,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "vm.h"
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "error.h"
-#include "c_string.h"
-#include "load.h"
-
+#include "mrubyc.h"
 
 /***** Constat values *******************************************************/
 // for mrb file structure.
@@ -80,13 +73,13 @@ enum irep_pool_type {
 static int load_header(struct VM *vm, const uint8_t *bin)
 {
   if( memcmp(bin, RITE, sizeof(RITE)) != 0 ) {
-    mrbc_raise( vm, MRBC_CLASS(Exception), "Illegal bytecode.");
+    mrbc_raise( vm, MRBC_CLASS(Exception), "Illegal bytecode");
     return -1;
   }
   bin += sizeof(RITE);
 
   if( memcmp(bin, RITE_VERSION, sizeof(RITE_VERSION)) != 0 ) {
-    mrbc_raise( vm, MRBC_CLASS(Exception), "Bytecode version mismatch.");
+    mrbc_raise( vm, MRBC_CLASS(Exception), "Bytecode version mismatch");
     return -1;
   }
 
@@ -102,7 +95,6 @@ static int load_header(struct VM *vm, const uint8_t *bin)
   @param  vm	A pointer to VM.
   @param  bin	A pointer to RITE ISEQ.
   @param  len	Returns the parsed length.
-  @param  flag_top	is irep top level?
   @return	Pointer to allocated mrbc_irep or NULL
 
   <pre>
@@ -134,32 +126,41 @@ static int load_header(struct VM *vm, const uint8_t *bin)
      ...	symbol data
   </pre>
 */
-static mrbc_irep * load_irep_1(struct VM *vm, const uint8_t *bin, int *len, int flag_top)
+static mrbc_irep * load_irep_1(struct VM *vm, const uint8_t *bin, int *len)
 {
   mrbc_irep irep;
   const uint8_t *p = bin + 4;	// 4 = skip record size.
 
 #if defined(MRBC_DEBUG)
-  irep.type[0] = 'R';	// set "RP"
-  irep.type[1] = 'P';
+  irep.obj_mark_[0] = 'R';	// set "RP"
+  irep.obj_mark_[1] = 'P';
 #endif
 
+  irep.ref_count = 0;
+#if defined(MRBC_DEBUG)
   irep.nlocals = bin_to_uint16(p);	p += 2;
+#else
+  p += 2;	// skip nlocals
+#endif
   irep.nregs = bin_to_uint16(p);	p += 2;
   irep.rlen = bin_to_uint16(p);		p += 2;
   irep.clen = bin_to_uint16(p);		p += 2;
-  irep.ilen = bin_to_uint32(p);		p += 4;
+  uint32_t ilen = bin_to_uint32(p);	p += 4;
+  if( ilen > 0xffff ) goto ERROR_TOO_LARGE;
+  irep.ilen = ilen;
   irep.inst = p;
 
   // POOL block
   p += irep.ilen + SIZE_RITE_CATCH_HANDLER * irep.clen;
   irep.pool = p;
-  irep.plen = bin_to_uint16(p);		p += 2;
+  uint16_t plen = bin_to_uint16(p);	p += 2;
 
   // skip pool
-  for( int i = 0; i < irep.plen; i++ ) {
+  for( int i = 0; i < plen; i++ ) {
     int siz = 0;
-    switch( *p++ ) {
+    int tt = *p++;
+
+    switch( tt ) {
     case IREP_TT_STR:
     case IREP_TT_SSTR:	siz = bin_to_uint16(p) + 3;	break;
     case IREP_TT_INT32:	siz = 4;	break;
@@ -169,35 +170,40 @@ static mrbc_irep * load_irep_1(struct VM *vm, const uint8_t *bin, int *len, int 
 #endif
     case IREP_TT_FLOAT:	siz = 8;	break;
     default:
-      mrbc_raise(vm, MRBC_CLASS(Exception), "Loader unknown TT found.");
+      mrbc_raisef(vm, MRBC_CLASS(Exception), "Not support such type (IREP_TT=%d)", tt);
       return NULL;
     }
     p += siz;
   }
 
   // num of symbols, offset of tbl_ireps.
-  irep.slen = bin_to_uint16(p);		p += 2;
-  int siz = sizeof(mrbc_sym) * irep.slen + sizeof(uint16_t) * irep.plen;
+  uint16_t slen = bin_to_uint16(p);	p += 2;
+  uint32_t siz = sizeof(mrbc_sym) * slen;
+  if( siz > 0xffff ) goto ERROR_TOO_LARGE;
+  irep.ofs_pools = siz;
+
+  siz += sizeof(uint16_t) * plen;
+  if( siz > 0xffff ) goto ERROR_TOO_LARGE;
   siz += (-siz & 0x03);	// padding. 32bit align.
-  irep.ofs_ireps = siz >> 2;
+  irep.ofs_ireps = siz;
+
+#if defined(MRBC_DEBUG)
+  irep.plen = plen;
+  irep.slen = slen;
+#endif
 
   // allocate new irep
-  mrbc_irep *p_irep;
   siz = sizeof(mrbc_irep) + siz + sizeof(mrbc_irep*) * irep.rlen;
-  if( vm->vm_id == 0 && !flag_top ) {
-    p_irep = mrbc_raw_alloc_no_free( siz );
-  } else {
-    p_irep = mrbc_raw_alloc( siz );
-  }
+  mrbc_irep *p_irep = mrbc_raw_alloc( siz );
   if( !p_irep ) {	// ENOMEM
     mrbc_raise(vm, MRBC_CLASS(NoMemoryError),0);
     return NULL;
   }
   *p_irep = irep;
 
-  // make a sym_id table.
+  // make a symbol ID table. (tbl_syms[slen])
   mrbc_sym *tbl_syms = mrbc_irep_tbl_syms(p_irep);
-  for( int i = 0; i < irep.slen; i++ ) {
+  for( int i = 0; i < slen; i++ ) {
     int siz = bin_to_uint16(p) + 1;	p += 2;
     char *sym_str;
     if (vm->flag_permanence == 1) {
@@ -215,22 +221,22 @@ static mrbc_irep * load_irep_1(struct VM *vm, const uint8_t *bin, int *len, int 
     p += (siz);
   }
 
-  // make a pool data's offset table.
+  // make a pool data's offset table. (tbl_pools[plen])
   uint16_t *ofs_pools = mrbc_irep_tbl_pools(p_irep);
   p = p_irep->pool + 2;
-  for( int i = 0; i < irep.plen; i++ ) {
+  for( int i = 0; i < plen; i++ ) {
     int siz = 0;
     if( (p - irep.pool) > UINT16_MAX ) {
-      mrbc_raise(vm, MRBC_CLASS(Exception), "Overflow IREP data offset table.");
+      mrbc_raise(vm, MRBC_CLASS(Exception), "Overflow IREP data offset table");
       return NULL;
     }
     *ofs_pools++ = (uint16_t)(p - irep.pool);
     switch( *p++ ) {
     case IREP_TT_STR:
-    case IREP_TT_SSTR:	siz = bin_to_uint16(p) + 3;	break;
-    case IREP_TT_INT32:	siz = 4;	break;
+    case IREP_TT_SSTR:	siz = bin_to_uint16(p) + 3;  break;
+    case IREP_TT_INT32:	siz = 4;  break;
     case IREP_TT_INT64:
-    case IREP_TT_FLOAT:	siz = 8;	break;
+    case IREP_TT_FLOAT:	siz = 8;  break;
     }
     p += siz;
   }
@@ -238,6 +244,11 @@ static mrbc_irep * load_irep_1(struct VM *vm, const uint8_t *bin, int *len, int 
   // return length
   *len = bin_to_uint32(bin);
   return p_irep;
+
+
+ ERROR_TOO_LARGE:
+  mrbc_raise(vm, MRBC_CLASS(Exception), "Too large IREP size");
+  return NULL;
 }
 
 
@@ -252,13 +263,13 @@ static mrbc_irep * load_irep_1(struct VM *vm, const uint8_t *bin, int *len, int 
 static mrbc_irep *load_irep(struct VM *vm, const uint8_t *bin, int *len)
 {
   int len1;
-  mrbc_irep *irep = load_irep_1(vm, bin, &len1, len == 0);
+  mrbc_irep *irep = load_irep_1(vm, bin, &len1);
   if( !irep ) return NULL;
   int total_len = len1;
 
   mrbc_irep **tbl_ireps = mrbc_irep_tbl_ireps(irep);
-  int i;
-  for( i = 0; i < irep->rlen; i++ ) {
+
+  for( int i = 0; i < irep->rlen; i++ ) {
     tbl_ireps[i] = load_irep(vm, bin + total_len, &len1);
     if( ! tbl_ireps[i] ) return NULL;
     total_len += len1;
@@ -321,7 +332,6 @@ int mrbc_load_irep(struct VM *vm, const void *bytecode)
 }
 
 
-
 //================================================================
 /*! release mrbc_irep holds memory
 
@@ -330,13 +340,13 @@ int mrbc_load_irep(struct VM *vm, const void *bytecode)
 void mrbc_irep_free(struct IREP *irep)
 {
   // release child ireps.
-  mrbc_irep **tbl_ireps = mrbc_irep_tbl_ireps(irep);
-  int i;
-  for( i = 0; i < irep->rlen; i++ ) {
-    mrbc_irep_free( *tbl_ireps++ );
+  for( int i = 0; i < irep->rlen; i++ ) {
+    mrbc_irep_free( mrbc_irep_child_irep(irep, i) );
   }
 
-  mrbc_raw_free( irep );
+  if( irep->ref_count == 0 ) {
+    mrbc_raw_free( irep );
+  }
 }
 
 
@@ -349,7 +359,6 @@ void mrbc_irep_free(struct IREP *irep)
 */
 mrbc_value mrbc_irep_pool_value(struct VM *vm, int n)
 {
-  assert( vm->cur_irep->plen > n );
   const uint8_t *p = mrbc_irep_pool_ptr(vm->cur_irep, n);
   mrbc_value obj;
 

@@ -42,8 +42,8 @@ static SPI_HANDLE spi_handle_[NUM_SPI_UNIT] = {
     .sck_pin = {2,14},	// B14
   },
   { .unit_num = 2,
-    .sdi_pin = {1, 2},	// A2
-    .sdo_pin = {2,13},	// B13
+    .sdi_pin = {2,13},	// B13
+    .sdo_pin = {1, 2},	// A2
     .sck_pin = {2,15},	// B15
   },
 };
@@ -278,24 +278,18 @@ static int spi_trans_mrbc_value( const SPI_HANDLE *hndl, const mrbc_value *v,
 */
 static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
+  int unit_num = MRBC_ARG_I(1, 1);
   MRBC_KW_ARG( unit );
 
-  // get unit num.
-  int unit_num = 1;
-  if( argc >= 1 && mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
-    unit_num = mrbc_integer(v[1]);
-  }
-  if( MRBC_KW_ISVALID(unit) ) {
-    if( mrbc_type(unit) != MRBC_TT_INTEGER ) goto ERROR_RETURN;
-    unit_num = mrbc_integer(unit);
-  }
+  if( MRBC_KW_ISVALID(unit) ) unit_num = MRBC_VAL_I(&unit);
+  if( mrbc_israised(vm) ) goto RETURN;
   if( unit_num < 1 || unit_num > 2 ) goto ERROR_RETURN;
 
   // allocate instance with SPI_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(SPI_HANDLE *));
-  *(SPI_HANDLE**)(val.instance->data) = &spi_handle_[unit_num-1];
+  v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(SPI_HANDLE *));
+  *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *) = &spi_handle_[unit_num-1];
 
-  if( !spi_handle_[unit_num-1].flag_in_use ) {
+  if( ! spi_handle_[unit_num-1].flag_in_use ) {
     // set SPI default hardware settings.
     SPIxCON(unit_num) = 0x00010120;	// ENHBUF,MSTEN
     SPIxCON2(unit_num) = 0;
@@ -306,10 +300,9 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
     spi_assign_sck_pin( &spi_handle_[unit_num-1] );
   }
 
-  v[0] = val;
   c_spi_setmode( vm, v, argc );
 
-  if( !spi_handle_[unit_num-1].flag_in_use ) {
+  if( ! spi_handle_[unit_num-1].flag_in_use ) {
     spi_handle_[unit_num-1].flag_in_use = 1;
     SPIxSTAT(unit_num) = 0;
     SPIxCONSET(unit_num) = 0x8000;	// ON
@@ -318,7 +311,7 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
 
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "SPI initialize.");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
 
  RETURN:
   MRBC_KW_DELETE( unit );
@@ -332,22 +325,24 @@ static void c_spi_new(mrbc_vm *vm, mrbc_value v[], int argc)
 static void c_spi_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   MRBC_KW_ARG( frequency, mode, sdi_pin, sdo_pin );
-  if( !MRBC_KW_END() ) goto RETURN;
+  MRBC_KW_END();
 
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
-  uint32_t freq = -1;
-  int spi_mode = -1;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
+  uint32_t arg_freq = -1;
+  int arg_mode = -1;
   PIN_HANDLE now_sdo_pin = hndl->sdo_pin;
 
-  if( MRBC_KW_ISVALID(frequency) ) freq = mrbc_integer(frequency);
-  if( MRBC_KW_ISVALID(mode) ) spi_mode = mrbc_integer(mode);
+  if( MRBC_KW_ISVALID(frequency) ) arg_freq = MRBC_VAL_I(&frequency);
+  if( MRBC_KW_ISVALID(mode) ) arg_mode = MRBC_VAL_I(&mode);
+  if( mrbc_israised(vm) ) goto RETURN;
+
   if( MRBC_KW_ISVALID(sdi_pin) &&
       !set_pin_handle( &hndl->sdi_pin, &sdi_pin ) ) goto ERROR_ARGUMENT;
   if( MRBC_KW_ISVALID(sdo_pin) &&
       !set_pin_handle( &hndl->sdo_pin, &sdo_pin ) ) goto ERROR_ARGUMENT;
 
   // set SPI hardware settings.
-  if( spi_setmode( hndl, spi_mode, freq ) != 0 ) goto ERROR_ARGUMENT;
+  if( spi_setmode( hndl, arg_mode, arg_freq ) != 0 ) goto ERROR_ARGUMENT;
   if( MRBC_KW_ISVALID(sdi_pin) &&
       !spi_assign_sdi_pin( hndl ) ) goto ERROR_ARGUMENT;
 
@@ -374,14 +369,11 @@ static void c_spi_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_spi_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
 
-  if( mrbc_type(v[1]) != MRBC_TT_INTEGER ) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
-    return;
-  }
+  mrbc_int_t read_bytes = MRBC_ARG_I(1);
+  if( mrbc_israised(vm) ) return;
 
-  mrbc_int_t read_bytes = mrbc_integer(v[1]);
   mrbc_value ret = mrbc_string_new(vm, 0, read_bytes);
   char *recv = mrbc_string_cstr(&ret);
 
@@ -400,7 +392,7 @@ static void c_spi_read(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_spi_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
 
   for( int i = 1; i <= argc; i++ ) {
     spi_trans_mrbc_value( hndl, &v[i], NULL );
@@ -416,13 +408,14 @@ static void c_spi_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  SPI_HANDLE *hndl = *(SPI_HANDLE **)v->instance->data;
+  SPI_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, SPI_HANDLE *);
   mrbc_value ret = mrbc_string_new(vm, NULL, 0);
 
-  if( argc == 0 ) goto RETURN;
-  mrbc_int_t read_bytes = (argc >= 2) ? mrbc_integer(v[2]) : 0;
+  mrbc_value *out_data = MRBC_ARG(1);
+  int read_bytes = MRBC_ARG_I(2, 0);
+  if( mrbc_israised(vm) ) return;
 
-  spi_trans_mrbc_value( hndl, &v[1], &ret );
+  spi_trans_mrbc_value( hndl, out_data, &ret );
 
   if( read_bytes > 0 ) {
     int len = mrbc_string_size(&ret);
@@ -439,11 +432,14 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 
 void mrbc_init_class_spi(struct VM *vm)
 {
-  mrbc_class *spi = mrbc_define_class(0, "SPI", 0);
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "new", c_spi_new },
+    { "setmode", c_spi_setmode },
+    { "read", c_spi_read },
+    { "write", c_spi_write },
+    { "transfer", c_spi_transfer },
+  };
 
-  mrbc_define_method(0, spi, "new", c_spi_new);
-  mrbc_define_method(0, spi, "setmode", c_spi_setmode);
-  mrbc_define_method(0, spi, "read", c_spi_read);
-  mrbc_define_method(0, spi, "write", c_spi_write);
-  mrbc_define_method(0, spi, "transfer", c_spi_transfer);
+  mrbc_class *spi = mrbc_define_class(0, "SPI", 0);
+  mrbc_define_method_list(0, spi, method_list, sizeof(method_list) / sizeof(method_list[0]));
 }

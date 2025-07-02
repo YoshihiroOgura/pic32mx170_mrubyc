@@ -492,25 +492,19 @@ int uart_can_read_line( const UART_HANDLE *hndl )
 */
 static void c_uart_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
+  int arg_unit = MRBC_ARG_I(1, 2);
   MRBC_KW_ARG( unit );
 
-  // get UART unit num.
-  int ch = 2;
-  if( argc >= 1 && mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
-    ch = mrbc_integer(v[1]);
-  }
   if( MRBC_KW_ISVALID(unit) ) {
-    if( mrbc_type(unit) != MRBC_TT_INTEGER ) goto ERROR_RETURN;
-    ch = mrbc_integer(unit);
+    arg_unit = MRBC_VAL_I(&unit);
   }
-  if( ch < 1 || ch > NUM_UART_UNIT ) goto ERROR_RETURN;
+  if( arg_unit < 1 || arg_unit > NUM_UART_UNIT ) goto ERROR_RETURN;
 
   // allocate instance with UART_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
-  *(UART_HANDLE**)(val.instance->data) = &uart_handle_[ch-1];
+  v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(UART_HANDLE *));
+  *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *) = &uart_handle_[arg_unit-1];
 
   // process other parameters
-  v[0] = val;
   c_uart_setmode( vm, v, argc );
   goto RETURN;
 
@@ -533,17 +527,20 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   MRBC_KW_ARG( baudrate, baud, data_bits, stop_bits, parity, flow_control, txd_pin, rxd_pin, rts_pin, cts_pin );
   if( !MRBC_KW_END() ) goto RETURN;
 
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
-  int baud_rate = -1;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
+  int arg_baud = -1;
+  int arg_stop_bits = -1;
+  int arg_parity = -1;
   int flag_pin_change = 0;
   PIN_HANDLE now_txd_pin = hndl->txd_pin;
 
-  if( MRBC_KW_ISVALID(baudrate) ) baud_rate = mrbc_integer(baudrate);
-  if( MRBC_KW_ISVALID(baud) ) baud_rate = mrbc_integer(baud);
+  if( MRBC_KW_ISVALID(baudrate) ) arg_baud = MRBC_VAL_I(&baudrate);
+  if( MRBC_KW_ISVALID(baud) ) arg_baud = MRBC_VAL_I(&baud);
   if( MRBC_KW_ISVALID(data_bits) ) goto ERROR_NOT_IMPLEMENTED;
-  if( !MRBC_KW_ISVALID(stop_bits) ) stop_bits = mrbc_integer_value(-1);
-  if( !MRBC_KW_ISVALID(parity) ) parity = mrbc_integer_value(-1);
+  if( MRBC_KW_ISVALID(stop_bits) ) arg_stop_bits = MRBC_VAL_I(&stop_bits);
+  if( MRBC_KW_ISVALID(parity) ) arg_parity = MRBC_VAL_I(&parity);
   if( MRBC_KW_ISVALID(flow_control) ) goto ERROR_NOT_IMPLEMENTED;
+
   if( MRBC_KW_ISVALID(txd_pin) ) {
     if( set_pin_handle( &(hndl->txd_pin), &txd_pin ) != 0 ) goto ERROR_ARGUMENT;
     flag_pin_change = 1;
@@ -553,10 +550,11 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   if( MRBC_KW_ISVALID(rts_pin) ) goto ERROR_NOT_IMPLEMENTED;
   if( MRBC_KW_ISVALID(cts_pin) ) goto ERROR_NOT_IMPLEMENTED;
+  if( mrbc_israised(vm) ) goto RETURN;
 
   // set to UART
   uart_disable( hndl );
-  uart_setmode( hndl, baud_rate, parity.i, stop_bits.i );
+  uart_setmode( hndl, arg_baud, arg_parity, arg_stop_bits );
   if( flag_pin_change ) {
     RPxnR( now_txd_pin.port, now_txd_pin.num ) = 0;	// release TxD pin.
     if( uart_assign_pin( hndl ) < 0 ) goto ERROR_ARGUMENT;
@@ -587,15 +585,10 @@ static void c_uart_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
-  mrbc_int_t read_bytes;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
-  if( mrbc_type(v[1]) == MRBC_TT_INTEGER ) {
-    read_bytes = mrbc_integer(v[1]);
-  } else {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
-    return;
-  }
+  mrbc_int_t read_bytes = MRBC_ARG_I(1);
+  if( mrbc_israised(vm) ) return;
 
   if( uart_is_rx_overflow( hndl ) ) {
     mrbc_raise(vm, 0, "UART Rx buffer overflow. resetting.");
@@ -638,7 +631,7 @@ static void c_uart_read(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   if( v[1].tt == MRBC_TT_STRING ) {
     int n = uart_write( hndl, mrbc_string_cstr(&v[1]), mrbc_string_size(&v[1]) );
@@ -659,7 +652,7 @@ static void c_uart_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   int len;
   while( 1 ) {
@@ -697,7 +690,7 @@ static void c_uart_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   if( v[1].tt == MRBC_TT_STRING ) {
     const char *s = mrbc_string_cstr(&v[1]);
@@ -724,7 +717,7 @@ static void c_uart_puts(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   SET_INT_RETURN( uart_bytes_available( hndl ) );
 }
@@ -753,7 +746,7 @@ static void c_uart_bytes_to_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_can_read_line(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   int len = uart_can_read_line(hndl);
   if( len < 0 ) {
@@ -795,7 +788,7 @@ static void c_uart_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
   uart_clear_rx_buffer( hndl );
 }
 
@@ -807,7 +800,7 @@ static void c_uart_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_HANDLE *hndl = *(UART_HANDLE **)v->instance->data;
+  UART_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, UART_HANDLE *);
 
   while( (UxSTA(hndl->unit_num) & _U1STA_TRMT_MASK) == 0 )
     ;
@@ -824,22 +817,24 @@ static void c_uart_send_break(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init_class_uart(void)
 {
-  // define class and methods.
-  mrbc_class *uart = mrbc_define_class(0, "UART", 0);
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "new", c_uart_new },
+    { "setmode", c_uart_setmode },
+    { "read", c_uart_read },
+    { "write", c_uart_write },
+    { "gets", c_uart_gets },
+    { "puts", c_uart_puts },
+    { "bytes_available",c_uart_bytes_available },
+    { "bytes_to_write",c_uart_bytes_to_write },
+    { "can_read_line",c_uart_can_read_line },
+    { "flush", c_uart_flush },
+    { "clear_rx_buffer",c_uart_clear_rx_buffer },
+    { "clear_tx_buffer",c_uart_clear_tx_buffer },
+    { "send_break",	c_uart_send_break },
+  };
 
-  mrbc_define_method(0, uart, "new",		c_uart_new);
-  mrbc_define_method(0, uart, "setmode",	c_uart_setmode);
-  mrbc_define_method(0, uart, "read",		c_uart_read);
-  mrbc_define_method(0, uart, "write",		c_uart_write);
-  mrbc_define_method(0, uart, "gets",		c_uart_gets);
-  mrbc_define_method(0, uart, "puts",		c_uart_puts);
-  mrbc_define_method(0, uart, "bytes_available",c_uart_bytes_available);
-  mrbc_define_method(0, uart, "bytes_to_write",	c_uart_bytes_to_write);
-  mrbc_define_method(0, uart, "can_read_line",	c_uart_can_read_line);
-  mrbc_define_method(0, uart, "flush",		c_uart_flush);
-  mrbc_define_method(0, uart, "clear_rx_buffer",c_uart_clear_rx_buffer);
-  mrbc_define_method(0, uart, "clear_tx_buffer",c_uart_clear_tx_buffer);
-  mrbc_define_method(0, uart, "send_break",	c_uart_send_break);
+  mrbc_class *uart = mrbc_define_class(0, "UART", 0);
+  mrbc_define_method_list(0, uart, method_list, sizeof(method_list)/sizeof(method_list[0]));
 
   mrbc_set_class_const(uart, mrbc_str_to_symid("NONE"), &mrbc_integer_value(UART_NONE));
   mrbc_set_class_const(uart, mrbc_str_to_symid("ODD"), &mrbc_integer_value(UART_ODD));

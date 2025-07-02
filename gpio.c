@@ -117,16 +117,19 @@ static void c_gpio_new(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_initialize(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
-  if( argc != 2 ) goto ERROR_RETURN;
-  if( set_pin_handle( pin, &v[1] ) != 0 ) goto ERROR_RETURN;
-  if( (mrbc_integer(v[2]) & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
-  if( gpio_setmode( pin, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  int arg_modes = MRBC_ARG_I(2);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( pin, arg_pin ) != 0 ) goto ERROR_RETURN;
+  if( (arg_modes & (GPIO_IN|GPIO_OUT|GPIO_HIGH_Z)) == 0 ) goto ERROR_RETURN;
+  if( gpio_setmode( pin, arg_modes ) < 0 ) goto ERROR_RETURN;
   return;
 
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "GPIO initialize");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
 }
 
 
@@ -137,32 +140,37 @@ static void c_gpio_initialize(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_setmode(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE pin;
+  if( v[0].tt == MRBC_TT_CLASS ) {
+    /*
+      Class method mode.
+    */
+    PIN_HANDLE pin;
 
-  if( v[0].tt == MRBC_TT_OBJECT ) goto INSTANCE_METHOD_MODE;
+    mrbc_value *arg_pin = MRBC_ARG(1);
+    int arg_modes = MRBC_ARG_I(2);
+    if( mrbc_israised(vm) ) return;
 
-  /*
-    Class method mode.
-  */
-  if( argc != 2 ) goto ERROR_RETURN;
-  if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
-  if( v[2].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
-  if( gpio_setmode( &pin, mrbc_integer(v[2]) ) < 0 ) goto ERROR_RETURN;
-  return;
+    if( set_pin_handle( &pin, arg_pin ) != 0 ) goto ERROR_RETURN;
+    if( gpio_setmode( &pin, arg_modes ) < 0 ) goto ERROR_RETURN;
+  }
+  else {
+    /*
+      Instance method mode.
+    */
+    PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
-  /*
-    Instance method mode.
-  */
- INSTANCE_METHOD_MODE:
-  pin = *(PIN_HANDLE *)v[0].instance->data;
+    int arg_modes = MRBC_ARG_I(1);
+    if( mrbc_israised(vm) ) return;
 
-  if( v[1].tt != MRBC_TT_INTEGER ) goto ERROR_RETURN;
-  if( gpio_setmode( &pin, mrbc_integer(v[1]) ) < 0 ) goto ERROR_RETURN;
+    if( gpio_setmode( pin, arg_modes ) < 0 ) goto ERROR_RETURN;
+  }
+
   SET_NIL_RETURN();
   return;
 
+
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "GPIO Can't setup");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
 }
 
 
@@ -174,43 +182,55 @@ static void c_gpio_read_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
-    SET_INT_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
-  } else {
-    SET_NIL_RETURN();
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+    return;
   }
+
+  SET_INT_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
 }
 
 
 /*! high_at? -> bool
 
-  v1 = GPIO.read_at( 1 )          # read from pin 1.
+  v1 = GPIO.high_at( 1 )          # pin 1 is high?
 */
 static void c_gpio_high_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
-    SET_BOOL_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
-  } else {
-    SET_NIL_RETURN();
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+    return;
   }
+
+  SET_BOOL_RETURN( (PORTx(pin.port) >> pin.num) & 1 );
 }
 
 
 /*! low_at? -> bool
 
-  v1 = GPIO.read_at( 1 )          # read from pin 1.
+  v1 = GPIO.row_at( 1 )          # pin 1 is row?
 */
 static void c_gpio_low_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( set_pin_handle( &pin, &v[1] ) == 0 ) {
-    SET_BOOL_RETURN( ~(PORTx(pin.port) >> pin.num) & 1 );
-  } else {
-    SET_NIL_RETURN();
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
+    return;
   }
+
+  SET_BOOL_RETURN( ~(PORTx(pin.port) >> pin.num) & 1 );
 }
 
 
@@ -222,18 +242,27 @@ static void c_gpio_write_at(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   PIN_HANDLE pin;
 
-  if( (set_pin_handle( &pin, &v[1] ) != 0) ||
-      (v[2].tt != MRBC_TT_INTEGER) ) {
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  int arg_data = MRBC_ARG_I(2);
+  if( mrbc_israised(vm) ) return;
+
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
     return;
   }
 
-  if( mrbc_integer(v[2]) == 0 ) {
+  switch( arg_data ) {
+  case 0:
     LATxCLR(pin.port) = (1 << pin.num);
-  } else if( mrbc_integer(v[2]) == 1 ) {
+    break;
+
+  case 1:
     LATxSET(pin.port) = (1 << pin.num);
-  } else {
+    break;
+
+  default:
     mrbc_raise(vm, MRBC_CLASS(RangeError), 0);
+    break;
   }
 }
 
@@ -244,7 +273,7 @@ static void c_gpio_write_at(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
   SET_INT_RETURN( (PORTx(pin->port) >> pin->num) & 1 );
 }
@@ -256,7 +285,7 @@ static void c_gpio_read(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_high(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
   SET_BOOL_RETURN( (PORTx(pin->port) >> pin->num) & 1 );
 }
@@ -268,7 +297,7 @@ static void c_gpio_high(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_low(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
   SET_BOOL_RETURN( ~(PORTx(pin->port) >> pin->num) & 1 );
 }
@@ -280,13 +309,23 @@ static void c_gpio_low(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 static void c_gpio_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  PIN_HANDLE *pin = (PIN_HANDLE *)v[0].instance->data;
+  PIN_HANDLE *pin = MRBC_INSTANCE_DATA_PTR(v, PIN_HANDLE);
 
-  if( v[1].tt != MRBC_TT_INTEGER ) return;
-  if( mrbc_integer(v[1]) == 0 ) {
+  int arg_data = MRBC_ARG_I(1);
+  if( mrbc_israised(vm) ) return;
+
+  switch( arg_data ) {
+  case 0:
     LATxCLR(pin->port) = (1 << pin->num);
-  } else {
+    break;
+
+  case 1:
     LATxSET(pin->port) = (1 << pin->num);
+    break;
+
+  default:
+    mrbc_raise(vm, MRBC_CLASS(RangeError), 0);
+    break;
   }
 }
 
@@ -295,20 +334,24 @@ static void c_gpio_write(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init_class_gpio( void )
 {
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    {"new", c_gpio_new},
+    {"initialize", c_gpio_initialize},
+    {"setmode", c_gpio_setmode},
+    {"read_at", c_gpio_read_at},
+    {"high_at?", c_gpio_high_at},
+    {"low_at?", c_gpio_low_at},
+    {"write_at", c_gpio_write_at},
+
+    {"read", c_gpio_read},
+    {"high?", c_gpio_high},
+    {"low?", c_gpio_low},
+    {"write", c_gpio_write},
+  };
+
   mrbc_class *gpio = mrbc_define_class(0, "GPIO", 0);
-
-  mrbc_define_method(0, gpio, "new", c_gpio_new);
-  mrbc_define_method(0, gpio, "initialize", c_gpio_initialize);
-  mrbc_define_method(0, gpio, "setmode", c_gpio_setmode);
-  mrbc_define_method(0, gpio, "read_at", c_gpio_read_at);
-  mrbc_define_method(0, gpio, "high_at?", c_gpio_high_at);
-  mrbc_define_method(0, gpio, "low_at?", c_gpio_low_at);
-  mrbc_define_method(0, gpio, "write_at", c_gpio_write_at);
-
-  mrbc_define_method(0, gpio, "read", c_gpio_read);
-  mrbc_define_method(0, gpio, "high?", c_gpio_high);
-  mrbc_define_method(0, gpio, "low?", c_gpio_low);
-  mrbc_define_method(0, gpio, "write", c_gpio_write);
+  mrbc_define_method_list(0, gpio, method_list,
+			  sizeof(method_list) / sizeof(method_list[0]));
 
   mrbc_set_class_const(gpio, mrbc_str_to_symid("IN"),         &mrbc_integer_value(GPIO_IN));
   mrbc_set_class_const(gpio, mrbc_str_to_symid("OUT"),        &mrbc_integer_value(GPIO_OUT));

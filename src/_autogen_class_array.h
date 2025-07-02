@@ -35,6 +35,8 @@ static const mrbc_sym method_symbols_Array[] = {
 #if MRBC_USE_STRING
   MRBC_SYM(to_s),
 #endif
+  MRBC_SYM(uniq),
+  MRBC_SYM(uniq_E),
   MRBC_SYM(unshift),
   MRBC_SYM(OR),
 };
@@ -72,15 +74,17 @@ static const mrbc_func_t method_functions_Array[] = {
 #if MRBC_USE_STRING
   c_array_inspect,
 #endif
+  c_array_uniq,
+  c_array_uniq_self,
   c_array_unshift,
   c_array_or,
 };
 
 struct RBuiltinClass mrbc_class_Array = {
   .sym_id = MRBC_SYM(Array),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_Array) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "Array",
 #endif

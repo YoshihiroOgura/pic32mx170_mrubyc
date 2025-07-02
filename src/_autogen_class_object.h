@@ -12,6 +12,7 @@ static const mrbc_sym method_symbols_Object[] = {
   MRBC_SYM(attr_reader),
   MRBC_SYM(block_given_Q),
   MRBC_SYM(class),
+  MRBC_SYM(constants),
   MRBC_SYM(dup),
   MRBC_SYM(extend),
   MRBC_SYM(include),
@@ -36,12 +37,23 @@ static const mrbc_sym method_symbols_Object[] = {
 #if defined(MRBC_DEBUG)
   MRBC_SYM(object_id),
 #endif
+#if !defined(MRBC_NO_STDIO)
   MRBC_SYM(p),
+#endif
+#if !defined(MRBC_NO_STDIO)
   MRBC_SYM(print),
+#endif
 #if MRBC_USE_STRING
+#if !defined(MRBC_NO_STDIO)
   MRBC_SYM(printf),
 #endif
+#endif
+  MRBC_SYM(private),
+  MRBC_SYM(protected),
+  MRBC_SYM(public),
+#if !defined(MRBC_NO_STDIO)
   MRBC_SYM(puts),
+#endif
   MRBC_SYM(raise),
 #if MRBC_USE_STRING
   MRBC_SYM(sprintf),
@@ -61,6 +73,7 @@ static const mrbc_func_t method_functions_Object[] = {
   c_object_attr_reader,
   c_object_block_given,
   c_object_class,
+  c_object_constants,
   c_object_dup,
   c_object_include,
   c_object_include,
@@ -85,12 +98,23 @@ static const mrbc_func_t method_functions_Object[] = {
 #if defined(MRBC_DEBUG)
   c_object_object_id,
 #endif
+#if !defined(MRBC_NO_STDIO)
   c_object_p,
+#endif
+#if !defined(MRBC_NO_STDIO)
   c_object_print,
+#endif
 #if MRBC_USE_STRING
+#if !defined(MRBC_NO_STDIO)
   c_object_printf,
 #endif
+#endif
+  c_ineffect,
+  c_ineffect,
+  c_ineffect,
+#if !defined(MRBC_NO_STDIO)
   c_object_puts,
+#endif
   c_object_raise,
 #if MRBC_USE_STRING
   c_object_sprintf,
@@ -102,38 +126,14 @@ static const mrbc_func_t method_functions_Object[] = {
 
 struct RBuiltinClass mrbc_class_Object = {
   .sym_id = MRBC_SYM(Object),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_Object) / sizeof(mrbc_sym),
   .super = 0,
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "Object",
 #endif
   .method_symbols = method_symbols_Object,
   .method_functions = method_functions_Object,
-};
-
-
-/*===== Proc class =====*/
-static const mrbc_sym method_symbols_Proc[] = {
-  MRBC_SYM(call),
-  MRBC_SYM(new),
-};
-
-static const mrbc_func_t method_functions_Proc[] = {
-  c_proc_call,
-  c_proc_new,
-};
-
-struct RBuiltinClass mrbc_class_Proc = {
-  .sym_id = MRBC_SYM(Proc),
-  .num_builtin_method = sizeof(method_symbols_Proc) / sizeof(mrbc_sym),
-  .super = MRBC_CLASS(Object),
-  .method_link = 0,
-#if defined(MRBC_DEBUG)
-  .name = "Proc",
-#endif
-  .method_symbols = method_symbols_Proc,
-  .method_functions = method_functions_Proc,
 };
 
 
@@ -170,9 +170,9 @@ static const mrbc_func_t method_functions_NilClass[] = {
 
 struct RBuiltinClass mrbc_class_NilClass = {
   .sym_id = MRBC_SYM(NilClass),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_NilClass) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "NilClass",
 #endif
@@ -202,9 +202,9 @@ static const mrbc_func_t method_functions_TrueClass[] = {
 
 struct RBuiltinClass mrbc_class_TrueClass = {
   .sym_id = MRBC_SYM(TrueClass),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_TrueClass) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "TrueClass",
 #endif
@@ -234,9 +234,9 @@ static const mrbc_func_t method_functions_FalseClass[] = {
 
 struct RBuiltinClass mrbc_class_FalseClass = {
   .sym_id = MRBC_SYM(FalseClass),
+  .flag_builtin = 1,
   .num_builtin_method = sizeof(method_symbols_FalseClass) / sizeof(mrbc_sym),
   .super = MRBC_CLASS(Object),
-  .method_link = 0,
 #if defined(MRBC_DEBUG)
   .name = "FalseClass",
 #endif

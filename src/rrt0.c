@@ -20,20 +20,8 @@
 #include <assert.h>
 //@endcond
 
-
 /***** Local headers ********************************************************/
-#include "alloc.h"
-#include "load.h"
-#include "class.h"
-#include "global.h"
-#include "symbol.h"
-#include "vm.h"
-#include "console.h"
-#include "c_string.h"
-#include "c_array.h"
-#include "rrt0.h"
-#include "hal.h"
-
+#include "mrubyc.h"
 
 /***** Macros ***************************************************************/
 #ifndef MRBC_SCHEDULER_EXIT
@@ -147,6 +135,10 @@ inline static void preempt_running_task(void)
 /*! Tick timer interrupt handler.
 
 */
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+EMSCRIPTEN_KEEPALIVE
+#endif
 void mrbc_tick(void)
 {
   tick_++;
@@ -215,7 +207,7 @@ mrbc_tcb * mrbc_tcb_new( int regs_size, enum MrbcTaskState task_state, int prior
 
   memset(tcb, 0, size);
 #if defined(MRBC_DEBUG)
-  memcpy( tcb->type, "TCB", 4 );
+  memcpy( tcb->obj_mark_, "TCB", 4 );
 #endif
   tcb->priority = priority;
   tcb->state = task_state;
@@ -357,13 +349,13 @@ int mrbc_run(void)
   int ret = 0;
 
   (void)ret;	// avoid warning.
-#if MRBC_SCHEDULER_EXIT
-  if( !q_ready_ && !q_waiting_ && !q_suspended_ ) return ret;
-#endif
 
   while( 1 ) {
     mrbc_tcb *tcb = q_ready_;
     if( tcb == NULL ) {		// no task to run.
+#if MRBC_SCHEDULER_EXIT
+      if( !q_waiting_ && !q_suspended_ ) return ret;
+#endif
       hal_idle_cpu();
       continue;
     }
@@ -420,10 +412,6 @@ int mrbc_run(void)
           tcb1->reason = 0;
         }
       }
-
-#if MRBC_SCHEDULER_EXIT
-      if( !q_ready_ && !q_waiting_ && !q_suspended_ ) return ret;
-#endif
       continue;
     }
 
@@ -441,6 +429,73 @@ int mrbc_run(void)
     continue;
   }
 }
+
+
+//================================================================
+/*! Alternative to mrbc_run for Wasm build
+
+*/
+#if defined(__EMSCRIPTEN__)
+EMSCRIPTEN_KEEPALIVE
+int
+mrbc_run_step(void)
+{
+  // Take the task that can be executed
+  mrbc_tcb *tcb = q_ready_;
+  if (tcb == NULL) {
+    // Even if there is no task to run, return 0
+    // so to wait for callbacks like event listener
+    return 0;
+  }
+
+  tcb->state = TASKSTATE_RUNNING;
+  tcb->timeslice = MRBC_TIMESLICE_TICK_COUNT;
+
+  int ret_vm_run = mrbc_vm_run(&tcb->vm);
+  tcb->vm.flag_preemption = 0;
+
+  if (ret_vm_run != 0) {
+    hal_disable_irq();
+    q_delete_task(tcb);
+    tcb->state = TASKSTATE_DORMANT;
+    q_insert_task(tcb);
+    hal_enable_irq();
+
+    if (!tcb->vm.flag_permanence) {
+      mrbc_vm_end(&tcb->vm);
+    }
+
+    for (mrbc_tcb *tcb1 = q_waiting_; tcb1 != NULL; tcb1 = tcb1->next) {
+      if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        hal_disable_irq();
+        q_delete_task(tcb1);
+        tcb1->state = TASKSTATE_READY;
+        tcb1->reason = 0;
+        q_insert_task(tcb1);
+        hal_enable_irq();
+      }
+    }
+    for (mrbc_tcb *tcb1 = q_suspended_; tcb1 != NULL; tcb1 = tcb1->next) {
+      if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        tcb1->reason = 0;
+      }
+    }
+
+    return ret_vm_run;
+  }
+
+  // Switch task.
+  if (tcb->state == TASKSTATE_RUNNING) {
+    tcb->state = TASKSTATE_READY;
+    hal_disable_irq();
+    q_delete_task(tcb);
+    q_insert_task(tcb);
+    hal_enable_irq();
+  }
+
+  return 0;
+}
+#endif
 
 
 //================================================================
@@ -788,14 +843,11 @@ int mrbc_mutex_trylock( mrbc_mutex *mutex, mrbc_tcb *tcb )
 */
 void mrbc_cleanup(void)
 {
+  mrbc_cleanup_alloc();
   mrbc_cleanup_vm();
   mrbc_cleanup_symbol();
-  mrbc_cleanup_alloc();
 
-  q_dormant_ = 0;
-  q_ready_ = 0;
-  q_waiting_ = 0;
-  q_suspended_ = 0;
+  memset( task_queue_, 0, sizeof(task_queue_) );
 }
 
 
@@ -905,7 +957,7 @@ static void c_task_list(mrbc_vm *vm, mrbc_value v[], int argc)
   for( int i = 0; i < NUM_TASK_QUEUE; i++ ) {
     for( mrbc_tcb *tcb = task_queue_[i]; tcb != NULL; tcb = tcb->next ) {
       mrbc_value task = mrbc_instance_new(vm, v->cls, sizeof(mrbc_tcb *));
-      *(mrbc_tcb **)task.instance->data = VM2TCB(vm);
+      *(mrbc_tcb **)task.instance->data = tcb;
       mrbc_array_push( &ret, &task );
     }
   }
@@ -960,6 +1012,9 @@ static void c_task_set_name(mrbc_vm *vm, mrbc_value v[], int argc)
     tcb = *(mrbc_tcb **)v[0].instance->data;
   }
   mrbc_set_task_name( tcb, mrbc_string_cstr(&v[1]) );
+
+  mrbc_incref( &v[1] );
+  SET_RETURN( v[1] );
 }
 
 
@@ -1011,6 +1066,8 @@ static void c_task_set_priority(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 
   mrbc_change_priority( tcb, n );
+
+  SET_RETURN( v[1] );
 }
 
 
@@ -1421,22 +1478,35 @@ static void c_vm_tick(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init(void *heap_ptr, unsigned int size)
 {
-  hal_init();
+  static uint8_t flag_hal_init_called = 0;
+
+  if( !flag_hal_init_called ) {
+    hal_init();
+    flag_hal_init_called = 1;
+  }
+
   mrbc_init_alloc(heap_ptr, size);
   mrbc_init_global();
   mrbc_init_class();
 
-  mrbc_value cls = {.tt = MRBC_TT_CLASS, .cls = MRBC_CLASS(Task)};
-  mrbc_set_const( MRBC_SYM(Task), &cls );
+  // (re) Initialize included classes
+  static mrbc_class * const rrt0_cls[] = {
+    MRBC_CLASS(Task), MRBC_CLASS(Mutex), MRBC_CLASS(VM)
+  };
+  mrbc_value vcls = {.tt = MRBC_TT_CLASS};
 
-  cls.cls = MRBC_CLASS(Mutex);
-  mrbc_set_const( MRBC_SYM(Mutex), &cls );
+  for( int i = 0; i < sizeof(rrt0_cls)/sizeof(rrt0_cls[0]); i++ ) {
+    mrbc_class *cls = rrt0_cls[i];
 
-  cls.cls = MRBC_CLASS(VM);
-  mrbc_set_const( MRBC_SYM(VM), &cls );
+    cls->super = MRBC_CLASS(Object);
+    cls->method_link = 0;
+    vcls.cls = cls;
 
-  mrbc_define_method(0, mrbc_class_object, "sleep", c_sleep);
-  mrbc_define_method(0, mrbc_class_object, "sleep_ms", c_sleep_ms);
+    mrbc_set_const( vcls.cls->sym_id, &vcls );
+  }
+
+  mrbc_define_method(0, 0, "sleep", c_sleep);
+  mrbc_define_method(0, 0, "sleep_ms", c_sleep_ms);
 }
 
 
@@ -1455,12 +1525,7 @@ void pq(const mrbc_tcb *p_tcb)
 
   // vm_id, TCB, name
   for( const mrbc_tcb *t = p_tcb; t; t = t->next ) {
-    mrbc_printf("%d:%08x %-8.8s ", t->vm.vm_id,
-#if defined(UINTPTR_MAX)
-                (uint32_t)(uintptr_t)t,
-#else
-                (uint32_t)t,
-#endif
+    mrbc_printf("%d:%08x %-8.8s ", t->vm.vm_id, MRBC_PTR_TO_UINT32(t),
                 t->name[0] ? t->name : "(noname)" );
   }
   mrbc_printf("\n");
@@ -1468,11 +1533,7 @@ void pq(const mrbc_tcb *p_tcb)
 #if 0
   // next ptr
   for( const mrbc_tcb *t = p_tcb; t; t = t->next ) {
-#if defined(UINTPTR_MAX)
-    mrbc_printf(" next:%04x          ", (uint16_t)(uintptr_t)t->next);
-#else
-    mrbc_printf(" next:%04x          ", (uint16_t)t->next);
-#endif
+    mrbc_printf(" next:%04x          ", (uint16_t)MRBC_PTR_TO_UINT32(t->next));
   }
   mrbc_printf("\n");
 #endif
@@ -1505,7 +1566,7 @@ void pq(const mrbc_tcb *p_tcb)
     if( t->reason & TASKREASON_SLEEP ) {
       mrbc_printf("w:%-6d", t->wakeup_tick );
     } else {
-      mrbc_printf("w:--    ", t->wakeup_tick );
+      mrbc_printf("w:--    ");
     }
   }
   mrbc_printf("\n");

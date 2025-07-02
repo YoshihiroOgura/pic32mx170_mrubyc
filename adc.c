@@ -62,10 +62,11 @@ static const ADC_HANDLE adc_handle_[] = {
 */
 static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  if( argc != 1 ) goto ERROR_RETURN;
-
   PIN_HANDLE pin;
-  if( set_pin_handle( &pin, &v[1] ) != 0 ) goto ERROR_RETURN;
+
+  mrbc_value *arg_pin = MRBC_ARG(1);
+  if( mrbc_israised(vm) ) return;
+  if( set_pin_handle( &pin, arg_pin ) != 0 ) goto ERROR_RETURN;
 
   // find ADC channel from adc_handle_ table.
   static const int NUM = sizeof(adc_handle_)/sizeof(ADC_HANDLE);
@@ -77,23 +78,22 @@ static void c_adc_new(mrbc_vm *vm, mrbc_value v[], int argc)
   if( i == NUM ) goto ERROR_RETURN;
 
   // allocate instance with ADC_HANDLE table pointer.
-  mrbc_value val = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));
-  *(const ADC_HANDLE **)(val.instance->data) = &adc_handle_[i];
+  v[0] = mrbc_instance_new(vm, v[0].cls, sizeof(ADC_HANDLE *));
+  *MRBC_INSTANCE_DATA_PTR(v, const ADC_HANDLE *) = &adc_handle_[i];
 
   // set pin to analog input
   gpio_setmode( &pin, GPIO_ANALOG|GPIO_IN );
-
-  v[0] = val;
   return;
 
+
  ERROR_RETURN:
-  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "ADC initialize.");
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), 0);
 }
 
 
 static uint32_t read_sub(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  ADC_HANDLE *hndl = *(ADC_HANDLE **)v[0].instance->data;
+  ADC_HANDLE *hndl = *MRBC_INSTANCE_DATA_PTR(v, ADC_HANDLE *);
 
   AD1CHSbits.CH0SA = hndl->channel;
   AD1CON1bits.SAMP = 1;
@@ -134,6 +134,13 @@ static void c_adc_read_raw(mrbc_vm *vm, mrbc_value v[], int argc)
 */
 void mrbc_init_class_adc(void)
 {
+  static const struct MRBC_DEFINE_METHOD_LIST method_list[] = {
+    { "new", c_adc_new },
+    { "read_voltage", c_adc_read_voltage },
+    { "read", c_adc_read_voltage },  // alias
+    { "read_raw", c_adc_read_raw },
+  };
+
   AD1CON1 = 0x00e0;	// SSRC=111 CLRASAM=0 ASAM=0 SAMP=0
   AD1CON2 = 0x0000;
   AD1CON3 = 0x1e09;	// SAMC=1e(60us) ADCS=09(TAD=2us)
@@ -144,9 +151,5 @@ void mrbc_init_class_adc(void)
   AD1CON1bits.ADON = 1;
 
   mrbc_class *adc = mrbc_define_class(0, "ADC", 0);
-
-  mrbc_define_method(0, adc, "new", c_adc_new);
-  mrbc_define_method(0, adc, "read_voltage", c_adc_read_voltage);
-  mrbc_define_method(0, adc, "read", c_adc_read_voltage);
-  mrbc_define_method(0, adc, "read_raw", c_adc_read_raw);
+  mrbc_define_method_list(0, adc, method_list, sizeof(method_list)/sizeof(method_list[0]));
 }

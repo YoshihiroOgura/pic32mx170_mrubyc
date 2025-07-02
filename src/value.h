@@ -8,7 +8,6 @@
 
   This file is distributed under BSD 3-Clause License.
 
-
   </pre>
 */
 
@@ -28,13 +27,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /***** Constant values ******************************************************/
 /***** Typedefs *************************************************************/
 // pre define of some struct
 struct VM;
-struct RClass;
 struct RObject;
-struct IREP;
 
 // mrbc types
 #if defined(MRBC_INT16)
@@ -132,7 +130,7 @@ typedef enum {
 /* Define the object structure having reference counter.
 */
 #if defined(MRBC_DEBUG)
-#define MRBC_OBJECT_HEADER  uint8_t type[2]; uint16_t ref_count
+#define MRBC_OBJECT_HEADER  uint8_t obj_mark_[2]; uint16_t ref_count
 #else
 #define MRBC_OBJECT_HEADER  uint16_t ref_count
 #endif
@@ -153,10 +151,11 @@ struct RBasic {
 struct RObject {
   mrbc_vtype tt : 8;
   union {
-    mrbc_int_t i;		// MRBC_TT_INTEGER, SYMBOL
+    mrbc_int_t i;		// MRBC_TT_INTEGER
 #if MRBC_USE_FLOAT
     mrbc_float_t d;		// MRBC_TT_FLOAT
 #endif
+    mrbc_sym sym_id;		// MRBC_TT_SYMBOL
     struct RBasic *obj;		// use inc/dec ref only.
     struct RClass *cls;		// MRBC_TT_CLASS, MRBC_TT_MODULE
     struct RInstance *instance;	// MRBC_TT_OBJECT
@@ -178,7 +177,7 @@ typedef struct RObject mrbc_value;
 /***** Macros ***************************************************************/
 
 // getters
-/**
+/*!
   @def mrbc_type(o)
   get the type (#mrbc_vtype) from mrbc_value.
 
@@ -194,7 +193,7 @@ typedef struct RObject mrbc_value;
 #define mrbc_type(o)		((o).tt)
 #define mrbc_integer(o)		((o).i)
 #define mrbc_float(o)		((o).d)
-#define mrbc_symbol(o)		((o).i)
+#define mrbc_symbol(o)		((o).sym_id)
 
 // setters
 #define mrbc_set_integer(p,n)	(p)->tt = MRBC_TT_INTEGER; (p)->i = (n)
@@ -203,7 +202,7 @@ typedef struct RObject mrbc_value;
 #define mrbc_set_true(p)	(p)->tt = MRBC_TT_TRUE
 #define mrbc_set_false(p)	(p)->tt = MRBC_TT_FALSE
 #define mrbc_set_bool(p,n)	(p)->tt = (n)? MRBC_TT_TRUE: MRBC_TT_FALSE
-#define mrbc_set_symbol(p,n)	(p)->tt = MRBC_TT_SYMBOL; (p)->i = (n)
+#define mrbc_set_symbol(p,n)	(p)->tt = MRBC_TT_SYMBOL; (p)->sym_id = (n)
 
 // make immediate values.
 #define mrbc_integer_value(n)	((mrbc_value){.tt = MRBC_TT_INTEGER, .i=(n)})
@@ -212,7 +211,7 @@ typedef struct RObject mrbc_value;
 #define mrbc_true_value()	((mrbc_value){.tt = MRBC_TT_TRUE})
 #define mrbc_false_value()	((mrbc_value){.tt = MRBC_TT_FALSE})
 #define mrbc_bool_value(n)	((mrbc_value){.tt = (n)?MRBC_TT_TRUE:MRBC_TT_FALSE})
-#define mrbc_symbol_value(n)	((mrbc_value){.tt = MRBC_TT_SYMBOL, .i=(n)})
+#define mrbc_symbol_value(n)	((mrbc_value){.tt = MRBC_TT_SYMBOL, .sym_id=(n)})
 
 // (for mruby compatible)
 #define mrb_type(o)		mrbc_type(o)
@@ -303,14 +302,14 @@ typedef struct RObject mrbc_value;
 
 
 #if defined(MRBC_DEBUG)
-#define MRBC_INIT_OBJECT_HEADER(p, t)  (p)->ref_count = 1; (p)->type[0] = (t)[0]; (p)->type[1] = (t)[1]
+#define MRBC_INIT_OBJECT_HEADER(p, t)  (p)->ref_count = 1; (p)->obj_mark_[0] = (t)[0]; (p)->obj_mark_[1] = (t)[1]
 #else
 #define MRBC_INIT_OBJECT_HEADER(p, t)  (p)->ref_count = 1
 #endif
 
 
 // for Numeric values.
-/**
+/*!
   @def MRBC_ISNUMERIC(val)
   Check the val is numeric.
 
@@ -330,8 +329,124 @@ typedef struct RObject mrbc_value;
   (val).tt == MRBC_TT_INTEGER ? (mrbc_float_t)(val).i : 0.0
 
 
+//================================================================
+// mrbc_value accessors
+/*!
+  @def MRBC_VAL_I( mrbc_value *val [, int default_value] )
+  (beta) get a C integer value from mrbc_value.
+
+  <b>Examples:</b>
+  @code
+  int i1 = MRBC_VAL_I( &val );
+  int i1 = MRBC_VAL_I( &val, 111 );
+  @endcode
+
+
+  @def MRBC_VAL_F( mrbc_value *val [, double default_value] )
+  (beta) get a C double value from mrbc_value.
+
+  <b>Examples:</b>
+  @code
+  double d1 = MRBC_VAL_F( &val );
+  double d1 = MRBC_VAL_F( &val, 2.7 );
+  @endcode
+
+
+  @def MRBC_VAL_S( mrbc_value *val [, const char *default_value] )
+  (beta) get a const char * from mrbc_value.
+
+  <b>Examples:</b>
+  @code
+  const char *s1 = MRBC_VAL_S( &val );
+  const char *s1 = MRBC_VAL_S( &val, "DEFAULT" );
+  @endcode
+*/
+#define MRBC_VAL_I(...) MRBC_arg_choice(__VA_ARGS__, mrbc_val_i2, mrbc_val_i) (vm, __VA_ARGS__)
+#define MRBC_VAL_F(...) MRBC_arg_choice(__VA_ARGS__, mrbc_val_f2, mrbc_val_f) (vm, __VA_ARGS__)
+#define MRBC_VAL_S(...) MRBC_arg_choice(__VA_ARGS__, mrbc_val_s2, mrbc_val_s) (vm, __VA_ARGS__)
+
+
+//================================================================
+// mrbc_value converters.
+/*!
+  @def MRBC_TO_I( mrbc_value *val )
+  (beta) Convert mrbc_value to Integer. and return C integer value.
+
+  @def MRBC_TO_F( mrbc_value *val )
+  (beta) Convert mrbc_value to Float. and return C double value.
+
+  @def MRBC_TO_S( mrbc_value *val )
+  (beta) Convert mrbc_value to String. and return C const char *.
+*/
+#define MRBC_TO_I(val) mrbc_to_i(vm, v, argc, val)
+#define MRBC_TO_F(val) mrbc_to_f(vm, v, argc, val)
+#define MRBC_TO_S(val) mrbc_to_s(vm, v, argc, val)
+
+
+//================================================================
+// Method argument getters.
+/*!
+  @def MRBC_ARG
+  (beta) Get a N'th argument pointer.
+
+  <b>Examples:</b>
+  @code
+  mrbc_value *arg1 = MRBC_ARG(1);	// Gets a 1st argument pointer.
+  @endcode
+
+
+  @def MRBC_ARG_I
+  (beta) Get a N'th argument as a C integer.
+
+  <b>Examples:</b>
+  @code
+  int arg1 = MRBC_ARG_I(1);		// Get a 1st argument as an integer.
+  int arg1 = MRBC_ARG_I(1, 111);	// with default value 111.
+  @endcode
+
+
+  @def MRBC_ARG_F
+  (beta) Get a N'th argument as a C float (double).
+
+  <b>Examples:</b>
+  @code
+  double arg1 = MRBC_ARG_F(1);		// Get a 1st argument as an double.
+  double arg1 = MRBC_ARG_F(1, 2.7);	// with default value 2.7.
+  @endcode
+
+
+  @def MRBC_ARG_S
+  (beta) Get a N'th argument as a C string.
+
+  <b>Examples:</b>
+  @code
+  const char *arg1 = MRBC_ARG_S(1);	// Get a 1st argument as an double.
+  const char *arg1 = MRBC_ARG_S(1,"DEFAULT"); // with default value "DEFAULT".
+  @endcode
+
+
+  @def MRBC_ARG_B
+  (beta) Get a N'th True/False argument as a C integer.
+
+  <b>Examples:</b>
+  @code
+  int arg1 = MRBC_ARG_B(1);	// Get a 1st True/False argument as an integer.
+  int arg1 = MRBC_ARG_B(1, 0);	// with default value False.
+  @endcode
+*/
+#define MRBC_ARG(n) mrbc_arg(vm, v, argc, (n))
+#define MRBC_ARG_I(...) MRBC_arg_choice(__VA_ARGS__, mrbc_arg_i2, mrbc_arg_i) (vm,v,argc,__VA_ARGS__)
+#define MRBC_ARG_F(...) MRBC_arg_choice(__VA_ARGS__, mrbc_arg_f2, mrbc_arg_f) (vm,v,argc,__VA_ARGS__)
+#define MRBC_ARG_S(...) MRBC_arg_choice(__VA_ARGS__, mrbc_arg_s2, mrbc_arg_s) (vm,v,argc,__VA_ARGS__)
+#define MRBC_ARG_B(...) MRBC_arg_choice(__VA_ARGS__, mrbc_arg_b2, mrbc_arg_b) (vm,v,argc,__VA_ARGS__)
+//@cond
+#define MRBC_arg_choice(a1,a2,a3,...) a3
+//@endcond
+
+
+//================================================================
 // for keyword arguments
-/**
+/*!
   @def MRBC_KW_ARG(keyword1,...)
   Get keyword arguments and define mrbc_value with same name.
   Up to 30 arguments can be specified.
@@ -352,21 +467,18 @@ typedef struct RObject mrbc_value;
 
   @def MRBC_KW_DELETE(mrbc_value1,...)
   Delete retrieved keyword arguments.
-
-  @def MRBC_KW_NARGC()
-  Get the number of arguments without keyword arguments.
 */
 #define MRBC_KW_ARG(...) \
   MRBC_each(__VA_ARGS__)( MRBC_KW_ARG_decl1, __VA_ARGS__ ) \
-  if( v[argc].tt == MRBC_TT_HASH ) { \
+  if( v[argc+1].tt == MRBC_TT_HASH ) { \
     MRBC_each(__VA_ARGS__)( MRBC_KW_ARG_decl2, __VA_ARGS__ ) \
   }
 #define MRBC_KW_ARG_decl1(kw) mrbc_value kw = {.tt = MRBC_TT_EMPTY};
-#define MRBC_KW_ARG_decl2(kw) kw = mrbc_hash_remove_by_id(&v[argc], mrbc_str_to_symid(#kw));
+#define MRBC_KW_ARG_decl2(kw) kw = mrbc_hash_remove_by_id(&v[argc+1], mrbc_str_to_symid(#kw));
 
 #define MRBC_KW_DICT(dict) \
   mrbc_value dict; \
-  if( v[argc].tt == MRBC_TT_HASH ) { dict = v[argc]; v[argc].tt = MRBC_TT_EMPTY; } \
+  if( v[argc+1].tt == MRBC_TT_HASH ) { dict = v[argc+1]; v[argc+1].tt = MRBC_TT_EMPTY; } \
   else { dict = mrbc_hash_new(vm, 0); }
 
 #define MRBC_KW_ISVALID(kw) (kw.tt != MRBC_TT_EMPTY)
@@ -377,16 +489,14 @@ typedef struct RObject mrbc_value;
   (mrbc_raisef(vm, MRBC_CLASS(ArgumentError), "missing keyword: %s", #kw), 0))&&
 
 #define MRBC_KW_END() \
-  (((v[argc].tt == MRBC_TT_HASH) && mrbc_hash_size(&v[argc])) ? \
-   (mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unknown keyword."), 0) : 1)
+  (((v[argc+1].tt == MRBC_TT_HASH) && mrbc_hash_size(&v[argc+1])) ? \
+   (mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unknown keyword"), 0) : 1)
 
 #define MRBC_KW_DELETE(...) \
   MRBC_each(__VA_ARGS__)( MRBC_KW_DELETE_decl, __VA_ARGS__ )
 #define MRBC_KW_DELETE_decl(kw) mrbc_decref(&kw);
 
-#define MRBC_KW_NARGC() \
-  ((v[argc].tt == MRBC_TT_HASH || v[argc].tt == MRBC_TT_EMPTY) ? argc-1 : argc)
-
+//@cond
 #define MRBC_each(...) MRBC_each_sel(__VA_ARGS__, \
   MRBC_each30,MRBC_each29,MRBC_each28,MRBC_each27,MRBC_each26, \
   MRBC_each25,MRBC_each24,MRBC_each23,MRBC_each22,MRBC_each21, \
@@ -425,6 +535,18 @@ typedef struct RObject mrbc_value;
 #define MRBC_each28(func,arg, ...) func(arg) MRBC_each27(func,__VA_ARGS__)
 #define MRBC_each29(func,arg, ...) func(arg) MRBC_each28(func,__VA_ARGS__)
 #define MRBC_each30(func,arg, ...) func(arg) MRBC_each29(func,__VA_ARGS__)
+//@endcond
+
+
+/*!
+  @def MRBC_PTR_TO_UINT32(p)
+  convert pointer to uint32_t
+*/
+#if defined(UINTPTR_MAX)
+#define MRBC_PTR_TO_UINT32(p) ((uint32_t)(uintptr_t)(p))
+#else
+#define MRBC_PTR_TO_UINT32(p) ((uint32_t)(p))
+#endif
 
 
 /***** Global variables *****************************************************/
@@ -432,10 +554,29 @@ extern void (* const mrbc_delfunc[])(mrbc_value *);
 
 
 /***** Function prototypes **************************************************/
+//@cond
 int mrbc_compare(const mrbc_value *v1, const mrbc_value *v2);
-void mrbc_clear_vm_id(mrbc_value *v);
 mrbc_int_t mrbc_atoi(const char *s, int base);
 int mrbc_strcpy(char *dest, int destsize, const char *src);
+mrbc_int_t mrbc_val_i(struct VM *vm, const mrbc_value *val);
+mrbc_int_t mrbc_val_i2(struct VM *vm, const mrbc_value *val, mrbc_int_t default_value);
+double mrbc_val_f(struct VM *vm, const mrbc_value *val);
+double mrbc_val_f2(struct VM *vm, const mrbc_value *val, double default_value);
+const char *mrbc_val_s(struct VM *vm, const mrbc_value *val);
+const char *mrbc_val_s2(struct VM *vm, const mrbc_value *val, const char *default_value);
+mrbc_int_t mrbc_to_i(struct VM *vm, mrbc_value v[], int argc, mrbc_value *val);
+mrbc_float_t mrbc_to_f(struct VM *vm, mrbc_value v[], int argc, mrbc_value *val);
+char *mrbc_to_s(struct VM *vm, mrbc_value v[], int argc, mrbc_value *val);
+mrbc_value *mrbc_arg(struct VM *vm, mrbc_value v[], int argc, int n);
+mrbc_int_t mrbc_arg_i(struct VM *vm, mrbc_value v[], int argc, int n);
+mrbc_int_t mrbc_arg_i2(struct VM *vm, mrbc_value v[], int argc, int n, mrbc_int_t default_value);
+mrbc_float_t mrbc_arg_f(struct VM *vm, mrbc_value v[], int argc, int n);
+mrbc_float_t mrbc_arg_f2(struct VM *vm, mrbc_value v[], int argc, int n, mrbc_float_t default_value);
+const char *mrbc_arg_s(struct VM *vm, mrbc_value v[], int argc, int n);
+const char *mrbc_arg_s2(struct VM *vm, mrbc_value v[], int argc, int n, const char *default_value);
+int mrbc_arg_b(struct VM *vm, mrbc_value v[], int argc, int n);
+int mrbc_arg_b2(struct VM *vm, mrbc_value v[], int argc, int n, int default_value);
+//@endcond
 
 
 /***** Inline functions *****************************************************/
@@ -482,6 +623,217 @@ static inline void mrbc_decref_empty(mrbc_value *v)
 {
   mrbc_decref(v);
   v->tt = MRBC_TT_EMPTY;
+}
+
+
+//================================================================
+/*! delete value but same as mrbc_decref() function.
+
+  @param   v     Pointer to target mrbc_value
+*/
+static inline void mrbc_delete(mrbc_value *v)
+{
+  mrbc_decref_empty(v);
+}
+
+
+//================================================================
+/*! Get 16bit int value from memory.
+
+  @param  s	Pointer to memory.
+  @return	16bit unsigned int value.
+*/
+static inline uint16_t bin_to_uint16( const void *s )
+{
+#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
+  // Little endian, no alignment.
+  uint16_t x = *((uint16_t *)s);
+  x = (x << 8) | (x >> 8);
+
+#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
+  // Big endian, no alignment.
+  uint16_t x = *((uint16_t *)s);
+
+#elif defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
+  // 32bit alignment required.
+  uint8_t *p = (uint8_t *)s;
+  uint16_t x = *p++;
+  x <<= 8;
+  x |= *p;
+
+#else
+  #error "Specify MRBC_BIG_ENDIAN or MRBC_LITTLE_ENDIAN"
+#endif
+
+  return x;
+}
+
+
+//================================================================
+/*! Get 32bit int value from memory.
+
+  @param  s	Pointer to memory.
+  @return	32bit unsigned int value.
+*/
+static inline uint32_t bin_to_uint32( const void *s )
+{
+#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
+  // Little endian, no alignment.
+  uint32_t x = *((uint32_t *)s);
+  x = (x << 24) | ((x & 0xff00) << 8) | ((x >> 8) & 0xff00) | (x >> 24);
+
+#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
+  // Big endian, no alignment.
+  uint32_t x = *((uint32_t *)s);
+
+#elif defined(MRBC_REQUIRE_32BIT_ALIGNMENT)
+  // 32bit alignment required.
+  uint8_t *p = (uint8_t *)s;
+  uint32_t x = *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p;
+
+#endif
+
+  return x;
+}
+
+
+#if defined(MRBC_INT64)
+//================================================================
+/*! Get 64bit int value from memory.
+
+  @param  s	Pointer to memory.
+  @return	64bit int value.
+*/
+static inline int64_t bin_to_int64( const void *s )
+{
+#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
+  // Little endian, no alignment.
+  uint64_t x = *((uint64_t *)s);
+  uint64_t y = (x << 56);
+  y |= ((uint64_t)(uint8_t)(x >>  8)) << 48;
+  y |= ((uint64_t)(uint8_t)(x >> 16)) << 40;
+  y |= ((uint64_t)(uint8_t)(x >> 24)) << 32;
+  y |= ((uint64_t)(uint8_t)(x >> 32)) << 24;
+  y |= ((uint64_t)(uint8_t)(x >> 40)) << 16;
+  y |= ((uint64_t)(uint8_t)(x >> 48)) << 8;
+  y |= (x >> 56);
+  return y;
+
+#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
+  // Big endian, no alignment.
+  return *((uint64_t *)s);
+
+#elif defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
+  // 64bit alignment required.
+  uint8_t *p = (uint8_t *)s;
+  uint64_t x = *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p++;
+  x <<= 8;
+  x |= *p;
+  return x;
+
+#endif
+
+}
+#endif
+
+
+//================================================================
+/*! Get double (64bit) value from memory.
+
+  @param  s	Pointer to memory.
+  @return	double value.
+*/
+static inline double bin_to_double64( const void *s )
+{
+#if defined(MRBC_LITTLE_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
+  // Little endian, no alignment.
+  return *((double *)s);
+
+#elif defined(MRBC_BIG_ENDIAN) && !defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
+  // Big endian, no alignment.
+  double x;
+  uint8_t *p1 = (uint8_t*)s;
+  uint8_t *p2 = (uint8_t*)&x + 7;
+  int i;
+  for( i = 7; i >= 0; i-- ) {
+    *p2-- = *p1++;
+  }
+  return x;
+
+#elif defined(MRBC_LITTLE_ENDIAN) && defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
+  // Little endian, 64bit alignment required.
+  double x;
+  uint8_t *p1 = (uint8_t*)s;
+  uint8_t *p2 = (uint8_t*)&x;
+  int i;
+  for( i = 7; i >= 0; i-- ) {
+    *p2++ = *p1++;
+  }
+  return x;
+
+#elif defined(MRBC_BIG_ENDIAN) && defined(MRBC_REQUIRE_64BIT_ALIGNMENT)
+  // Big endian, 64bit alignment required.
+  double x;
+  uint8_t *p1 = (uint8_t*)s;
+  uint8_t *p2 = (uint8_t*)&x + 7;
+  int i;
+  for( i = 7; i >= 0; i-- ) {
+    *p2-- = *p1++;
+  }
+  return x;
+
+#endif
+}
+
+
+//================================================================
+/*! Set 32bit value to memory.
+
+  @param  v	Source value.
+  @param  d	Pointer to memory.
+*/
+static inline void uint32_to_bin( uint32_t v, void *d )
+{
+  uint8_t *p = (uint8_t *)d + 3;
+  *p-- = 0xff & v;
+  v >>= 8;
+  *p-- = 0xff & v;
+  v >>= 8;
+  *p-- = 0xff & v;
+  v >>= 8;
+  *p = 0xff & v;
+}
+
+
+//================================================================
+/*! Set 16bit value to memory.
+
+  @param  v	Source value.
+  @param  d	Pointer to memory.
+*/
+static inline void uint16_to_bin( uint16_t v, void *d )
+{
+  uint8_t *p = (uint8_t *)d;
+  *p++ = (v >> 8);
+  *p = 0xff & v;
 }
 
 

@@ -19,11 +19,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "value.h"
-#include "symbol.h"
-#include "error.h"
-#include "class.h"
-#include "global.h"
+#include "mrubyc.h"
 
 /***** Constat values *******************************************************/
 /***** Macros ***************************************************************/

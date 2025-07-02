@@ -19,17 +19,8 @@
 #include <stdarg.h>
 //@endcond
 
-
 /***** Local headers ********************************************************/
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "error.h"
-#include "class.h"
-#include "c_string.h"
-#include "vm.h"
-#include "console.h"
-
+#include "mrubyc.h"
 
 /***** Constat values *******************************************************/
 /***** Macros ***************************************************************/
@@ -204,6 +195,19 @@ void mrbc_raisef( struct VM *vm, struct RClass *exc_cls, const char *fstr, ... )
   }
 
   va_end( ap );
+}
+
+
+//================================================================
+/*! clear raised exception
+
+  @param  vm		pointer to VM.
+*/
+void mrbc_clear_exception( struct VM *vm )
+{
+  mrbc_decref(&vm->exception);
+  mrbc_set_nil(&vm->exception);
+  vm->flag_preemption = 0;
 }
 
 

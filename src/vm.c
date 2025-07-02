@@ -23,21 +23,8 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "class.h"
-#include "error.h"
-#include "c_string.h"
-#include "c_range.h"
-#include "c_array.h"
-#include "c_hash.h"
-#include "global.h"
-#include "load.h"
-#include "console.h"
 #include "opcode.h"
-#include "vm.h"
-
+#include "mrubyc.h"
 
 /***** Constat values *******************************************************/
 #define CALL_MAXARGS 15		// 15 is CALL_MAXARGS in mruby
@@ -61,82 +48,94 @@ static uint16_t free_vm_bitmap[MAX_VM_COUNT / 16 + 1];
   @param  sym_id	method name symbol id
   @param  a		operand a
   @param  c		bit: 0-3=narg, 4-7=karg, 8=have block param flag.
-  @retval 0  No error.
 */
 static void send_by_name( struct VM *vm, mrbc_sym sym_id, int a, int c )
 {
   int narg = c & 0x0f;
   int karg = (c >> 4) & 0x0f;
-  mrbc_value *regs = vm->cur_regs;
-  mrbc_value *recv = regs + a;
+  int have_block = (c >> 8);
+  mrbc_value *recv = vm->cur_regs + a;
 
   // If it's packed in an array, expand it.
   if( narg == CALL_MAXARGS ) {
-    mrbc_value argv = recv[1];
-    narg = mrbc_array_size(&argv);
+    mrbc_value argary = recv[1];
+    int n_move = (karg == CALL_MAXARGS) ? 2 : karg * 2 + 1;
+
+    narg = mrbc_array_size(&argary);
     for( int i = 0; i < narg; i++ ) {
-      mrbc_incref( &argv.array->data[i] );
+      mrbc_incref( &argary.array->data[i] );
     }
 
-    memmove( recv + narg + 1, recv + 2, sizeof(mrbc_value) * (karg * 2 + 1) );
-    memcpy( recv + 1, argv.array->data, sizeof(mrbc_value) * narg );
-
-    mrbc_decref(&argv);
+    memmove( recv + narg + 1, recv + 2, sizeof(mrbc_value) * n_move );
+    memcpy( recv + 1, argary.array->data, sizeof(mrbc_value) * narg );
+    mrbc_decref(&argary);
   }
 
+  mrbc_value *r1 = recv + narg;
+
   // Convert keyword argument to hash.
-  if( karg ) {
-    narg++;
-    if( karg != CALL_MAXARGS ) {
-      mrbc_value h = mrbc_hash_new( vm, karg );
-      if( !h.hash ) return;	// ENOMEM
+  if( karg && karg != CALL_MAXARGS ) {
+    mrbc_value hval = mrbc_hash_new( vm, karg );
+    if( !hval.hash ) return;	// ENOMEM
 
-      mrbc_value *r1 = recv + narg;
-      memcpy( h.hash->data, r1, sizeof(mrbc_value) * karg * 2 );
-      h.hash->n_stored = karg * 2;
+    memcpy( hval.hash->data, r1+1, sizeof(mrbc_value) * karg * 2 );
+    hval.hash->n_stored = karg * 2;
 
-      mrbc_value block = r1[karg * 2];
-      memset( r1 + 2, 0, sizeof(mrbc_value) * (karg * 2 - 1) );
-      *r1++ = h;
-      *r1 = block;
-    }
+    r1[1] = hval;
+    r1[2] = r1[karg * 2 + 1];	// Proc
+    memset( r1 + 3, 0, sizeof(mrbc_value) * (karg * 2 - 1) );
   }
 
   // is not have block
-  if( (c >> 8) == 0 ) {
-    mrbc_decref( recv + narg + 1 );
-    mrbc_set_nil( recv + narg + 1 );
+  if( !have_block ) {
+    r1 += (!!karg + 1);
+    mrbc_decref( r1 );
+    mrbc_set_nil( r1 );
   }
 
+  // find a method
   mrbc_class *cls = find_class_by_object(recv);
   mrbc_method method;
-  if( mrbc_find_method( &method, cls, sym_id ) == 0 ) {
+  if( mrbc_find_method( &method, cls, sym_id ) != 0 ) goto CALL_METHOD;
+
+  // method missing?
+  if( mrbc_find_method( &method, cls, MRBC_SYM(method_missing) ) == 0 ) {
     mrbc_raisef(vm, MRBC_CLASS(NoMethodError),
 		"undefined local variable or method '%s' for %s",
-		mrbc_symid_to_str(sym_id), mrbc_symid_to_str( cls->sym_id ));
+		mrbc_symid_to_str(sym_id), mrbc_symid_to_str(cls->sym_id));
     if( vm->callinfo_tail != 0 ) {
       vm->exception.exception->method_id = vm->callinfo_tail->method_id;
     }
     return;
   }
 
-  // call C function and return.
-  if( method.c_func ) {
-    method.func(vm, recv, narg);
-
-    if( mrbc_israised(vm) && vm->exception.exception->method_id == 0 ) {
-      vm->exception.exception->method_id = sym_id;
-    }
-    if( sym_id == MRBC_SYM(call) ) return;
-    if( sym_id == MRBC_SYM(new) ) return;
-
-    for( int i = 1; i <= narg+1; i++ ) {
-      mrbc_decref_empty( recv + i );
-    }
-    return;
+  // prepare to call 'method_missing' method.
+  for( int i = narg+1; i != 0; i-- ) {	// shift arguments
+    recv[i+1] = recv[i];
   }
+  recv[1] = mrbc_symbol_value(sym_id);
+  sym_id = MRBC_SYM(method_missing);
+  narg++;
 
-  // call Ruby method.
+
+ CALL_METHOD:
+  if( !method.c_func ) goto CALL_RUBY_METHOD;
+
+  method.func(vm, recv, narg);
+
+  if( mrbc_israised(vm) && vm->exception.exception->method_id == 0 ) {
+    vm->exception.exception->method_id = sym_id;
+  }
+  if( sym_id == MRBC_SYM(call) ) return;
+  if( sym_id == MRBC_SYM(new) ) return;
+
+  for( int i = 1; i <= narg + !!karg + have_block; i++ ) {
+    mrbc_decref_empty( recv + i );
+  }
+  return;
+
+
+ CALL_RUBY_METHOD:;
   mrbc_callinfo *callinfo = mrbc_push_callinfo(vm, sym_id, a, narg);
   callinfo->own_class = method.cls;
 
@@ -170,26 +169,6 @@ static const mrbc_irep_catch_handler *find_catch_handler_ensure( const struct VM
   }
 
   return NULL;
-}
-
-
-//================================================================
-/*! get the self object
-*/
-static mrbc_value * mrbc_get_self( struct VM *vm, mrbc_value *regs )
-{
-  mrbc_value *self = &regs[0];
-  if( mrbc_type(*self) == MRBC_TT_PROC ) {
-    mrbc_callinfo *callinfo = regs[0].proc->callinfo_self;
-    if( callinfo ) {
-      self = callinfo->cur_regs + callinfo->reg_offset;
-    } else {
-      self = &vm->regs[0];
-    }
-    assert( self->tt != MRBC_TT_PROC );
-  }
-
-  return self;
 }
 
 
@@ -270,11 +249,12 @@ void mrbc_pop_callinfo( struct VM *vm )
 
   // clear used register.
   mrbc_callinfo *callinfo = vm->callinfo_tail;
-  mrbc_value *reg1 = vm->cur_regs + callinfo->cur_irep->nregs - callinfo->reg_offset;
-  mrbc_value *reg2 = vm->cur_regs + vm->cur_irep->nregs;
-  while( reg1 < reg2 ) {
-    mrbc_decref_empty( reg1++ );
+  mrbc_value *r0 = vm->cur_regs;
+
+  for( int i = 1; i < vm->cur_irep->nregs; i++ ) {
+    mrbc_decref_empty( r0+i );
   }
+
   if( callinfo->karg_keep ) {
     mrbc_hash_delete( &(mrbc_value){.tt = MRBC_TT_HASH, .hash = callinfo->karg_keep} );
   }
@@ -311,12 +291,14 @@ void mrbc_pop_callinfo( struct VM *vm )
 */
 mrbc_vm * mrbc_vm_new( int regs_size )
 {
-  mrbc_vm *vm = mrbc_raw_alloc(sizeof(mrbc_vm) + sizeof(mrbc_value) * regs_size);
+  unsigned int vm_total_size = sizeof(mrbc_vm) + sizeof(mrbc_value) * regs_size;
+
+  mrbc_vm *vm = mrbc_raw_alloc(vm_total_size);
   if( !vm ) return NULL;
 
-  memset(vm, 0, sizeof(mrbc_vm));	// caution: assume NULL is zero.
+  memset(vm, 0, vm_total_size);	// caution: assume NULL is zero.
 #if defined(MRBC_DEBUG)
-  memcpy(vm->type, "VM", 2);
+  memcpy(vm->obj_mark_, "VM", 2);
 #endif
   vm->flag_need_memfree = 1;
   vm->regs_size = regs_size;
@@ -368,7 +350,7 @@ void mrbc_vm_begin( struct VM *vm )
   vm->cur_irep = vm->top_irep;
   vm->inst = vm->cur_irep->inst;
   vm->cur_regs = vm->regs;
-  vm->target_class = mrbc_class_object;
+  vm->target_class = MRBC_CLASS(Object);
   vm->callinfo_tail = NULL;
   vm->ret_blk = NULL;
   vm->exception = mrbc_nil_value();
@@ -377,7 +359,7 @@ void mrbc_vm_begin( struct VM *vm )
 
   // set self to reg[0], others nil
   mrbc_decref( &vm->regs[0] );
-  vm->regs[0] = mrbc_instance_new(vm, mrbc_class_object, 0);
+  vm->regs[0] = mrbc_instance_new(vm, MRBC_CLASS(Object), 0);
   if( vm->regs[0].instance == NULL ) return;	// ENOMEM
   for( int i = 1; i < vm->regs_size; i++ ) {
     vm->regs[i] = mrbc_nil_value();
@@ -431,12 +413,14 @@ void mrbc_vm_close( struct VM *vm )
   mrbc_decref( &vm->regs[0] );
 
   // free vm id.
-  int idx = (vm->vm_id-1) >> 4;
-  int bit = 1 << ((vm->vm_id-1) & 0x0f);
-  free_vm_bitmap[idx] &= ~bit;
+  if( vm->vm_id != 0 ) {
+    int idx = (vm->vm_id-1) >> 4;
+    int bit = 1 << ((vm->vm_id-1) & 0x0f);
+    free_vm_bitmap[idx] &= ~bit;
+  }
 
   // free irep and vm
-  if( vm->top_irep ) mrbc_raw_free( vm->top_irep );
+  if( vm->top_irep ) mrbc_irep_free( vm->top_irep );
   if( vm->flag_need_memfree ) mrbc_raw_free(vm);
 }
 
@@ -728,11 +712,17 @@ static inline void op_getconst( mrbc_vm *vm, mrbc_value *regs EXT )
   FETCH_BB();
 
   mrbc_sym sym_id = mrbc_irep_symbol_id(vm->cur_irep, b);
-  mrbc_class *self_cls = find_class_by_object( mrbc_get_self(vm, regs) );
+  mrbc_class *crit_cls;
   mrbc_value *ret;
 
+  if( vm->callinfo_tail && vm->callinfo_tail->own_class ) {
+    crit_cls = vm->callinfo_tail->own_class;
+  } else {
+    crit_cls = find_class_by_object( mrbc_get_self(vm, regs) );
+  }
+
   // search in my class, then search nested outer class.
-  mrbc_class *cls = self_cls;
+  mrbc_class *cls = crit_cls;
   while( 1 ) {
     ret = mrbc_get_class_const(cls, sym_id);
     if( ret ) goto DONE;
@@ -744,7 +734,7 @@ static inline void op_getconst( mrbc_vm *vm, mrbc_value *regs EXT )
   }
 
   // search in super class.
-  cls = self_cls->super;
+  cls = crit_cls->super;
   while( cls ) {
     ret = mrbc_get_class_const(cls, sym_id);
     if( ret ) goto DONE;
@@ -1288,39 +1278,31 @@ static inline void op_super( mrbc_vm *vm, mrbc_value *regs EXT )
 	 b = 255 in other method.
     */
 
-    assert( recv[1].tt == MRBC_TT_ARRAY );
-
     mrbc_value argary = recv[1];
-    mrbc_value proc = recv[2];
-    recv[1].tt = MRBC_TT_EMPTY;
-    recv[2].tt = MRBC_TT_EMPTY;
-
-    int argc = mrbc_array_size(&argary);
-    for( int i = 0; i < argc; i++ ) {
-      mrbc_decref( &recv[i+1] );
-      recv[i+1] = argary.array->data[i];
+    int n_move = (karg == CALL_MAXARGS) ? 2 : karg * 2 + 1;
+    narg = mrbc_array_size(&argary);
+    for( int i = 0; i < narg; i++ ) {
+      mrbc_incref( &argary.array->data[i] );
     }
-    mrbc_array_delete_handle(&argary);
 
-    mrbc_decref( &recv[argc+1] );
-    recv[argc+1] = proc;
-    narg = argc;
+    memmove( recv + narg + 1, recv + 2, sizeof(mrbc_value) * n_move );
+    memcpy( recv + 1, argary.array->data, sizeof(mrbc_value) * narg );
+    mrbc_decref(&argary);
   }
+
+  mrbc_value *r1 = recv + narg;
 
   // Convert keyword argument to hash.
   if( karg && karg != CALL_MAXARGS ) {
-    narg++;
-    mrbc_value h = mrbc_hash_new( vm, karg );
-    if( !h.hash ) return;	// ENOMEM
+    mrbc_value hval = mrbc_hash_new( vm, karg );
+    if( !hval.hash ) return;	// ENOMEM
 
-    mrbc_value *r1 = recv + narg;
-    memcpy( h.hash->data, r1, sizeof(mrbc_value) * karg * 2 );
-    h.hash->n_stored = karg * 2;
+    memcpy( hval.hash->data, r1+1, sizeof(mrbc_value) * karg * 2 );
+    hval.hash->n_stored = karg * 2;
 
-    mrbc_value block = r1[karg * 2];
-    memset( r1 + 2, 0, sizeof(mrbc_value) * (karg * 2 - 1) );
-    *r1++ = h;
-    *r1 = block;
+    r1[1] = hval;
+    r1[2] = r1[karg * 2 + 1];	// Proc
+    memset( r1 + 3, 0, sizeof(mrbc_value) * (karg * 2 - 1) );
   }
 
   // find super class
@@ -1341,7 +1323,7 @@ static inline void op_super( mrbc_vm *vm, mrbc_value *regs EXT )
 
   // call C function and return.
   if( method.c_func ) {
-    method.func(vm, recv, narg);
+    method.func(vm, recv, narg - !!karg);
     for( int i = 1; i <= narg+1; i++ ) {
       mrbc_decref_empty( recv + i );
     }
@@ -1376,20 +1358,21 @@ static inline void op_argary( mrbc_vm *vm, mrbc_value *regs EXT )
 
   if( b & 0x400 ) {	// check REST parameter.
     // TODO: want to support.
-    mrbc_raise( vm, MRBC_CLASS(NotImplementedError), "Not support rest parameter by super.");
+    mrbc_raise( vm, MRBC_CLASS(NotImplementedError), "Not support rest parameter by super");
     return;
   }
   if( b & 0x3e0 ) {	// check m2 parameter.
-    mrbc_raise( vm, MRBC_CLASS(ArgumentError), "not support m2 or keyword argument.");
+    mrbc_raise( vm, MRBC_CLASS(NotImplementedError), "not support m2 argument");
     return;
   }
 
   mrbc_value *reg0 = regs;
+  mrbc_callinfo *callinfo = 0;
 
   // rewind proc nest
   if( lv ) {
     assert( mrbc_type(*reg0) == MRBC_TT_PROC );
-    mrbc_callinfo *callinfo = reg0->proc->callinfo;
+    callinfo = reg0->proc->callinfo;
     assert( callinfo );
 
     for( int i = 1; i < lv; i ++ ) {
@@ -1402,24 +1385,26 @@ static inline void op_argary( mrbc_vm *vm, mrbc_value *regs EXT )
     reg0 = callinfo->cur_regs + callinfo->reg_offset;
   }
 
-  // create arguent array.
+  // create argument array.
   int array_size = m1 + d;
-  mrbc_value val = mrbc_array_new( vm, array_size );
-  if( !val.array ) return;	// ENOMEM
+  mrbc_value argary = mrbc_array_new( vm, array_size );
+  if( !argary.array ) return;	// ENOMEM
 
-  if( vm->callinfo_tail->karg_keep ) {
-    mrbc_value karg = {.tt = MRBC_TT_HASH, .hash = vm->callinfo_tail->karg_keep};
+  for( int i = 1; i <= m1; i++ ) {
+    mrbc_incref( &reg0[i] );
+    mrbc_array_push( &argary, &reg0[i] );
+  }
+
+  if( d ) {
+    if( !callinfo ) callinfo = vm->callinfo_tail;
+    assert( callinfo->karg_keep );
+    mrbc_value karg = (mrbc_value){.tt = MRBC_TT_HASH, .hash = callinfo->karg_keep};
     karg = mrbc_hash_dup(vm, &karg);
-    mrbc_array_push( &val, &karg );
-  } else {
-    for( int i = 1; i <= array_size; i++ ) {
-      mrbc_incref( &reg0[i] );
-      mrbc_array_push( &val, &reg0[i] );
-    }
+    mrbc_array_push( &argary, &karg );
   }
 
   mrbc_decref( &regs[a] );
-  regs[a] = val;
+  regs[a] = argary;
 
   // copy a block object
   mrbc_decref( &regs[a+1] );
@@ -1448,22 +1433,25 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
   // Check the number of registers to use.
   int reg_use_max = regs - vm->regs + vm->cur_irep->nregs;
   if( reg_use_max >= vm->regs_size ) {
-    mrbc_raise( vm, MRBC_CLASS(Exception), "MAX_REGS_SIZE overflow.");
+    mrbc_raise( vm, MRBC_CLASS(Exception), "MAX_REGS_SIZE overflow");
     return;
   }
 
   // Check m2 parameter.
   if( a & FLAG_M2 ) {
-    mrbc_raise( vm, MRBC_CLASS(NotImplementedError), "not support m2 argument.");
+    mrbc_raise( vm, MRBC_CLASS(NotImplementedError), "not support m2 argument");
     return;
   }
 
   int m1 = (a >> 18) & 0x1f;	// num of required parameters 1
   int o  = (a >> 13) & 0x1f;	// num of optional parameters
   int argc = vm->callinfo_tail->n_args;
+  int flag_kwarg = regs[argc+1].tt == MRBC_TT_HASH;
 
-  if( argc < m1 && mrbc_type(regs[0]) != MRBC_TT_PROC ) {
-    mrbc_raise( vm, MRBC_CLASS(ArgumentError), "wrong number of arguments.");
+  argc += flag_kwarg;
+
+  if( argc < m1 && regs[0].tt != MRBC_TT_PROC ) {
+    mrbc_raise( vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
@@ -1472,10 +1460,8 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
   regs[argc+1].tt = MRBC_TT_EMPTY;
 
   // support yield [...] pattern, to expand array.
-  if( mrbc_type(regs[0]) == MRBC_TT_PROC &&
-      mrbc_type(regs[1]) == MRBC_TT_ARRAY &&
+  if( regs[0].tt == MRBC_TT_PROC && regs[1].tt == MRBC_TT_ARRAY &&
       argc == 1 && m1 > 1 ) {
-
     mrbc_value argary = regs[1];
     int argary_size = mrbc_array_size(&argary);
 
@@ -1498,7 +1484,7 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
   if( a & (FLAG_DICT|FLAG_KW|FLAG_REST) ) {
     mrbc_value dict;
     if( a & (FLAG_DICT|FLAG_KW) ) {
-      if( (argc - m1) > 0 && mrbc_type(regs[argc]) == MRBC_TT_HASH ) {
+      if( (argc - m1) > 0 && regs[argc].tt == MRBC_TT_HASH ) {
 	dict = regs[argc];
 	regs[argc--].tt = MRBC_TT_EMPTY;
       } else {
@@ -1521,12 +1507,11 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
     }
 
     // reorder arguments.
-    int i;
-    for( i = argc; i < m1; ) {
+    for( int i = argc; i < m1; ) {
       mrbc_decref( &regs[++i] );
       mrbc_set_nil( &regs[i] );
     }
-    i = m1 + o;
+    int i = m1 + o;
     if( a & FLAG_REST ) {
       mrbc_decref(&regs[++i]);
       regs[i] = rest;
@@ -1534,9 +1519,7 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
     if( a & (FLAG_DICT|FLAG_KW) ) {
       mrbc_decref(&regs[++i]);
       regs[i] = dict;
-      if( a & FLAG_KW ) {
-	vm->callinfo_tail->karg_keep = mrbc_hash_dup(vm, &dict).hash;
-      }
+      vm->callinfo_tail->karg_keep = mrbc_hash_dup(vm, &dict).hash;
     }
     mrbc_decref(&regs[i+1]);
     regs[i+1] = proc;
@@ -1544,12 +1527,11 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
 
   } else {
     // reorder arguments.
-    int i;
-    for( i = argc; i < m1; ) {
+    for( int i = argc; i < m1; ) {
       mrbc_decref( &regs[++i] );
       mrbc_set_nil( &regs[i] );
     }
-    i = m1 + o;
+    int i = m1 + o;
     mrbc_decref(&regs[i+1]);
     regs[i+1] = proc;
     vm->callinfo_tail->n_args = i;
@@ -1561,8 +1543,8 @@ static inline void op_enter( mrbc_vm *vm, mrbc_value *regs EXT )
     if( jmp_ofs > o ) {
       jmp_ofs = o;
 
-      if( !(a & FLAG_REST) && mrbc_type(regs[0]) != MRBC_TT_PROC ) {
-	mrbc_raise( vm, MRBC_CLASS(ArgumentError), "wrong number of arguments.");
+      if( !(a & FLAG_REST) && regs[0].tt != MRBC_TT_PROC ) {
+	mrbc_raise( vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
 	return;
       }
     }
@@ -1611,7 +1593,7 @@ static inline void op_keyend( mrbc_vm *vm, mrbc_value *regs EXT )
     mrbc_value *kv = mrbc_hash_i_next(&ite);
 
     mrbc_raisef(vm, MRBC_CLASS(ArgumentError), "unknown keyword: %s",
-		mrbc_symid_to_str(kv->i));
+		mrbc_symid_to_str(kv->sym_id));
   }
 }
 
@@ -1821,7 +1803,7 @@ static inline void op_blkpush( mrbc_vm *vm, mrbc_value *regs EXT )
   int lv = (b      ) & 0x0f;
 
   if( m2 ) {
-    mrbc_raise( vm, MRBC_CLASS(ArgumentError), "not support m2 or keyword argument.");
+    mrbc_raise( vm, MRBC_CLASS(NotImplementedError), "not support m2 argument");
     return;
   }
 
@@ -1867,29 +1849,31 @@ static inline void op_add( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_B();
 
-  if( regs[a].tt == MRBC_TT_INTEGER ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Integer, Integer
-      regs[a].i += regs[a+1].i;
-      return;
-    }
+  // in case of Integer + Integer
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    regs[a].i += regs[a+1].i;
+    return;
+  }
+
 #if MRBC_USE_FLOAT
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Integer, Float
-      regs[a].tt = MRBC_TT_FLOAT;
-      regs[a].d = regs[a].i + regs[a+1].d;
-      return;
-    }
+  // in case of Integer + Float
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    mrbc_set_float( &regs[a], regs[a].i + regs[a+1].d );
+    return;
   }
-  if( regs[a].tt == MRBC_TT_FLOAT ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Float, Integer
-      regs[a].d += regs[a+1].i;
-      return;
-    }
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Float, Float
-      regs[a].d += regs[a+1].d;
-      return;
-    }
+
+  // in case of Float + Integer
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    regs[a].d += regs[a+1].i;
+    return;
+  }
+
+  // in case of Float + Float
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    regs[a].d += regs[a+1].d;
+    return;
+  }
 #endif
-  }
 
   // other case
   send_by_name( vm, MRBC_SYM(PLUS), a, 1 );
@@ -1917,7 +1901,9 @@ static inline void op_addi( mrbc_vm *vm, mrbc_value *regs EXT )
   }
 #endif
 
-  mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion of Integer");
+  mrbc_decref(&regs[a+1]);
+  regs[a+1] = mrbc_integer_value(b);
+  send_by_name(vm, MRBC_SYM(PLUS), a, 1);
 }
 
 
@@ -1930,29 +1916,31 @@ static inline void op_sub( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_B();
 
-  if( regs[a].tt == MRBC_TT_INTEGER ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Integer, Integer
-      regs[a].i -= regs[a+1].i;
-      return;
-    }
+  // in case of Integer - Integer
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    regs[a].i -= regs[a+1].i;
+    return;
+  }
+
 #if MRBC_USE_FLOAT
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Integer, Float
-      regs[a].tt = MRBC_TT_FLOAT;
-      regs[a].d = regs[a].i - regs[a+1].d;
-      return;
-    }
+  // in case of Integer - Float
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    mrbc_set_float( &regs[a], regs[a].i - regs[a+1].d );
+    return;
   }
-  if( regs[a].tt == MRBC_TT_FLOAT ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Float, Integer
-      regs[a].d -= regs[a+1].i;
-      return;
-    }
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Float, Float
-      regs[a].d -= regs[a+1].d;
-      return;
-    }
+
+  // in case of Float - Integer
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    regs[a].d -= regs[a+1].i;
+    return;
+  }
+
+  // in case of Float - Float
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    regs[a].d -= regs[a+1].d;
+    return;
+  }
 #endif
-  }
 
   // other case
   send_by_name( vm, MRBC_SYM(MINUS), a, 1 );
@@ -1980,7 +1968,9 @@ static inline void op_subi( mrbc_vm *vm, mrbc_value *regs EXT )
   }
 #endif
 
-  mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion of Integer");
+  mrbc_decref(&regs[a+1]);
+  regs[a+1] = mrbc_integer_value(b);
+  send_by_name(vm, MRBC_SYM(MINUS), a, 1);
 }
 
 
@@ -1993,29 +1983,31 @@ static inline void op_mul( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_B();
 
-  if( regs[a].tt == MRBC_TT_INTEGER ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Integer, Integer
-      regs[a].i *= regs[a+1].i;
-      return;
-    }
+  // in case of Integer * Integer
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    regs[a].i *= regs[a+1].i;
+    return;
+  }
+
 #if MRBC_USE_FLOAT
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Integer, Float
-      regs[a].tt = MRBC_TT_FLOAT;
-      regs[a].d = regs[a].i * regs[a+1].d;
-      return;
-    }
+  // in case of Integer * Float
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    mrbc_set_float( &regs[a], regs[a].i * regs[a+1].d );
+    return;
   }
-  if( regs[a].tt == MRBC_TT_FLOAT ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Float, Integer
-      regs[a].d *= regs[a+1].i;
-      return;
-    }
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Float, Float
-      regs[a].d *= regs[a+1].d;
-      return;
-    }
+
+  // in case of Float * Integer
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    regs[a].d *= regs[a+1].i;
+    return;
+  }
+
+  // in case of Float * Float
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    regs[a].d *= regs[a+1].d;
+    return;
+  }
 #endif
-  }
 
   // other case
   send_by_name( vm, MRBC_SYM(MUL), a, 1 );
@@ -2031,33 +2023,44 @@ static inline void op_div( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_B();
 
-  if( regs[a].tt == MRBC_TT_INTEGER ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Integer, Integer
-      if( regs[a+1].i == 0 ) {
-	mrbc_raise(vm, MRBC_CLASS(ZeroDivisionError), 0 );
-      } else {
-	regs[a].i /= regs[a+1].i;
-      }
+  // in case of Integer / Integer
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    mrbc_int_t v0 = regs[a].i;
+    mrbc_int_t v1 = regs[a+1].i;
+
+    if( v1 == 0 ) {
+      mrbc_raise(vm, MRBC_CLASS(ZeroDivisionError), 0 );
       return;
     }
+
+    mrbc_int_t ret = v0 / v1;
+    mrbc_int_t mod = v0 % v1;
+
+    if( (mod != 0) && ((v0 ^ v1) < 0) ) ret -= 1;
+
+    regs[a].i = ret;
+    return;
+  }
+
 #if MRBC_USE_FLOAT
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Integer, Float
-      regs[a].tt = MRBC_TT_FLOAT;
-      regs[a].d = regs[a].i / regs[a+1].d;
-      return;
-    }
+  // in case of Integer / Float
+  if( regs[a].tt == MRBC_TT_INTEGER && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    mrbc_set_float( &regs[a], regs[a].i / regs[a+1].d );
+    return;
   }
-  if( regs[a].tt == MRBC_TT_FLOAT ) {
-    if( regs[a+1].tt == MRBC_TT_INTEGER ) {     // in case of Float, Integer
-      regs[a].d /= regs[a+1].i;
-      return;
-    }
-    if( regs[a+1].tt == MRBC_TT_FLOAT ) {      // in case of Float, Float
-      regs[a].d /= regs[a+1].d;
-      return;
-    }
+
+  // in case of Float / Integer
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_INTEGER ) {
+    regs[a].d /= regs[a+1].i;
+    return;
+  }
+
+  // in case of Float / Float
+  if( regs[a].tt == MRBC_TT_FLOAT && regs[a+1].tt == MRBC_TT_FLOAT ) {
+    regs[a].d /= regs[a+1].d;
+    return;
+  }
 #endif
-  }
 
   // other case
   send_by_name( vm, MRBC_SYM(DIV), a, 1 );
@@ -2363,7 +2366,7 @@ static inline void op_apost( mrbc_vm *vm, mrbc_value *regs EXT )
     regs[a].array->n_stored = ary_size;
 
   } else {
-    assert(!"Not support this case in op_apost.");
+    assert(!"Not support this case in op_apost");
     // empty
     regs[a] = mrbc_array_new(vm, 0);
   }
@@ -2446,7 +2449,7 @@ static inline void op_strcat( mrbc_vm *vm, mrbc_value *regs EXT )
   mrbc_decref_empty( &regs[a+1] );
 
 #else
-  mrbc_raise(vm, MRBC_CLASS(Exception), "Not support String.");
+  mrbc_raise(vm, MRBC_CLASS(Exception), "Not support String");
 #endif
 }
 
@@ -2518,21 +2521,36 @@ static inline void op_hashcat( mrbc_vm *vm, mrbc_value *regs EXT )
 
 
 //================================================================
-/*! OP_BLOCK, OP_METHOD
+/*! OP_BLOCK
 
   R[a] = lambda(Irep[b],L_BLOCK)
+*/
+static inline void op_block( mrbc_vm *vm, mrbc_value *regs EXT )
+{
+  FETCH_BB();
+
+  mrbc_value ret = mrbc_proc_new(vm, mrbc_irep_child_irep(vm->cur_irep, b), 'B');
+  if( !ret.proc ) return;	// ENOMEM
+
+  mrbc_decref(&regs[a]);
+  regs[a] = ret;
+}
+
+
+//================================================================
+/*! OP_METHOD
+
   R[a] = lambda(Irep[b],L_METHOD)
 */
 static inline void op_method( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   FETCH_BB();
 
+  mrbc_value ret = mrbc_proc_new(vm, mrbc_irep_child_irep(vm->cur_irep, b), 'M');
+  if( !ret.proc ) return;	// ENOMEM
+
   mrbc_decref(&regs[a]);
-
-  mrbc_value val = mrbc_proc_new(vm, mrbc_irep_child_irep(vm->cur_irep, b));
-  if( !val.proc ) return;	// ENOMEM
-
-  regs[a] = val;
+  regs[a] = ret;
 }
 
 
@@ -2577,7 +2595,7 @@ static inline void op_oclass( mrbc_vm *vm, mrbc_value *regs EXT )
 
   mrbc_decref(&regs[a]);
   regs[a].tt = MRBC_TT_CLASS;
-  regs[a].cls = mrbc_class_object;
+  regs[a].cls = MRBC_CLASS(Object);
 }
 
 
@@ -2608,7 +2626,7 @@ static inline void op_class( mrbc_vm *vm, mrbc_value *regs EXT )
   if( super ) {
     for( int i = 1; i < MRBC_TT_MAXVAL; i++ ) {
       if( super == mrbc_class_tbl[i] ) {
-	mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Inherit the built-in class is not supported.");
+	mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Inherit the built-in class is not supported");
 	return;
       }
     }
@@ -2684,7 +2702,7 @@ static inline void op_exec( mrbc_vm *vm, mrbc_value *regs EXT )
   assert( regs[a].tt == MRBC_TT_CLASS || regs[a].tt == MRBC_TT_MODULE );
 
   // prepare callinfo
-  mrbc_push_callinfo(vm, 0, a, 0);
+  mrbc_push_callinfo(vm, regs[a].cls->sym_id, a, 0);
 
   // target irep
   vm->cur_irep = mrbc_irep_child_irep(vm->cur_irep, b);
@@ -2694,6 +2712,40 @@ static inline void op_exec( mrbc_vm *vm, mrbc_value *regs EXT )
   vm->target_class = regs[a].cls;
 }
 
+
+//----------------------------------------------------------------
+static void sub_irep_incref( mrbc_irep *irep, int inc_dec )
+{
+  for( int i = 0; i < irep->rlen; i++ ) {
+    sub_irep_incref( mrbc_irep_child_irep(irep, i), inc_dec );
+  }
+
+  irep->ref_count += inc_dec;
+}
+
+static void sub_def_alias( mrbc_class *cls, mrbc_method *method, mrbc_sym sym_id )
+{
+  method->next = cls->method_link;
+  cls->method_link = method;
+
+  if( !method->c_func ) sub_irep_incref( method->irep, +1 );
+
+  // checking same method
+  for( ;method->next != NULL; method = method->next ) {
+    if( method->next->sym_id == sym_id ) {
+      // Found it. Unchain it in linked list and remove.
+      mrbc_method *del_method = method->next;
+
+      method->next = del_method->next;
+      if( del_method->type == 'M' ) {
+	if( !del_method->c_func ) sub_irep_incref( del_method->irep, -1 );
+	mrbc_raw_free( del_method );
+      }
+
+      break;
+    }
+  }
+}
 
 //================================================================
 /*! OP_DEF
@@ -2719,22 +2771,8 @@ static inline void op_def( mrbc_vm *vm, mrbc_value *regs EXT )
   method->c_func = 0;
   method->sym_id = sym_id;
   method->irep = proc->irep;
-  method->next = cls->method_link;
-  cls->method_link = method;
 
-  // checking same method
-  for( ;method->next != NULL; method = method->next ) {
-    if( method->next->sym_id == sym_id ) {
-      // Found it. Unchain it in linked list and remove.
-      mrbc_method *del_method = method->next;
-
-      method->next = del_method->next;
-      if( del_method->type == 'M' ) mrbc_raw_free( del_method );
-
-      break;
-    }
-  }
-
+  sub_def_alias( cls, method, sym_id );
   mrbc_set_symbol(&regs[a], sym_id);
 }
 
@@ -2765,19 +2803,8 @@ static inline void op_alias( mrbc_vm *vm, mrbc_value *regs EXT )
 
   method->type = (vm->vm_id == 0) ? 'm' : 'M';
   method->sym_id = sym_id_new;
-  method->next = cls->method_link;
-  cls->method_link = method;
 
-  // checking same method
-  //  see OP_DEF function. same it.
-  for( ;method->next != NULL; method = method->next ) {
-    if( method->next->sym_id == sym_id_new ) {
-      mrbc_method *del_method = method->next;
-      method->next = del_method->next;
-      if( del_method->type == 'M' ) mrbc_raw_free( del_method );
-      break;
-    }
-  }
+  sub_def_alias( cls, method, sym_id_new );
 }
 
 
@@ -2846,7 +2873,7 @@ static inline void op_stop( mrbc_vm *vm, mrbc_value *regs EXT )
 static inline void op_unsupported( mrbc_vm *vm, mrbc_value *regs EXT )
 {
   mrbc_raisef( vm, MRBC_CLASS(Exception),
-	       "Unimplemented opcode (0x%02x) found.", *(vm->inst - 1));
+	       "Unimplemented opcode (0x%02x) found", *(vm->inst - 1));
 }
 #undef EXT
 
@@ -2960,7 +2987,7 @@ int mrbc_vm_run( struct VM *vm )
     case OP_HASHADD:    op_hashadd    (vm, regs EXT); break;
     case OP_HASHCAT:    op_hashcat    (vm, regs EXT); break;
     case OP_LAMBDA:     op_unsupported(vm, regs EXT); break; // not implemented.
-    case OP_BLOCK:      // fall through
+    case OP_BLOCK:      op_block      (vm, regs EXT); break;
     case OP_METHOD:     op_method     (vm, regs EXT); break;
     case OP_RANGE_INC:  op_range_inc  (vm, regs EXT); break;
     case OP_RANGE_EXC:  op_range_exc  (vm, regs EXT); break;

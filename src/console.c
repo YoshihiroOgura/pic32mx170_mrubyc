@@ -25,19 +25,7 @@
 //@endcond
 
 /***** Local headers ********************************************************/
-#include "hal.h"
-#include "alloc.h"
-#include "value.h"
-#include "symbol.h"
-#include "class.h"
-#include "console.h"
-#include "error.h"
-#include "c_string.h"
-#include "c_array.h"
-#include "c_hash.h"
-#include "c_range.h"
-#include "global.h"
-
+#include "mrubyc.h"
 
 /***** Constant values ******************************************************/
 #define MRBC_PRINTF_MAX_WIDTH 82
@@ -166,9 +154,8 @@ void mrbc_nprint(const char *str, int size)
   static const char CRLF[2] = "\r\n";
   const char *p1 = str;
   const char *p2 = str;
-  int i;
 
-  for( i = 0; i < size; i++ ) {
+  for( int i = 0; i < size; i++ ) {
     if( *p1++ == '\n' ) {
       hal_write(1, p2, p1 - p2 - 1);
       hal_write(1, CRLF, 2);
@@ -365,8 +352,8 @@ int mrbc_p_sub(const mrbc_value *v)
   case MRBC_TT_STRING:{
     mrbc_putchar('"');
     const unsigned char *s = (const unsigned char *)mrbc_string_cstr(v);
-    int i;
-    for( i = 0; i < mrbc_string_size(v); i++ ) {
+
+    for( int i = 0; i < mrbc_string_size(v); i++ ) {
       if( s[i] < ' ' || 0x7f <= s[i] ) {	// tiny isprint()
 	mrbc_printf("\\x%02X", s[i]);
       } else {
@@ -411,8 +398,8 @@ int mrbc_p_sub(const mrbc_value *v)
 int mrbc_puts_sub(const mrbc_value *v)
 {
   if( mrbc_type(*v) == MRBC_TT_ARRAY ) {
-    int i;
-    for( i = 0; i < mrbc_array_size(v); i++ ) {
+
+    for( int i = 0; i < mrbc_array_size(v); i++ ) {
       if( i != 0 ) mrbc_putchar('\n');
       mrbc_value v1 = mrbc_array_get(v, i);
       mrbc_puts_sub(&v1);
@@ -444,25 +431,33 @@ int mrbc_print_sub(const mrbc_value *v)
 #if MRBC_USE_FLOAT
   case MRBC_TT_FLOAT:	mrbc_printf("%g", v->d);	break;
 #endif
-  case MRBC_TT_SYMBOL:	mrbc_print_symbol(v->i);	break;
+  case MRBC_TT_SYMBOL:	mrbc_print_symbol(v->sym_id);	break;
   case MRBC_TT_CLASS:   // fall through.
   case MRBC_TT_MODULE:	mrbc_print_symbol(v->cls->sym_id); break;
 
-  case MRBC_TT_OBJECT:
+  case MRBC_TT_OBJECT:{
     mrbc_printf("#<");
     mrbc_print_symbol( find_class_by_object(v)->sym_id );
-    mrbc_printf(":%08x>", v->instance );
-    break;
+    mrbc_printf(":%08x", MRBC_PTR_TO_UINT32(v->instance) );
+
+    mrbc_kv_iterator ite = mrbc_kv_iterator_new( &(v->instance->ivar) );
+    while( mrbc_kv_i_has_next( &ite ) ) {
+      mrbc_printf( mrbc_kv_i_is_first(&ite) ? " " : ", " );
+      const mrbc_kv *kv = mrbc_kv_i_next( &ite );
+      mrbc_printf("@%s=", mrbc_symid_to_str(kv->sym_id));
+      mrbc_p_sub(&kv->value);
+    }
+    mrbc_printf(">");
+  } break;
 
   case MRBC_TT_PROC:
-    mrbc_printf("#<Proc:%08x>", v->proc );
-    //mrbc_printf("#<Proc:%08x, callinfo=%p>", v->proc, v->proc->callinfo );
+    mrbc_printf("#<Proc:%08x>", MRBC_PTR_TO_UINT32(v->proc) );
+    //mrbc_printf("#<Proc:%08x, callinfo=%p>", MRBC_PTR_TO_UINT32(v->proc), MRBC_PTR_TO_UINT32(v->proc->callinfo) );
     break;
 
   case MRBC_TT_ARRAY:{
     mrbc_putchar('[');
-    int i;
-    for( i = 0; i < mrbc_array_size(v); i++ ) {
+    for( int i = 0; i < mrbc_array_size(v); i++ ) {
       if( i != 0 ) mrbc_print(", ");
       mrbc_value v1 = mrbc_array_get(v, i);
       mrbc_p_sub(&v1);
@@ -500,7 +495,7 @@ int mrbc_print_sub(const mrbc_value *v)
   } break;
 
   case MRBC_TT_HANDLE:
-    mrbc_printf("#<Handle:%08x>", v->handle );
+    mrbc_printf("#<Handle:%08x>", MRBC_PTR_TO_UINT32(v->handle) );
     break;
 
   case MRBC_TT_EXCEPTION:
@@ -872,11 +867,7 @@ int mrbc_printf_float( mrbc_printf_t *pf, double value )
 */
 int mrbc_printf_pointer( mrbc_printf_t *pf, void *ptr )
 {
-#if defined(UINTPTR_MAX)
-  uintptr_t v = (uintptr_t)ptr;
-#else
-  int v = (int)ptr; // regal (void* to int), but implementation defined.
-#endif
+  uint32_t v = MRBC_PTR_TO_UINT32(ptr);
   int n = sizeof(ptr) * 2;
   if( n > 8 ) n = 8;
 
